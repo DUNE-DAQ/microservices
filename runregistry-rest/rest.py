@@ -69,6 +69,23 @@ class getRunMeta(Resource):
         resp = flask.make_response(flask.jsonify(rowRes))
         return resp
 
+# $ curl -u fooUsr:barPass -X GET np04-srv-021:5005/runregistry/getRunMetaLast/100 
+@api.resource("/runregistry/getRunMetaLast/<int:amount>")
+class getRunMetaLast(Resource):
+    @auth.login_required
+    def get(self, amount):
+        rowRes = []
+        try:
+            db.perform_query(queries.getRunMetaLast, {'amount':amount}, rowRes)
+        except Exception as e:
+            err_obj, = e.args
+            print("Exception:", err_obj.message)
+            resp = flask.make_response(flask.jsonify({"Exception": err_obj.message}))
+            return resp
+        print(rowRes)
+        resp = flask.make_response(flask.jsonify(rowRes))
+        return resp
+
 # $ curl -u fooUsr:barPass -X GET -O -J np04-srv-021:5005/runregistry/getRunBlob/2 
 @api.resource("/runregistry/getRunBlob/<int:runNum>")
 class getRunBlob(Resource):
