@@ -107,7 +107,7 @@ class getRunBlob(Resource):
         resp.headers["Content-Disposition"] = "attachment; filename=%s" % filename
         return resp
 
-# $ curl -u fooUsr:barPass -F "file=@sspconf.tar.gz" -F "run_num=4" -F "det_id=foo" -F "run_type=bar" -X POST http://localhost:5005/runregistry/insertRun/
+# $ curl -u fooUsr:barPass -F "file=@sspconf.tar.gz" -F "run_num=4" -F "det_id=foo" -F "run_type=bar" -F "software_version=dunedaq-vX.Y.Z" -X POST http://localhost:5005/runregistry/insertRun/
 @api.resource("/runregistry/insertRun/")
 class insertRun(Resource):
     @auth.login_required
@@ -119,6 +119,7 @@ class insertRun(Resource):
             stop_time = None
             det_id = request.form['det_id']
             run_type = request.form['run_type']
+            software_version = request.form['software_version']
             uploaded_file = request.files['file']
             filename = uploaded_file.filename
 
@@ -143,7 +144,7 @@ class insertRun(Resource):
 
             # Perform insert
             db.perform_transaction(queries.insertRunRegistry, 
-                {'run_num':run_num, 'det_id':det_id, 'run_type':run_type, 'filename':filename, 'config_blob':data.getvalue()}
+                {'run_num':run_num, 'det_id':det_id, 'run_type':run_type, 'filename':filename, 'config_blob':data.getvalue(), 'software_version':software_version}
             )
             rowRes = []
             db.perform_query(queries.getRunMeta, {'run_num':run_num}, rowRes)
