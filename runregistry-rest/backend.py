@@ -43,6 +43,26 @@ def perform_transaction(query, bind_variables, autcomm=False):
         print("  -> Committed...")
     cursor.close()
 
+def perform_transaction_multi(queries, bind_variables, autcomm=False):
+    print("THREAD ", threading.current_thread().name)
+    print("  -> Multiple queries: ", queries)
+    if not type(queries) is list:
+      print("  -> Queries expected to be a list!")
+      return
+    if not type(bind_variables) is list:
+      print("  -> Bind variables expected to be a list!")
+    connection = db_pool.acquire()
+    connection.autocommit = autcomm
+    print("  -> Using connection from pool:", connection)
+    cursor = connection.cursor()
+    for i in range(len(queries)):
+      cursor.execute(queries[i], bind_variables[i])
+    if not autcomm:
+        connection.commit()
+        print("  -> Committed...")
+    print("  -> Perform transaction done...")
+    cursor.close()
+
 def perform_query_unpack(args):
     return perform_query(*args)
 

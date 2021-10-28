@@ -128,24 +128,28 @@ class insertRun(Resource):
                 file_ext = os.path.splitext(filename)[1]
                 if file_ext not in app.config['UPLOAD_EXTENSIONS']:
                     error = "Unknown file extension! File needs to be .tar.gz or .tgz file! \n"
-                    return flask.make_response(error)
+                    return flask.make_response(error, 400)
                 local_file_name = os.path.join(app.config['UPLOAD_PATH'], filename)
                 if os.path.isfile(local_file_name):
                     error = "BLOB insert is ongoing with the same file name! Try again a bit later."
-                    return flask.make_response(error)
+                    return flask.make_response(error, 400)
                 uploaded_file.save(local_file_name)
             else:
                 error = "Expected file (conf blob) name is missing in form! \n"
-                return flask.make_response(error)
+                return flask.make_response(error, 400)
 
             # Read in file to memory
             with open(local_file_name, 'rb') as fin:
                 data = io.BytesIO(fin.read())
 
             # Perform insert
-            db.perform_transaction(queries.insertRunRegistry, 
-                {'run_num':run_num, 'det_id':det_id, 'run_type':run_type, 'filename':filename, 'config_blob':data.getvalue(), 'software_version':software_version}
-            )
+            query_list = []
+            bind_vars = []
+            query_list.append(queries.insertRunRegistryMeta)
+            query_list.append(queries.insertRunRegistryBlob)
+            bind_vars.append({'run_num':run_num, 'det_id':det_id, 'run_type':run_type, 'filename':filename, 'software_version':software_version})
+            bind_vars.append({'run_num':run_num, 'config_blob':data.getvalue()})
+            db.perform_transaction_multi(query_list, bind_vars) 
             rowRes = []
             db.perform_query(queries.getRunMeta, {'run_num':run_num}, rowRes)
             resp = flask.make_response(flask.jsonify(rowRes))
@@ -154,7 +158,7 @@ class insertRun(Resource):
             return resp
         except Exception as e:
             print("Exception:", e)
-            return flask.make_response(str(e))
+            return flask.make_response(str(e), 400)
 
 @api.resource("/runregistry/updateStopTime/<int:runNum>")
 class updateStopTimestamp(Resource):
