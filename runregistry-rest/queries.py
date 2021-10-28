@@ -2,7 +2,7 @@
 getRunMeta = "select RUN_NUMBER, START_TIME, STOP_TIME, DETECTOR_ID, RUN_TYPE from RUN_REGISTRY where RUN_NUMBER=:run_num"
 
 # $ curl -u fooUsr:barPass -X GET -O -J np04-srv-021:5005/runregistry/getRunBlob/2 
-getRunBlob = "select FILENAME, CONFIGURATION from RUN_REGISTRY where RUN_NUMBER=:run_num" 
+getRunBlob = "select FILENAME, CONFIGURATION from RUN_REGISTRY_META natural join RUN_REGISTRY_CONFIGS where RUN_NUMBER=:run_num" 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:5005/runregistry/getRunMetaLast/100 
 getRunMetaLast = "select * from (select RUN_NUMBER, START_TIME, STOP_TIME, DETECTOR_ID, RUN_TYPE from RUN_REGISTRY order by RUN_NUMBER desc) where ROWNUM<=:amount"
