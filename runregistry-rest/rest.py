@@ -107,7 +107,7 @@ class getRunBlob(Resource):
         resp.headers["Content-Disposition"] = "attachment; filename=%s" % filename
         return resp
 
-# $ curl -u fooUsr:barPass -F "file=@sspconf.tar.gz" -F "run_num=4" -F "det_id=foo" -F "run_type=bar" -F "comment=whatever" -F "software_version=dunedaq-vX.Y.Z" -X POST http://localhost:5005/runregistry/insertRun/
+# $ curl -u fooUsr:barPass -F "file=@sspconf.tar.gz" -F "run_num=4" -F "det_id=foo" -F "run_type=bar" -F "software_version=dunedaq-vX.Y.Z" -X POST http://localhost:5005/runregistry/insertRun/
 @api.resource("/runregistry/insertRun/")
 class insertRun(Resource):
     @auth.login_required
@@ -120,7 +120,6 @@ class insertRun(Resource):
             det_id = request.form['det_id']
             run_type = request.form['run_type']
             software_version = request.form['software_version']
-            comment = request.form['comment']
             uploaded_file = request.files['file']
             filename = uploaded_file.filename
 
@@ -148,7 +147,7 @@ class insertRun(Resource):
             bind_vars = []
             query_list.append(queries.insertRunRegistryMeta)
             query_list.append(queries.insertRunRegistryBlob)
-            bind_vars.append({'run_num':run_num, 'det_id':det_id, 'run_type':run_type, 'filename':filename, 'comment': comment, 'software_version':software_version})
+            bind_vars.append({'run_num':run_num, 'det_id':det_id, 'run_type':run_type, 'filename':filename, 'software_version':software_version})
             bind_vars.append({'run_num':run_num, 'config_blob':data.getvalue()})
             db.perform_transaction_multi(query_list, bind_vars) 
             rowRes = []
@@ -168,6 +167,26 @@ class updateStopTimestamp(Resource):
         rowRes = []
         try:
             db.perform_transaction(queries.updateStopTime, {'run_num':runNum})
+            db.perform_query(queries.getRunMeta, {'run_num':runNum}, rowRes)
+        except Exception as e:
+            err_obj, = e.args
+            print("Exception:", str(e))
+            resp = flask.make_response(flask.jsonify({"Exception": err_obj.message}))
+            return resp
+        print(rowRes)
+        resp = flask.make_response(flask.jsonify(rowRes))
+        return resp
+
+
+@api.resource("/runregistry/updateMessage/")
+class updateStopTimestamp(Resource):
+    @auth.login_required
+    def post(self):
+        rowRes = []
+        try:
+            run_num = request.form['run_num']
+            message = request.form['message']
+            db.perform_transaction(queries.updateMessage, {'run_num':run_num, 'message':message})
             db.perform_query(queries.getRunMeta, {'run_num':runNum}, rowRes)
         except Exception as e:
             err_obj, = e.args
