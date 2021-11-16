@@ -52,6 +52,12 @@ def cache_key():
     ])
     return key
 
+'''
+Append schema to results
+'''
+def add_schema_as_element(rowres):
+    rowres.insert(0, queries.schema)
+
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:5005/runregistry/getRunMeta/2 
 @api.resource("/runregistry/getRunMeta/<int:runNum>")
 class getRunMeta(Resource):
@@ -65,7 +71,8 @@ class getRunMeta(Resource):
             print("Exception:", err_obj.message)
             resp = flask.make_response(flask.jsonify({"Exception": err_obj.message}))
             return resp
-        print(rowRes)
+        #print(rowRes)
+        add_schema_as_element(rowRes)
         resp = flask.make_response(flask.jsonify(rowRes))
         return resp
 
@@ -82,7 +89,8 @@ class getRunMetaLast(Resource):
             print("Exception:", err_obj.message)
             resp = flask.make_response(flask.jsonify({"Exception": err_obj.message}))
             return resp
-        print(rowRes)
+        #print(rowRes)
+        add_schema_as_element(rowRes)
         resp = flask.make_response(flask.jsonify(rowRes))
         return resp
 
