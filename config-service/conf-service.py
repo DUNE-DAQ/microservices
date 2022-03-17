@@ -214,5 +214,5 @@ Normally this app is spawned by Gunicorn
 '''
 As a testserver run this instead:
 '''
-app.run(host=config.service_host, port=config.service_port, debug=True)
+# app.run(host=config.service_host, port=config.service_port, debug=True)
 
