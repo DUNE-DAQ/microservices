@@ -1,0 +1,16 @@
+{
+  "ora_acc": "",
+  "ora_pass": "", 
+  "ora_name": "",
+  "ora_schema": "",
+  "ora_table": "",
+
+  "mongo_host": "",
+  "mongo_port": 27017,
+  "mongo_db": "daqling",
+  "mongo_coll": "devel",
+
+  "poll_time_mins": 1,
+  "logfile": "/tmp/config-archiver.log",
+  "loglevel": "DEBUG"
+}

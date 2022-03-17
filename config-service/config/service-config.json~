@@ -1,0 +1,11 @@
+{
+  "mongo_host": "localhost",
+  "mongo_port": 27017,
+  "mongo_db": "daqling",
+  "mongo_coll": "devel",
+  "mongo_coll_common": "devel_commons",
+  "service_host": "0.0.0.0",
+  "service_port":5010,
+  "logfile": "/tmp/config-archiver.log",
+  "debug": true
+}
