@@ -55,8 +55,9 @@ log.addHandler(ch)
 mongo_client = None
 mongo_db = None
 coll_configs = None
+mongo_connection_string = f'mongodb://{config.mongo_user}:{config.mongo_pass}@{config.mongo_host}:{config.mongo_port}'
 try:
-  mongo_client = MongoClient(config.mongo_connection_string)
+  mongo_client = MongoClient(mongo_connection_string)
   mongo_db = mongo_client[config.mongo_db]
 except:
   log.error('Please check your configuration details for the MongoDB connection!')
