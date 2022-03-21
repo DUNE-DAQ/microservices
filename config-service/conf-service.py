@@ -123,7 +123,7 @@ class RetrieveVersion(BaseResource):
     log.debug('GET request with args: ' + str(request.args))
     res = {}
     if request.args['name'] and request.args['version']:
-      print("Looking for version", request.args['version'])
+      log.debug("Looking for version", request.args['version'])
       document = mongo_db[request.args['name']].find_one({'version': int(request.args['version'])})
       res = flask.make_response( flask.jsonify( str(dumps(document)) ) )
     if res.data == b'{}\n':
@@ -150,9 +150,9 @@ class Create(BaseResource):
     try:
       documents = mongo_db[coll_name].find().sort("version", -1)
       version = documents[0]["version"] + 1
-      print("Version bumped to", version)
+      log.debug("Version bumped to", version)
     except:
-      print("No collection exist with name", coll_name)
+      log.debug("No collection exist with name", coll_name)
     # conf_req = request.json
     res = {}
     db_time = mongo_db.command("serverStatus")["localTime"]
