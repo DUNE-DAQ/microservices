@@ -1,0 +1,379 @@
+{
+    "modules": [
+        {
+            "data": {
+                "qinfos": [
+                    {
+                        "dir": "output",
+                        "inst": "tcmoutput_to_mlttrigger_candidate_source",
+                        "name": "output"
+                    },
+                    {
+                        "dir": "input",
+                        "inst": "tam_0output_to_tcminput",
+                        "name": "input"
+                    }
+                ]
+            },
+            "inst": "tcm",
+            "plugin": "TriggerCandidateMaker"
+        },
+        {
+            "data": {
+                "qinfos": [
+                    {
+                        "dir": "output",
+                        "inst": "heartbeatmaker_ru0_link0tpset_sink_to_zip_0input",
+                        "name": "tpset_sink"
+                    },
+                    {
+                        "dir": "input",
+                        "inst": "trigger_tpsets_into_chain_ru0_link0_0output_to_heartbeatmaker_ru0_link0tpset_source",
+                        "name": "tpset_source"
+                    }
+                ]
+            },
+            "inst": "heartbeatmaker_ru0_link0",
+            "plugin": "FakeTPCreatorHeartbeatMaker"
+        },
+        {
+            "data": {
+                "qinfos": [
+                    {
+                        "dir": "output",
+                        "inst": "heartbeatmaker_ru0_link0tpset_sink_to_zip_0input",
+                        "name": "tpset_sink"
+                    },
+                    {
+                        "dir": "input",
+                        "inst": "trigger_tpsets_into_chain_ru0_link1_0output_to_heartbeatmaker_ru0_link1tpset_source",
+                        "name": "tpset_source"
+                    }
+                ]
+            },
+            "inst": "heartbeatmaker_ru0_link1",
+            "plugin": "FakeTPCreatorHeartbeatMaker"
+        },
+        {
+            "data": {
+                "qinfos": [
+                    {
+                        "dir": "input",
+                        "inst": "heartbeatmaker_ru0_link0tpset_sink_to_zip_0input",
+                        "name": "input"
+                    },
+                    {
+                        "dir": "output",
+                        "inst": "zip_0output_to_tam_0input",
+                        "name": "output"
+                    }
+                ]
+            },
+            "inst": "zip_0",
+            "plugin": "TPZipper"
+        },
+        {
+            "data": {
+                "qinfos": [
+                    {
+                        "dir": "input",
+                        "inst": "zip_0output_to_tam_0input",
+                        "name": "input"
+                    },
+                    {
+                        "dir": "output",
+                        "inst": "tam_0output_to_tcminput",
+                        "name": "output"
+                    }
+                ]
+            },
+            "inst": "tam_0",
+            "plugin": "TriggerActivityMaker"
+        },
+        {
+            "data": {
+                "qinfos": [
+                    {
+                        "dir": "output",
+                        "inst": "buf_ru0_link0fragment_sink_to_fragment_senderinput_queue",
+                        "name": "fragment_sink"
+                    },
+                    {
+                        "dir": "input",
+                        "inst": "data_request_q_for_geoidDataSelection_0_0",
+                        "name": "data_request_source"
+                    },
+                    {
+                        "dir": "input",
+                        "inst": "trigger_tpsets_into_buffer_ru0_link0_0output_to_buf_ru0_link0tpset_source",
+                        "name": "tpset_source"
+                    }
+                ]
+            },
+            "inst": "buf_ru0_link0",
+            "plugin": "TPSetBufferCreator"
+        },
+        {
+            "data": {
+                "qinfos": [
+                    {
+                        "dir": "output",
+                        "inst": "buf_ru0_link0fragment_sink_to_fragment_senderinput_queue",
+                        "name": "fragment_sink"
+                    },
+                    {
+                        "dir": "input",
+                        "inst": "data_request_q_for_geoidDataSelection_0_1",
+                        "name": "data_request_source"
+                    },
+                    {
+                        "dir": "input",
+                        "inst": "trigger_tpsets_into_buffer_ru0_link1_0output_to_buf_ru0_link1tpset_source",
+                        "name": "tpset_source"
+                    }
+                ]
+            },
+            "inst": "buf_ru0_link1",
+            "plugin": "TPSetBufferCreator"
+        },
+        {
+            "data": {
+                "qinfos": [
+                    {
+                        "dir": "output",
+                        "inst": "tcmoutput_to_mlttrigger_candidate_source",
+                        "name": "output"
+                    }
+                ]
+            },
+            "inst": "ttcm",
+            "plugin": "TimingTriggerCandidateMaker"
+        },
+        {
+            "data": {
+                "qinfos": [
+                    {
+                        "dir": "input",
+                        "inst": "tcmoutput_to_mlttrigger_candidate_source",
+                        "name": "trigger_candidate_source"
+                    }
+                ]
+            },
+            "inst": "mlt",
+            "plugin": "ModuleLevelTrigger"
+        },
+        {
+            "data": {
+                "qinfos": [
+                    {
+                        "dir": "input",
+                        "inst": "buf_ru0_link0fragment_sink_to_fragment_senderinput_queue",
+                        "name": "input_queue"
+                    }
+                ]
+            },
+            "inst": "fragment_sender",
+            "plugin": "FragmentSender"
+        },
+        {
+            "data": {
+                "qinfos": [
+                    {
+                        "dir": "output",
+                        "inst": "data_request_q_for_geoidDataSelection_0_0",
+                        "name": "data_request_q_for_geoidDataSelection_0_0"
+                    },
+                    {
+                        "dir": "output",
+                        "inst": "data_request_q_for_geoidDataSelection_0_1",
+                        "name": "data_request_q_for_geoidDataSelection_0_1"
+                    }
+                ]
+            },
+            "inst": "request_receiver",
+            "plugin": "RequestReceiver"
+        },
+        {
+            "data": {
+                "qinfos": [
+                    {
+                        "dir": "output",
+                        "inst": "trigger_tpsets_into_buffer_ru0_link0_0output_to_buf_ru0_link0tpset_source",
+                        "name": "output"
+                    }
+                ]
+            },
+            "inst": "trigger_tpsets_into_buffer_ru0_link0_0",
+            "plugin": "NetworkToQueue"
+        },
+        {
+            "data": {
+                "qinfos": [
+                    {
+                        "dir": "output",
+                        "inst": "trigger_tpsets_into_chain_ru0_link0_0output_to_heartbeatmaker_ru0_link0tpset_source",
+                        "name": "output"
+                    }
+                ]
+            },
+            "inst": "trigger_tpsets_into_chain_ru0_link0_0",
+            "plugin": "NetworkToQueue"
+        },
+        {
+            "data": {
+                "qinfos": [
+                    {
+                        "dir": "output",
+                        "inst": "trigger_tpsets_into_buffer_ru0_link1_0output_to_buf_ru0_link1tpset_source",
+                        "name": "output"
+                    }
+                ]
+            },
+            "inst": "trigger_tpsets_into_buffer_ru0_link1_0",
+            "plugin": "NetworkToQueue"
+        },
+        {
+            "data": {
+                "qinfos": [
+                    {
+                        "dir": "output",
+                        "inst": "trigger_tpsets_into_chain_ru0_link1_0output_to_heartbeatmaker_ru0_link1tpset_source",
+                        "name": "output"
+                    }
+                ]
+            },
+            "inst": "trigger_tpsets_into_chain_ru0_link1_0",
+            "plugin": "NetworkToQueue"
+        }
+    ],
+    "nwconnections": [
+        {
+            "address": "tcp://{host_ruemu0}:12346",
+            "name": "${USER}_test.datareq_0",
+            "topics": []
+        },
+        {
+            "address": "tcp://{host_ruemu0}:12347",
+            "name": "${USER}_test.timesync_0",
+            "topics": [
+                "Timesync"
+            ]
+        },
+        {
+            "address": "tcp://{host_ruemu0}:12348",
+            "name": "${USER}_test.tpsets_apa0_link0",
+            "topics": [
+                "TPSets"
+            ]
+        },
+        {
+            "address": "tcp://{host_ruemu0}:12349",
+            "name": "${USER}_test.tpsets_apa0_link1",
+            "topics": [
+                "TPSets"
+            ]
+        },
+        {
+            "address": "tcp://{host_dataflow0}:12350",
+            "name": "${USER}_test.trmon_dqm2df_0",
+            "topics": []
+        },
+        {
+            "address": "tcp://{host_dfo}:12351",
+            "name": "${USER}_test.triginh",
+            "topics": []
+        },
+        {
+            "address": "tcp://{host_trigger}:12352",
+            "name": "${USER}_test.data_requests_for_trigger",
+            "topics": []
+        },
+        {
+            "address": "tcp://{host_dataflow0}:12353",
+            "name": "${USER}_test.fragments_to_dataflow0",
+            "topics": []
+        },
+        {
+            "address": "tcp://{host_ruemu0}:12354",
+            "name": "${USER}_test.data_requests_for_ruemu0",
+            "topics": []
+        },
+        {
+            "address": "tcp://{host_dataflow0}:12355",
+            "name": "${USER}_test.trigdec_0",
+            "topics": []
+        },
+        {
+            "address": "tcp://{host_trigger}:12356",
+            "name": "${USER}_test.hsievents",
+            "topics": []
+        },
+        {
+            "address": "tcp://{host_dfo}:12357",
+            "name": "${USER}_test.td_mlt_to_dfo",
+            "topics": []
+        },
+        {
+            "address": "tcp://{host_trigger}:12358",
+            "name": "${USER}_test.df_busy_signal",
+            "topics": []
+        }
+    ],
+    "queues": [
+        {
+            "capacity": 1000,
+            "inst": "tcmoutput_to_mlttrigger_candidate_source",
+            "kind": "FollyMPMCQueue"
+        },
+        {
+            "capacity": 1000,
+            "inst": "heartbeatmaker_ru0_link0tpset_sink_to_zip_0input",
+            "kind": "FollyMPMCQueue"
+        },
+        {
+            "capacity": 1000,
+            "inst": "zip_0output_to_tam_0input",
+            "kind": "FollyMPMCQueue"
+        },
+        {
+            "capacity": 1000,
+            "inst": "tam_0output_to_tcminput",
+            "kind": "FollyMPMCQueue"
+        },
+        {
+            "capacity": 1000,
+            "inst": "buf_ru0_link0fragment_sink_to_fragment_senderinput_queue",
+            "kind": "FollyMPMCQueue"
+        },
+        {
+            "capacity": 1000,
+            "inst": "data_request_q_for_geoidDataSelection_0_0",
+            "kind": "FollyMPMCQueue"
+        },
+        {
+            "capacity": 1000,
+            "inst": "data_request_q_for_geoidDataSelection_0_1",
+            "kind": "FollyMPMCQueue"
+        },
+        {
+            "capacity": 1000,
+            "inst": "trigger_tpsets_into_buffer_ru0_link0_0output_to_buf_ru0_link0tpset_source",
+            "kind": "FollyMPMCQueue"
+        },
+        {
+            "capacity": 1000,
+            "inst": "trigger_tpsets_into_chain_ru0_link0_0output_to_heartbeatmaker_ru0_link0tpset_source",
+            "kind": "FollyMPMCQueue"
+        },
+        {
+            "capacity": 1000,
+            "inst": "trigger_tpsets_into_buffer_ru0_link1_0output_to_buf_ru0_link1tpset_source",
+            "kind": "FollyMPMCQueue"
+        },
+        {
+            "capacity": 1000,
+            "inst": "trigger_tpsets_into_chain_ru0_link1_0output_to_heartbeatmaker_ru0_link1tpset_source",
+            "kind": "FollyMPMCQueue"
+        }
+    ]
+}

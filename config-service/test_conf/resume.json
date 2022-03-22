@@ -1,0 +1,9 @@
+{
+    "apps": {
+        "dataflow0": "data/dataflow0_resume",
+        "dfo": "data/dfo_resume",
+        "hsi": "data/hsi_resume",
+        "ruemu0": "data/ruemu0_resume",
+        "trigger": "data/trigger_resume"
+    }
+}

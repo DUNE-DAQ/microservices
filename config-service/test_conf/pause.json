@@ -1,0 +1,9 @@
+{
+    "apps": {
+        "dataflow0": "data/dataflow0_pause",
+        "dfo": "data/dfo_pause",
+        "hsi": "data/hsi_pause",
+        "ruemu0": "data/ruemu0_pause",
+        "trigger": "data/trigger_pause"
+    }
+}
