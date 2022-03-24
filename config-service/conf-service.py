@@ -100,7 +100,7 @@ def getDocs(filter, coll, projection=None):
   return confs
 
 def getCollections():
-  docs = mongo_db.collection_names()
+  docs = mongo_db.list_collection_names()
   log.debug(docs)
   return docs
 
