@@ -30,7 +30,8 @@ from flask_restful import Api, Resource, reqparse
 from flask_caching import Cache
 from apispec import APISpec
 from bson.json_util import loads, dumps
-from . import __version__
+__version__='1.0.0'
+
 '''
 Preliminary setup
 '''
