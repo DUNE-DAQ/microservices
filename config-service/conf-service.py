@@ -196,7 +196,7 @@ class ListVersions(BaseResource):
       log.debug(f"Looking for versions for name '{name}'")
       documents = mongo_db[name].find()
       for k in documents:
-        configs['version'].append(k['version'])
+        configs['versions'].append(k['version'])
       
     return flask.make_response( flask.jsonify( configs ))
 
