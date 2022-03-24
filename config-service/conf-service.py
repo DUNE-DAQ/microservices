@@ -194,7 +194,10 @@ class ListVersions(BaseResource):
   def get(self):
     name=request.args['name']
 
-    configs = {'config': name}
+    configs = {
+      'config': name,
+      'versions': []
+    }
     if request.args['name']:
       log.debug("Looking for versions for name ", name)
       documents = mongo_db[name].find_many({})
