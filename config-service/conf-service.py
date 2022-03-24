@@ -166,6 +166,8 @@ class Create(BaseResource):
       res['acknowledged'] = ins_res.acknowledged
       res['docid'] = str(ins_res.inserted_id)
       res['msg'] = "Uploaded successfully collection \'" + coll_name + "\' version " + str(version)
+      res['coll_name'] = coll_name
+      res['version'] = version
     except Exception as e:
       res['error'] = str(e)
       res['success'] = False
