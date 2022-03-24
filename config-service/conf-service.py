@@ -30,7 +30,7 @@ from flask_restful import Api, Resource, reqparse
 from flask_caching import Cache
 from apispec import APISpec
 from bson.json_util import loads, dumps
-
+from . import __version__
 '''
 Preliminary setup
 '''
@@ -206,7 +206,7 @@ api.add_resource(ListConfigs, "/listConfigs", methods=['GET'])
 
 @app.route('/')
 def index():
-  return 'DAQling Configuration Management Service.'
+  return f'DAQling Configuration Management Service v{__version__}'
 
 '''
 Normally this app is spawned by Gunicorn
