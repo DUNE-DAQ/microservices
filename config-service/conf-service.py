@@ -1,16 +1,16 @@
 """
  Copyright (C) 2019-2021 CERN
- 
+
  DAQling is free software: you can redistribute it and/or modify
  it under the terms of the GNU Lesser General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  DAQling is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU Lesser General Public License for more details.
- 
+
  You should have received a copy of the GNU Lesser General Public License
  along with DAQling. If not, see <http://www.gnu.org/licenses/>.
 """
@@ -190,10 +190,23 @@ class ListConfigs(BaseResource):
       configs['configs'].append(k)
     return flask.make_response( flask.jsonify( configs ))
 
+class ListVersions(BaseResource):
+  def get(self):
+    name=request.args['name']
+
+    configs = {'config': name}
+    if request.args['name']:
+      log.debug("Looking for versions for name ", name)
+      documents = mongo_db[name].find_many({})
+      for k in documents:
+        configs['version'].append(k['version'])
+
+    return flask.make_response( flask.jsonify( configs ))
+
 '''
 Main flask app
 '''
-app = Flask(__name__, static_url_path='', 
+app = Flask(__name__, static_url_path='',
   static_folder='web/static',
   template_folder='web/templates')
 # app.config['CACHE_TYPE'] = 'redis' # easier to scale it and async disk writes provides DB dumps.
@@ -204,6 +217,7 @@ api.add_resource(RetrieveVersion, "/retrieveVersion", methods=['GET'])
 api.add_resource(Create, "/create", methods=['GET', 'POST'])
 api.add_resource(Update, "/update", methods=['GET', 'PUT'])
 api.add_resource(ListConfigs, "/listConfigs", methods=['GET'])
+api.add_resource(ListVersions, "/listVersions", methods=['GET'])
 
 @app.route('/')
 def index():
@@ -219,4 +233,3 @@ Normally this app is spawned by Gunicorn
 As a testserver run this instead:
 '''
 # app.run(host=config.service_host, port=config.service_port, debug=True)
-
