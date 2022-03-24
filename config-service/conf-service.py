@@ -91,9 +91,9 @@ class BaseResource(Resource):
 Most typical MongoDB query
 '''
 def getDocs(filter, coll, projection=None):
-  log.debug('Will run Mongo search: ' + str(filter))
+  log.debug(f'Will run Mongo search: {filter}')
   docs = coll.find(filter, projection)
-  log.debug('Retrieved document count: ' + str(docs.count()))
+  log.debug(f'Retrieved document count: {docs.count()}')
   confs = {}
   for d in docs:
     confs[d['name']] = str(dumps(d))
@@ -112,17 +112,16 @@ class RetrieveLast(BaseResource):
     log.debug('GET request with args: ' + str(request.args))
     res = {}
     if request.args['name']:
-      # document = mongo_db[request.args['name']].find_one({})
       documents = mongo_db[request.args['name']].find().sort("version", -1)
       res = flask.make_response( flask.jsonify(str(dumps(documents[0]))) )
-      # log.debug(res.data)
+
     if res.data == b'{}\n':
       res.status_code = 204
     return res
 
 class RetrieveVersion(BaseResource):
   def get(self):
-    log.debug('GET request with args: ' + str(request.args))
+    log.debug(f'GET request with args: {request.args}')
     res = {}
     if request.args['name'] and request.args['version']:
       log.debug("Looking for version", request.args['version'])
@@ -134,27 +133,20 @@ class RetrieveVersion(BaseResource):
 
 class Create(BaseResource):
   def get(self):
-    log.debug('GET request with args: ' + str(request.args))
+    log.debug(f'GET request with args: {request.args}')
     return app.send_static_file('conf-form.html')
 
   def post(self):
-    #log.debug('Request: ' + str(request) + " reqdata: " + str(request.data))
-    #log.debug('FILES: ' + str(request.files))
-    #log.debug('VALUES: ' + str(request.values))
-    #log.debug('JSON: ' + str(request.json))
-    #log.debug('FORM: ' + str(request.form)
-    log.debug('POST with args: ' + str(request.args))
-    # log.debug('  carried JSON: ' + str(request.json))
-    # conf_name = request.args['name']
+    log.debug(f'POST request with args: {request.args}')
     coll_name = request.args['collection']
 
     version = 0
     try:
       documents = mongo_db[coll_name].find().sort("version", -1)
       version = documents[0]["version"] + 1
-      log.debug("Version bumped to", version)
+      log.debug(f'Version bumped to {version}')
     except:
-      log.debug("No collection exist with name", coll_name)
+      log.debug(f"No collection exist with name '{coll_name}'")
     # conf_req = request.json
     res = {}
     db_time = mongo_db.command("serverStatus")["localTime"]
@@ -184,6 +176,7 @@ class Update(BaseResource):
 
 class ListConfigs(BaseResource):
   def get(self):
+    log.debug(f'GET request with args: {request.args}')
     res = getCollections()
     configs = {'configs': []}
     for k in res:
@@ -192,6 +185,7 @@ class ListConfigs(BaseResource):
 
 class ListVersions(BaseResource):
   def get(self):
+    log.debug(f'GET request with args: {request.args}')
     name=request.args['name']
 
     configs = {
@@ -199,20 +193,22 @@ class ListVersions(BaseResource):
       'versions': []
     }
     if request.args['name']:
-      log.debug("Looking for versions for name ", name)
-      documents = mongo_db[name].find_many({})
+      log.debug(f"Looking for versions for name '{name}'")
+      documents = mongo_db[name].find()
       for k in documents:
         configs['version'].append(k['version'])
-
+      
     return flask.make_response( flask.jsonify( configs ))
 
 '''
 Main flask app
 '''
 app = Flask(__name__, static_url_path='',
-  static_folder='web/static',
-  template_folder='web/templates')
+            static_folder='web/static',
+            template_folder='web/templates')
+
 # app.config['CACHE_TYPE'] = 'redis' # easier to scale it and async disk writes provides DB dumps.
+
 cache = Cache(app)
 api = Api(app)
 api.add_resource(RetrieveLast, "/retrieveLast", methods=['GET'])
