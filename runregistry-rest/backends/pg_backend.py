@@ -1,8 +1,6 @@
 import psycopg2
 import credentials
 
-from psycopg2.extensions import AsIs
-
 print("psycopg2 client version: ", str(psycopg2.__version__))
 # user, pass, dsn, min, max, increment
 db_conn = psycopg2.connect(user=credentials.user,
