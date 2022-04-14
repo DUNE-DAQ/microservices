@@ -6,6 +6,8 @@ __email__ = "roland.sipos@cern.ch"
 
 import os, io, gzip, tarfile
 import flask
+import sys
+
 from flask import Flask, render_template, request, redirect, url_for, send_file
 
 from flask_restful import Api, Resource
@@ -13,9 +15,14 @@ from flask_httpauth import HTTPBasicAuth
 from flask_redis import FlaskRedis
 from flask_caching import Cache
 
-import queries
-import backend as db
 from authentication import auth
+
+if '-p' in sys.argv:
+  import backends.pg_queries as queries
+  import backends.pg_backend as db
+else:
+  import backends.ora_queries as queries
+  import backends.ora_backend as db
 
 '''
 Specs
