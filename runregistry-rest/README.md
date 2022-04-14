@@ -1,5 +1,6 @@
 # Installation steps
-You need the following package installed on the host:
+For Oracle, you need the following packages installed on the host.
+
 ```
 oracle-instantclient12.1-devel
 ```
@@ -16,6 +17,11 @@ Once in venv:
 ```
 python rest.py
 ```
+or, to use Postgres:
+```
+python rest.py -p
+```
+
 # Authentication
 You need the file `credentials.py` in the same directory as `backend.py`, this file needs to be of the form:
 ```
