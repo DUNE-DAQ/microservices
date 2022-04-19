@@ -6,6 +6,7 @@ print("psycopg2 client version: ", str(psycopg2.__version__))
 db_conn = psycopg2.connect(user=credentials.user,
                                 password=credentials.password,
                                 host=credentials.dburi,
+                                port=credentials.port,
                                 database=credentials.database
                                 )
 print("Postgres connection:", str(db_conn))
