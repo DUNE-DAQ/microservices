@@ -17,5 +17,5 @@ insertRunRegistryMeta = "insert into RUN_REGISTRY_META (RUN_NUMBER, START_TIME, 
 insertRunRegistryBlob = "insert into RUN_REGISTRY_CONFIGS (RUN_NUMBER, CONFIGURATION) values (%(run_num)s, %(config_blob)s)"
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:5005/runregistry/updateStopTime/2 
-updateStopTime = "update RUN_REGISTRY_META set STOP_TIME=CURRENT_TIMESTAMP where RUN_NUMBE%(run_num)s and STOP_TIME is NULL"
+updateStopTime = "update RUN_REGISTRY_META set STOP_TIME=CURRENT_TIMESTAMP where RUN_NUMBER=%(run_num)s and STOP_TIME is NULL"
 
