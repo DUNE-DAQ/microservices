@@ -1,0 +1,322 @@
+#!/usr/bin/perl -w
+#
+# get CERN Single Sign-On cookie 
+#
+# 2017-06-27 v 0.6   Jaroslaw Polok <jaroslaw.polok@cern.ch>
+#                  - fix for gitlab POST is redirected differently than GET
+#                    on /profile/account
+# 2017-04-12 v 0.5.9 Jaroslaw Polok <jaroslaw.polok@cern.ch>
+#                  - re(fix) for libcurl 7.19.7-53.el6_9.
+# 2016-10-14 v 0.5.7 Jaroslaw Polok <jaroslaw.polok@cern.ch>
+# 		   - add p12 certs support, Giulio Eulisse patch.
+# 2015-08-07 v 0.5.5 Jaroslaw Polok <jaroslaw.polok@cern.ch>
+#                  - fix for changed 'Negotiate' connections
+#                    libcurl behaviour after CVE-2015-3148 patch (SLC6.7)
+# 2015-07-22 v 0.5.4 Jaroslaw Polok <jaroslaw.polok@cern.ch>
+#                  - longer timeout for libcurl (30 secs)
+# 2015-05-20 v 0.5.3 Jaroslaw Polok <jaroslaw.polok@cern.ch>
+#                  - fixes for perl-WWW-Curl >= 4.17
+# 2014-12-01 v 0.5.2 Jaroslaw Polok <jaroslaw.polok@cern.ch>
+#                  - check if kerberos credentials are valid.
+#
+# 2013-09-02 v 0.5.1 Jaroslaw Polok <jaroslaw.polok@cern.ch>
+#                  - modified ADFS endpoint URL (MS ADFS patch ms13-066 changes URL)
+# 2013-07-15 v 0.5   Jaroslaw Polok <jaroslaw.polok@cern.ch>
+#                  - moved cookie reprocess to the library
+# 2013-06-17 v 0.4.4 Jaroslaw Polok <jaroslaw.polok@cern.ch>
+# 		   - change user agent to include 'Mozilla'
+# 		     for MS IIS / Sharepoint redirect to SSO.
+# 2012-12-21 v 0.4.3 Jaroslaw Polok <jaroslaw.polok@cern.ch>
+#                  - use format in printf to allow proper cookie reprocess.
+# 2012-11-16 v 0.4.2 Jaroslaw Polok <jaroslaw.polok@cern.ch>
+#                  - added CURLOPT_SSL_VERIFYHOST 0|2 
+# 2012-10-17 v 0.4.1 Jaroslaw Polok <jaroslaw.polok@cern.ch>
+# 		   - option parsing fixes.
+# 2012-08-14 v 0.4 Jaroslaw Polok <jaroslaw.polok@cern.ch>
+#                  - added reprocess option
+# 2012-07-23 v 0.3 Jaroslaw Polok <jaroslaw.polok@cern.ch> 
+#                  - CAINFO, CAPATH now useable with or without KRB.
+# 2012-07-01 v 0.1 Jaroslaw Polok <jaroslaw.polok@cern.ch>
+#                  - initial version
+
+use strict;
+use warnings;
+use diagnostics;
+use Getopt::Long;
+use Pod::Usage;
+use Data::Dumper;
+use Authen::Krb5;
+
+
+use lib './';
+
+use WWW::CERNSSO::Auth;
+
+
+sub errorout {
+    my ($msg,$code)=@_;
+    printf("Error: ".$msg."\n");
+    exit($code);
+}
+
+sub krbcheck {
+    my($krb5_ac,$krb5_cr,$krb5_cc,$krb5_ce,$krb5_princ)=undef;
+    Authen::Krb5::init_context();
+    $krb5_ac = new Authen::Krb5::AuthContext;
+    errorout("Cannot create a new Kerberos auth context.",1) unless ($krb5_ac);
+    $krb5_cc = Authen::Krb5::cc_default();
+    errorout("Cannot read Kerberos credentials cache.",1) unless($krb5_cc);
+    $krb5_cr = $krb5_cc->start_seq_get();
+    errorout("No kerberos credentials found in cache. Suggest you run 'kinit'.",1)
+		if (!defined($krb5_cr));
+    while($krb5_ce = $krb5_cc->next_cred($krb5_cr)) {
+      if ($krb5_ce->server() =~ /^krbtgt\/(.*)/) {
+        errorout("Your kerberos credentials expired. Suggest you run 'kinit'.",1) 
+		# 30 secs 'grace period'. SSO can take that much. 
+		if ($krb5_ce->endtime() < time() + 30);
+	$krb5_cc->end_seq_get($krb5_cr);
+	return;
+	}
+    }
+    errorout("Cannot find Kerberos TGT. Suggest you run 'kinit'.",1);
+}
+
+
+#
+# do the job
+#
+
+my($debug,$verbose,$outfile,$nocertverify,$krb,$cert,$key,$capath,$cacert,$help,$url,$reprocess,$nover,$wget,$res,$out,$err,$password);
+
+my %opts=(
+	"verbose"	=> \$verbose,
+        "debug"         => \$debug,
+	"outfile=s"	=> \$outfile,
+	"krb"		=> \$krb,
+	"cert=s"	=> \$cert,
+	"key=s"		=> \$key,
+	"password=s"	=> \$password,
+	"capath=s"	=> \$capath,
+	"cacert=s"	=> \$cacert,
+	"help"		=> \$help,
+	"url=s"		=> \$url,
+	"reprocess"	=> \$reprocess,
+	"nocertverify"   => \$nocertverify,
+);
+
+errorout("Invalid options specified.",1) if (GetOptions(%opts) ne 1);
+
+pod2usage(-verbose=> 2) if ($help);
+
+errorout("-u(rl) https://.... option is mandatory, see cern-get-sso-cookie --help for help.",1) unless ($url);
+
+errorout("-k(rb) and -c(ert) options are mutually exclusive, see cern-get-sso-cookie --help for help.",1) if ($cert && $krb);
+
+if ($cert) { $krb=0; } else { $krb=1; krbcheck(); }
+
+errorout("-o(ut) cookiefile.txt option is mandatory, see get-cern-sso-cookie --help for help.",1) unless ($outfile);
+
+if ($nocertverify) { $nover=1; } else { $nover=0; }
+
+$wget=WWW::CERNSSO::Auth->new($outfile,$krb,$nover,$cert,$key,$cacert,$capath,$verbose,$debug,$password);
+
+
+($res,$out,$err)=$wget->curl($url);
+
+unless ($res) {
+  print Dumper($out) if $debug;
+  errorout("Cannot authenticate to: $url\n",1);
+}
+
+print Dumper($out) if $debug;
+
+if ($reprocess) { 
+ ($res,$out,$err)=$wget->reprocess($outfile); 
+ unless ($res) {
+   print Dumper($out) if $debug;
+   errorout("Error processing cookie: $err\n",1);
+ }
+}
+
+print Dumper($out) if $debug;
+ 
+exit(0);
+
+__END__
+
+=pod
+
+=head1 NAME
+
+cern-get-sso-cookie - utility to acquire CERN Single Sign-On cookie.
+
+=head1 DESCRIPTION
+
+cern-get-sso-cookie acquires CERN Single Sign-On cookie using
+Kerberos credentials or user certificate allowing for automated access to
+CERN SSO protected pages using tools alike wget, curl or similar.
+
+=head1 SYNOPSIS
+
+=over 2
+	
+	cern-get-sso-cookie  [--help]
+
+	cern-get-sso-cookie  [--krb] --url https://CERN.SSO.protected.web/site \
+                             --outfile cookiefile \
+			     [--cacert CERN-bundle.pem] [--capath /etc/pki/tls/certs/] \
+                             [--reprocess] [--nocertverify] [--verbose] [--debug]
+
+	cern-get-sso-cookie  --cert myCert.pem --key myCert.key  \
+                             --url https://CERN.SSO.protected.web/site \
+                             --outfile cookiefile \
+                             [--cacert CERN-bundle.pem] [--capath /etc/pki/tls/certs/] \
+                             [--reprocess] [--nocertverify] [--verbose] [--debug]
+
+=back
+
+=head1 OPTIONS
+
+=over 4
+
+=item B<--help>
+
+Shows this help description
+
+=item B<--krb> 
+
+Use current user kerberos credentials or user certificate for acquiring SSO cookie. This is the default mode. See also B<KERBEROS> section below.
+
+=item B<--cert myCert.pem>
+
+User certificate in PEM format. See also B<CERTIIFICATES> section below.
+
+=item B<--key myCert.key>
+
+User certificate key in PEM / RSA format. The Key cannot be passphrase protected. See also B<CERTIIFICATES> section below.
+
+=item B<--cacert CERN-bundle.pem>
+
+Certificate file to use to verify peer in PEM format. The file may contain multiple certificates. 
+This option is not necessary on CERN standard Linux systems which have CERN CA certificates installed by default.
+ 
+=item B<--capath /etc/pki/tls/certs/>
+
+Directory to search for peer verififation certificates in PEM format. 
+This option is not necessary on CERN standard Linux systems which have CERN CA certificates installed by default.
+
+=item B<--url https://CERN.SSO.protected/site>
+
+CERN SSO protected site URL to get cookie for.
+
+=item B<--outfile cookiefile>
+
+File to store the cookie for further usage
+
+=item B<--reprocess>
+
+Reprocesses the cookie file to a format which more cookie-handling libraries can understand.
+Currently using this option applies following changes to the netscape/libcurl cookie file:
+
+- removes #httponly_ cookie prefix
+
+- sets expiry date in future for session cookies (24 hrs)
+
+=item B<--nocertverify>
+
+Disables peer certificate verification. Useful for debugging/tests when peer host does have a self-signed certificate for example. 
+
+=item B<--verbose>
+
+Provide more information on authentication process 
+
+=item B<--debug>
+
+Provide detailed debugging information 
+
+=back
+
+All options can be abbreviated to shortest distinctive lenght. 
+Single minus preceding option name may be used  instead of double one.
+
+=head1 EXIT STATUS
+
+B<0> - CERN SSO Authentication succeded
+
+B<1> - An error occured. 
+
+=head1 EXAMPLES
+
+	cern-get-sso-cookie --krb \
+                            -u https://information-technology.web.cern.ch/protected \
+                            -o ~/private/ssocookie.txt
+
+	wget --load-cookies ~/private/ssocookie.txt \
+             https://information-technology.web.cern.ch/protected/documents
+
+	curl -L --cookie ~/private/ssocookie.txt --cookie-jar ~/ssocookie.txt \
+             https://information-technology.web.cern.ch/protected/documents
+
+	cern-get-sso-cookie --cert ~/private/usercert.pem --key ~/private/userkey.pem \
+                            -u https://somesite.web.cern.ch/protected_path/ \
+                            -o ~/private/somesite-ssocookie.txt
+
+	curl -L --cookie ~/private/somesite-ssocookie.txt \
+             --cookie-jar ~/private/somesite-ssocookie.txt \
+             https://somesite.web.cern.ch/protected_path/protected_document
+
+=head1 KERBEROS
+
+In order to use this tool with Kerberos credentials a valid CERN Kerberos ticket must be acquired, for example using 'kinit'.
+
+To check the valididty of Kerberos credentials please use 'klist'.
+
+=head1 CERTIFICATES
+
+In order to be used with this tool user certificate / key files must be converted to specific formats. In order to do so you may:
+
+export your certificate from web browser as myCert.p12 file (Firefox: Edit->Preferences->Advanced->Encryption->View Certificates->Your Certificates->Backup)
+
+then use following sequence of commands in order to convert it:
+
+openssl pkcs12 -clcerts -nokeys -in myCert.p12 -out ~/private/myCert.pem
+
+openssl pkcs12 -nocerts -in myCert.p12 -out ~/private/myCert.tmp.key
+
+openssl rsa -in ~/private/myCert.tmp.key -out ~/private/myCert.key
+
+rm ~/private/myCert.tmp.key
+
+chmod 644 ~/private/myCert.pem
+
+chmod 400 ~/private/myCert.key
+
+B<WARNING>: 'openssl rsa..' command removes the passphrase from the private key, please make sure your key file is stored in secure location ! 
+
+
+
+=head1 AUTHOR
+
+Jaroslaw Polok <Jaroslaw.Polok@cern.ch>
+
+=head1 NOTES
+
+CERN SSO cookies are created per web site: In order to access protected content on a given site a SSO cookie for that site must be acquired.
+CERN SSO cookies expire within 24 hours.
+
+
+B<WARNING>: Always store sso cookiefile in a private directory: it can be used 
+by anybody to authenticate to CERN SSO as your account !
+
+=head1 KNOWN BUGS
+
+Kerberos credentials validity is not checked.
+
+Certificate format is not checked.
+
+Certificate key file can be only RSA encrypted (current libcurl limitation)
+
+Certificate key file can not be password protected.
+
+Probably more ....
+
