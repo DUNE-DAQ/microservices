@@ -1,4 +1,0 @@
-
-dburi=''
-user=''
-password=''
