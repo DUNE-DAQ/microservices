@@ -35,3 +35,4 @@ RUN pip install ./elisa_client_api
 RUN mkdir -p ./logfiles
 
 EXPOSE 5005
+CMD ["python3.9", "logbook.py"]

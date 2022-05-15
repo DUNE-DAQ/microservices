@@ -31,21 +31,15 @@ for key in keylist:
     hardware_string += " "
     hardware_string += key
 
-#Sets up command line arguments
-parser = argparse.ArgumentParser()
-parser.add_argument("username", help="The username that will be used to connect to ELisA (user@cern.ch)")
-parser.add_argument("password", help="The password associated with the username")
-parser.add_argument("hardware", help="The experiment that the DAQ is running on (used to find the correct config)")
-args = parser.parse_args()
+#We use environment variables to pass data
 
-if args.hardware in keylist:
-    app.config['HARDWARECONF'] = elisaconf[args.hardware]   #A dictionary containing all the hardware-dependant configs
-else:
-    parser.error(hardware_string)
-
-app.config['USER'] = args.username
-app.config['PASSWORD'] = args.password
+app.config['USER'] = os.getenv("USERNAME")
+app.config['PASSWORD'] = os.getenv("PASSWORD")
 app.config['PATH'] = "./logfiles/"
+try:
+    app.config['HARDWARECONF'] = elisaconf[os.getenv("HARDWARE")]   #A dictionary containing all the hardware-dependant configs
+except:
+    raise Exception(hardware_string)
 
 credentials.add_login(app.config['HARDWARECONF'], app.config['USER'], app.config['PASSWORD'])
 credentials.change_user(app.config['USER'])
