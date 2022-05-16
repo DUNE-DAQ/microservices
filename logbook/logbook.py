@@ -32,14 +32,17 @@ for key in keylist:
     hardware_string += key
 
 #We use environment variables to pass data
-
-app.config['USER'] = os.getenv("USERNAME")
-app.config['PASSWORD'] = os.getenv("PASSWORD")
+user_var = (os.getenv("USERNAME")).rstrip("\n")
+pass_var = (os.getenv("PASSWORD")).rstrip("\n")
+hard_var = (os.getenv("HARDWARE")).rstrip("\n")
+app.config['USER'] = user_var
+app.config['PASSWORD'] = pass_var
 app.config['PATH'] = "./logfiles/"
 try:
-    app.config['HARDWARECONF'] = elisaconf[os.getenv("HARDWARE")]   #A dictionary containing all the hardware-dependant configs
+    app.config['HARDWARECONF'] = elisaconf[hard_var]   #A dictionary containing all the hardware-dependant configs
 except:
-    raise Exception(hardware_string)
+    bad_string = hard_var + " is not a valid choice!"
+    raise Exception(bad_string + hardware_string)
 
 credentials.add_login(app.config['HARDWARECONF'], app.config['USER'], app.config['PASSWORD'])
 credentials.change_user(app.config['USER'])
