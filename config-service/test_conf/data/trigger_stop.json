@@ -1,0 +1,49 @@
+{
+    "modules": [
+        {
+            "match": "ttcm"
+        },
+        {
+            "match": "request_receiver"
+        },
+        {
+            "match": "trigger_tpsets_into_buffer_ru0_link0_0"
+        },
+        {
+            "match": "trigger_tpsets_into_chain_ru0_link0_0"
+        },
+        {
+            "match": "trigger_tpsets_into_buffer_ru0_link1_0"
+        },
+        {
+            "match": "trigger_tpsets_into_chain_ru0_link1_0"
+        },
+        {
+            "match": "buf_ru0_link0"
+        },
+        {
+            "match": "heartbeatmaker_ru0_link0"
+        },
+        {
+            "match": "buf_ru0_link1"
+        },
+        {
+            "match": "heartbeatmaker_ru0_link1"
+        },
+        {
+            "match": "fragment_sender"
+        },
+        {
+            "match": "zip_0"
+        },
+        {
+            "match": "tam_0"
+        },
+        {
+            "match": "tcm"
+        },
+        {
+            "match": "mlt"
+        }
+    ]
+}

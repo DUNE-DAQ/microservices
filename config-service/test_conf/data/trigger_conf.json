@@ -1,0 +1,189 @@
+{
+    "modules": [
+        {
+            "data": {
+                "candidate_maker": "TriggerCandidateMakerPrescalePlugin",
+                "candidate_maker_config": {
+                    "prescale": 100
+                }
+            },
+            "match": "tcm"
+        },
+        {
+            "data": {
+                "heartbeat_interval": 5000000
+            },
+            "match": "heartbeatmaker_ru0_link0"
+        },
+        {
+            "data": {
+                "heartbeat_interval": 5000000
+            },
+            "match": "heartbeatmaker_ru0_link1"
+        },
+        {
+            "data": {
+                "cardinality": 2,
+                "element_id": 0,
+                "max_latency_ms": 1000,
+                "region_id": 0
+            },
+            "match": "zip_0"
+        },
+        {
+            "data": {
+                "activity_maker": "TriggerActivityMakerPrescalePlugin",
+                "activity_maker_config": {
+                    "prescale": 100
+                },
+                "buffer_time": 625000,
+                "geoid_element": 0,
+                "geoid_region": 0,
+                "window_time": 10000
+            },
+            "match": "tam_0"
+        },
+        {
+            "data": {
+                "element": 0,
+                "region": 0,
+                "tpset_buffer_size": 10000
+            },
+            "match": "buf_ru0_link0"
+        },
+        {
+            "data": {
+                "element": 1,
+                "region": 0,
+                "tpset_buffer_size": 10000
+            },
+            "match": "buf_ru0_link1"
+        },
+        {
+            "data": {
+                "hsievent_connection_name": "${USER}_test.hsievents",
+                "s0": {
+                    "signal_type": 0,
+                    "time_after": 20000,
+                    "time_before": 10000
+                },
+                "s1": {
+                    "signal_type": 1,
+                    "time_after": 1000,
+                    "time_before": 1000
+                },
+                "s2": {
+                    "signal_type": 2,
+                    "time_after": 1000,
+                    "time_before": 1000
+                }
+            },
+            "match": "ttcm"
+        },
+        {
+            "data": {
+                "dfo_busy_connection": "${USER}_test.df_busy_signal",
+                "dfo_connection": "${USER}_test.td_mlt_to_dfo",
+                "links": [
+                    {
+                        "element": 0,
+                        "region": 0,
+                        "system": "DataSelection"
+                    },
+                    {
+                        "element": 1,
+                        "region": 0,
+                        "system": "DataSelection"
+                    },
+                    {
+                        "element": 0,
+                        "region": 0,
+                        "system": "TPC"
+                    },
+                    {
+                        "element": 1,
+                        "region": 0,
+                        "system": "TPC"
+                    }
+                ]
+            },
+            "match": "mlt"
+        },
+        {
+            "match": "fragment_sender"
+        },
+        {
+            "data": {
+                "connection_name": "${USER}_test.data_requests_for_trigger",
+                "general_queue_timeout": 100,
+                "map": [
+                    {
+                        "element": 0,
+                        "queueinstance": "data_request_q_for_geoidDataSelection_0_0",
+                        "region": 0,
+                        "system": "DataSelection"
+                    },
+                    {
+                        "element": 1,
+                        "queueinstance": "data_request_q_for_geoidDataSelection_0_1",
+                        "region": 0,
+                        "system": "DataSelection"
+                    }
+                ]
+            },
+            "match": "request_receiver"
+        },
+        {
+            "data": {
+                "msg_module_name": "TPSetNQ",
+                "msg_type": "dunedaq::trigger::TPSet",
+                "receiver_config": {
+                    "name": "${USER}_test.tpsets_apa0_link0",
+                    "subscriptions": [
+                        "TPSets"
+                    ]
+                }
+            },
+            "match": "trigger_tpsets_into_buffer_ru0_link0_0"
+        },
+        {
+            "data": {
+                "msg_module_name": "TPSetNQ",
+                "msg_type": "dunedaq::trigger::TPSet",
+                "receiver_config": {
+                    "name": "${USER}_test.tpsets_apa0_link0",
+                    "subscriptions": [
+                        "TPSets"
+                    ]
+                }
+            },
+            "match": "trigger_tpsets_into_chain_ru0_link0_0"
+        },
+        {
+            "data": {
+                "msg_module_name": "TPSetNQ",
+                "msg_type": "dunedaq::trigger::TPSet",
+                "receiver_config": {
+                    "name": "${USER}_test.tpsets_apa0_link1",
+                    "subscriptions": [
+                        "TPSets"
+                    ]
+                }
+            },
+            "match": "trigger_tpsets_into_buffer_ru0_link1_0"
+        },
+        {
+            "data": {
+                "msg_module_name": "TPSetNQ",
+                "msg_type": "dunedaq::trigger::TPSet",
+                "receiver_config": {
+                    "name": "${USER}_test.tpsets_apa0_link1",
+                    "subscriptions": [
+                        "TPSets"
+                    ]
+                }
+            },
+            "match": "trigger_tpsets_into_chain_ru0_link1_0"
+        }
+    ]
+}

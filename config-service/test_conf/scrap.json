@@ -1,0 +1,9 @@
+{
+    "apps": {
+        "dataflow0": "data/dataflow0_scrap",
+        "dfo": "data/dfo_scrap",
+        "hsi": "data/hsi_scrap",
+        "ruemu0": "data/ruemu0_scrap",
+        "trigger": "data/trigger_scrap"
+    }
+}

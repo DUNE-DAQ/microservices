@@ -1,0 +1,28 @@
+{
+    "modules": [
+        {
+            "data": {
+                "trigger_interval_ticks": 64000000
+            },
+            "match": "datawriter"
+        },
+        {
+            "data": {
+                "trigger_interval_ticks": 64000000
+            },
+            "match": "trb"
+        },
+        {
+            "data": {
+                "trigger_interval_ticks": 64000000
+            },
+            "match": "dataflow0_trigger_decisions_0"
+        },
+        {
+            "data": {
+                "trigger_interval_ticks": 64000000
+            },
+            "match": "fragment_receiver"
+        }
+    ]
+}
