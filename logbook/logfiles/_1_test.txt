@@ -1,0 +1,5 @@
+-- User jhancock started a run 1, of type test --
+jhancock: This is the first ever run, how exciting!
+jhancock: We can add more messages if we want
+-- User jhancock stopped the run 1, of type test --
+jhancock: This message is associated with stopping the run

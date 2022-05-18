@@ -1,0 +1,4 @@
+-- User jhancock started a run 300, of type Test --
+jhancock: Files were getting put in the wrong folder, so lets make another one to check it works now
+-- User jhancock stopped the run 300, of type Test --
+jhancock: Keeping the run rumbers sequential is nanorc's problem!
