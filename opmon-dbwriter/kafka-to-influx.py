@@ -43,7 +43,7 @@ def cli(kakfa_broker, karkfa_port, kafka_topics, kafka_client_id, kafka_group_id
         js = json.loads(message.value)
         print js
 
-        ls = [str(js[key]) for key in fields]
+#        ls = [str(js[key]) for key in fields]
 
 #        try:
 #            cur.execute(f'INSERT INTO public."ErrorReports" ({",".join(fields)}) VALUES({("%s, " * len(ls))[:-2]})', ls)
