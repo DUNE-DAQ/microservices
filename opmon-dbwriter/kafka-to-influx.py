@@ -10,32 +10,30 @@ from kafka import KafkaConsumer
 import json
 import click
 
-@click.command()
+
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
+
+
+@click.command(context_settings=CONTEXT_SETTINGS)
 @click.option('--kafka-address', type=click.STRING, default="monkafka.cern.ch", help="address of the kafka broker")
 @click.option('--kafka-port', type=click.INT, default=30092, help='port of the kafka broker')       
-@click.option('--kafka-topics', default=['opmon'], help='topics of the kafka broker')
+@click.option('--kafka-topics', multiple=True, default=['opmon'], help='topics of the kafka broker')
 @click.option('--kafka-consumer-id', type=click.STRING, default='microservice', help='id of the kafka consumer, not really important')
-#@click.option('--kafka-consumer-group', type=click.STRING, default='opmon_microservice',
-#              help='group ID of the kafka consumer, very important to be unique or information will not be duplicated')
-#@click.option('--influxdb-address', type=click.STRING, default='opmondb.cern.ch',
-#              help='address of the influx db')
-#@click.option('--influxdb-port', type=click.INT, default=31002,
-#              help='port of the influxdb')
-#@click.option('--influxdb-path', type=click.STRING, default='write',
-#              help='path used in the influxdb query')
-#@click.option('--influxdb-name', type=click.STRING, default='influxdb',
-#              help='name used in the influxdb query')
+@click.option('--kafka-consumer-group', type=click.STRING, default='opmon_microservice', help='group ID of the kafka consumer, very important to be unique or information will not be duplicated')
+@click.option('--influxdb-address', type=click.STRING, default='opmondb.cern.ch', help='address of the influx db')
+@click.option('--influxdb-port', type=click.INT, default=31002, help='port of the influxdb')
+@click.option('--influxdb-path', type=click.STRING, default='write', help='path used in the influxdb query')
+@click.option('--influxdb-name', type=click.STRING, default='influxdb', help='name used in the influxdb query')
 
-def cli():
-        #kafka_address):
-        #karkfa_port, kafka_topics, kafka_client_id, kafka_group_id, 
-        #influx_address, influx_port, influx_path, influx_name):
+def cli(kafka_address, kafka_port, kafka_topics, kafka_consumer_id, kafka_consumer_group, influxdb_address, influxdb_port, influxdb_path, influxdb_name):
 
-    consumer = KafkaConsumer(topics=kafka_topics,
-                             bootstrap_servers=kafka_address,
-                             group_id=kafka_group_id, 
-                             client_id=kafka_client_id)
+    print("consuming topics", kafka_topics)
+    
+    consumer = KafkaConsumer(bootstrap_servers=f"{kafka_address}:{kafka_port}",
+                             group_id=kafka_consumer_group, 
+                             client_id=kafka_consumer_id)
 
+    consumer.subscribe(kafka_topics)
     # Infinite loop over the kafka messages
     for message in consumer:
         js = json.loads(message.value)
@@ -53,4 +51,5 @@ def cli():
 #        con.commit()
 
 if __name__ == '__main__':
-    cli()
+    cli(show_default=True, standalone_mode=True)
+    
