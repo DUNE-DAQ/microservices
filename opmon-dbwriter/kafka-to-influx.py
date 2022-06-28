@@ -6,7 +6,7 @@
 #
 
 from kafka import KafkaConsumer
-#import psycopg2
+from influxdb import InfluxDBClient
 import json
 import click
 
@@ -22,22 +22,50 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 @click.option('--kafka-consumer-group', type=click.STRING, default='opmon_microservice', help='group ID of the kafka consumer, very important to be unique or information will not be duplicated')
 @click.option('--influxdb-address', type=click.STRING, default='opmondb.cern.ch', help='address of the influx db')
 @click.option('--influxdb-port', type=click.INT, default=31002, help='port of the influxdb')
-@click.option('--influxdb-path', type=click.STRING, default='write', help='path used in the influxdb query')
+#@click.option('--influxdb-path', type=click.STRING, default='write', help='path used in the influxdb query')
 @click.option('--influxdb-name', type=click.STRING, default='influxdb', help='name used in the influxdb query')
 
-def cli(kafka_address, kafka_port, kafka_topics, kafka_consumer_id, kafka_consumer_group, influxdb_address, influxdb_port, influxdb_path, influxdb_name):
+def cli(kafka_address, kafka_port, kafka_topics, kafka_consumer_id, kafka_consumer_group, influxdb_address, influxdb_port, influxdb_name):
 
-    print("consuming topics", kafka_topics)
+    bootstrap = f"{kafka_address}:{kafka_port}"
+    print("From Kafka server:",bootstrap)
     
-    consumer = KafkaConsumer(bootstrap_servers=f"{kafka_address}:{kafka_port}",
+    consumer = KafkaConsumer(bootstrap_servers=bootstrap,
                              group_id=kafka_consumer_group, 
                              client_id=kafka_consumer_id)
 
+    print("Consuming topics:", kafka_topics)
     consumer.subscribe(kafka_topics)
+
+    influx = InfluxDBClient(host=influxdb_address, port=influxdb_port, database=influxdb_name)
+
+    users = influx.get_list_users()
+    print(users)
     # Infinite loop over the kafka messages
-    for message in consumer:
-        js = json.loads(message.value)
-        print(js)
+#    for message in consumer:
+#        js = json.loads(message.value)
+
+#        message = json.loads("{}");
+#        message["measurement"] = js["type"];
+#        message["tags"] = js["__tags"]
+#        message["time"] = js["__time"]
+#        message["fields"] = js["__data"]
+
+#        print(message)
+        
+#        query_intro = js["type"] + ",source_id=" + js["source_id"] + ",partition_id=" + js["partition_id"] #
+
+#        data = js["__data"]
+#        data_queries = []
+#        for entry, value in data.items():
+#            data_queries += [f"{entry}={value}"]#
+
+#        data_query = ','.join(data_queries)
+#        full_query =  query_intro + ' ' + data_query
+
+#        reply = requests.post( influx_query, data=full_query)
+#        print(reply.text)
+#        print(query)
 
 #        ls = [str(js[key]) for key in fields]
 
