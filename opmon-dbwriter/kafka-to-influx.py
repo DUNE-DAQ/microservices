@@ -39,12 +39,19 @@ def cli(kafka_address, kafka_port, kafka_topics, kafka_consumer_id, kafka_consum
 
     influx = InfluxDBClient(host=influxdb_address, port=influxdb_port, database=influxdb_name)
 
-    users = influx.get_list_users()
-    print(users)
+#    users = influx.get_list_users()
+#    print(users)
     # Infinite loop over the kafka messages
-#    for message in consumer:
-#        js = json.loads(message.value)
+    for message in consumer:
+        js = json.loads(message.value)
 
+        print(js)
+
+#        try:
+        #influx.write_points([js])
+#        except:
+#            print("Something went wrong: json not sent", js)
+        
 #        message = json.loads("{}");
 #        message["measurement"] = js["type"];
 #        message["tags"] = js["__tags"]
