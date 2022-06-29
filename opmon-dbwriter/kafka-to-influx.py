@@ -7,9 +7,13 @@
 
 from kafka import KafkaConsumer
 from influxdb import InfluxDBClient
+import influxdb
 import json
 import click
 
+import requests
+import time
+from calendar import timegm
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
@@ -22,7 +26,6 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 @click.option('--kafka-consumer-group', type=click.STRING, default='opmon_microservice', help='group ID of the kafka consumer, very important to be unique or information will not be duplicated')
 @click.option('--influxdb-address', type=click.STRING, default='opmondb.cern.ch', help='address of the influx db')
 @click.option('--influxdb-port', type=click.INT, default=31002, help='port of the influxdb')
-#@click.option('--influxdb-path', type=click.STRING, default='write', help='path used in the influxdb query')
 @click.option('--influxdb-name', type=click.STRING, default='influxdb', help='name used in the influxdb query')
 
 def cli(kafka_address, kafka_port, kafka_topics, kafka_consumer_id, kafka_consumer_group, influxdb_address, influxdb_port, influxdb_name):
@@ -37,7 +40,10 @@ def cli(kafka_address, kafka_port, kafka_topics, kafka_consumer_id, kafka_consum
     print("Consuming topics:", kafka_topics)
     consumer.subscribe(kafka_topics)
 
-    influx = InfluxDBClient(host=influxdb_address, port=influxdb_port, database=influxdb_name)
+    url = "http://" + influxdb_address + ':' + str(influxdb_port) + '/write?db=' + influxdb_name
+    print(url)
+    
+#    influx = InfluxDBClient(host=influxdb_address, port=influxdb_port, database=influxdb_name)
 
 #    users = influx.get_list_users()
 #    print(users)
@@ -47,20 +53,47 @@ def cli(kafka_address, kafka_port, kafka_topics, kafka_consumer_id, kafka_consum
 
         print(js)
 
+        data_string = js["measurement"]
+        tags = []
+        tag_data = js["tags"]
+        for entry, value in tag_data.items():
+            tags += [f"{entry}={value}"]
+            
+            fields = []
+            field_data = js["fields"]
+        for entry, value in field_data.items():
+            fields += [f"{entry}={value}"]
+             
+        data_string += ',' + ','.join(tags)
+        data_string += ' ' + ','.join(fields)
+
+        utc_time = time.strptime(js["time"], "%Y-%m-%dT%H:%M:%SZ")
+        epoch_time = timegm(utc_time)*1000000000
+
+        data_string += ' ' + str(epoch_time)
+
+        print(data_string)
+        requests.post(url, data=data_string)
+
+
+        ## influxdb implementation
 #        try:
-        #influx.write_points([js])
+#            influx.write_points([js])
+#        except influxdb.exceptions.InfluxDBClientError as e:
+#            print(e)
 #        except:
 #            print("Something went wrong: json not sent", js)
-        
+
+# notes
 #        message = json.loads("{}");
 #        message["measurement"] = js["type"];
 #        message["tags"] = js["__tags"]
 #        message["time"] = js["__time"]
 #        message["fields"] = js["__data"]
 
-#        print(message)
-        
-#        query_intro = js["type"] + ",source_id=" + js["source_id"] + ",partition_id=" + js["partition_id"] #
+
+
+## response implementaiton
 
 #        data = js["__data"]
 #        data_queries = []
