@@ -1,4 +1,4 @@
 kafka-python
 click
 influxdb
-json
+
