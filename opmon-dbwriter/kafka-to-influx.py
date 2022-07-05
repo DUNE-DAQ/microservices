@@ -27,8 +27,10 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 @click.option('--influxdb-address', type=click.STRING, default='opmondb.cern.ch', help='address of the influx db')
 @click.option('--influxdb-port', type=click.INT, default=31002, help='port of the influxdb')
 @click.option('--influxdb-name', type=click.STRING, default='influxv3', help='name used in the influxdb query')
+@click.option('--influxdb-create', type=click.BOOL, default=True, help='Creates the influxdb if it does not exists')
 
-def cli(kafka_address, kafka_port, kafka_topics, kafka_consumer_id, kafka_consumer_group, influxdb_address, influxdb_port, influxdb_name):
+
+def cli(kafka_address, kafka_port, kafka_topics, kafka_consumer_id, kafka_consumer_group, influxdb_address, influxdb_port, influxdb_name, influxdb_create):
 
     bootstrap = f"{kafka_address}:{kafka_port}"
     print("From Kafka server:",bootstrap)
@@ -39,21 +41,23 @@ def cli(kafka_address, kafka_port, kafka_topics, kafka_consumer_id, kafka_consum
 
     print("Consuming topics:", kafka_topics)
     consumer.subscribe(kafka_topics)
-
-    url = "http://" + influxdb_address + ':' + str(influxdb_port) + '/write?db=' + influxdb_name
-    print(url)
     
-    influx = InfluxDBClient(host=influxdb_address, port=influxdb_port, database=influxdb_name)
+    influx = InfluxDBClient(host=influxdb_address, port=influxdb_port)
     db_list = influx.get_list_database()
     print("Available DBs:",db_list)
+    if {"name":influxdb_name}  not in db_list:
+        print(influxdb_name, "DB not available")
+        if influxdb_create:
+            influx.create_database(influxdb_name);
+            print("New list of DBs:", influx.get_list_database())
 
-#    users = influx.get_list_users()
-#    print(users)
+    influx.switch_database(influxdb_name)
+
     # Infinite loop over the kafka messages
     for message in consumer:
         js = json.loads(message.value)
 
-        print(js)
+#        print(js)
 
         ## influxdb implementation
         try:
@@ -64,64 +68,6 @@ def cli(kafka_address, kafka_port, kafka_topics, kafka_consumer_id, kafka_consum
             print("Something went wrong: json not sent", js)
 
         
-#        data_string = js["measurement"]
-#        tags = []
-#        tag_data = js["tags"]
-#        for entry, value in tag_data.items():
-#            tags += [f"{entry}={value}"]
-#            
-#            fields = []
-#            field_data = js["fields"]
-#        for entry, value in field_data.items():
-#            fields += [f"{entry}={value}"]
-#             
-#        data_string += ',' + ','.join(tags)
-#        data_string += ' ' + ','.join(fields)
-#
-#        utc_time = time.strptime(js["time"], "%Y-%m-%dT%H:%M:%SZ")
-#        epoch_time = timegm(utc_time)*1000000000
-#
-#        data_string += ' ' + str(epoch_time)
-#
-#       print(data_string)
-#        requests.post(url, data=data_string)
-
-
-
-# notes
-#        message = json.loads("{}");
-#        message["measurement"] = js["type"];
-#        message["tags"] = js["__tags"]
-#        message["time"] = js["__time"]
-#        message["fields"] = js["__data"]
-
-
-
-## response implementaiton
-
-#        data = js["__data"]
-#        data_queries = []
-#        for entry, value in data.items():
-#            data_queries += [f"{entry}={value}"]#
-
-#        data_query = ','.join(data_queries)
-#        full_query =  query_intro + ' ' + data_query
-
-#        reply = requests.post( influx_query, data=full_query)
-#        print(reply.text)
-#        print(query)
-
-#        ls = [str(js[key]) for key in fields]
-
-#        try:
-#            cur.execute(f'INSERT INTO public."ErrorReports" ({",".join(fields)}) VALUES({("%s, " * len(ls))[:-2]})', ls)
-#        except:
-#            print('Query to insert in the database failed. This is the message received')
-#            print(message)
-#
-#        # Save the insert (or any change) to the database
-#        con.commit()
-
 if __name__ == '__main__':
     cli(show_default=True, standalone_mode=True)
     
