@@ -11,10 +11,6 @@ import influxdb
 import json
 import click
 
-import requests
-import time
-from calendar import timegm
-
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 
@@ -24,20 +20,24 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 @click.option('--kafka-topics', multiple=True, default=['opmon'], help='topics of the kafka broker')
 @click.option('--kafka-consumer-id', type=click.STRING, default='microservice', help='id of the kafka consumer, not really important')
 @click.option('--kafka-consumer-group', type=click.STRING, default='opmon_microservice', help='group ID of the kafka consumer, very important to be unique or information will not be duplicated')
+@click.option('--kafka-timeout', type=click.INT, default=1000, help='batch sizes in ms to send data to influx')       
+@click.option('--batch_size', type=click.INT, default=1000, help='batch sizes to send data to influx')       
+
 @click.option('--influxdb-address', type=click.STRING, default='opmondb.cern.ch', help='address of the influx db')
 @click.option('--influxdb-port', type=click.INT, default=31002, help='port of the influxdb')
 @click.option('--influxdb-name', type=click.STRING, default='influxv3', help='name used in the influxdb query')
 @click.option('--influxdb-create', type=click.BOOL, default=True, help='Creates the influxdb if it does not exists')
 
 
-def cli(kafka_address, kafka_port, kafka_topics, kafka_consumer_id, kafka_consumer_group, influxdb_address, influxdb_port, influxdb_name, influxdb_create):
+def cli(kafka_address, kafka_port, kafka_topics, kafka_consumer_id, kafka_consumer_group, kafka_timeout, batch_size, influxdb_address, influxdb_port, influxdb_name, influxdb_create):
 
     bootstrap = f"{kafka_address}:{kafka_port}"
     print("From Kafka server:",bootstrap)
     
     consumer = KafkaConsumer(bootstrap_servers=bootstrap,
                              group_id=kafka_consumer_group, 
-                             client_id=kafka_consumer_id)
+                             client_id=kafka_consumer_id,
+                             consumer_timeout_ms=kafka_timeout)
 
     print("Consuming topics:", kafka_topics)
     consumer.subscribe(kafka_topics)
@@ -53,21 +53,46 @@ def cli(kafka_address, kafka_port, kafka_topics, kafka_consumer_id, kafka_consum
 
     influx.switch_database(influxdb_name)
 
+    while True :
     # Infinite loop over the kafka messages
-    for message in consumer:
-        js = json.loads(message.value)
-
-#        print(js)
-
-        ## influxdb implementation
+        batch=[]
+        timestamp=0
         try:
-            influx.write_points([js])
-        except influxdb.exceptions.InfluxDBClientError as e:
-            print(e)
-        except:
-            print("Something went wrong: json not sent", js)
+            message_it = iter(consumer)
+            message = next(message_it)
+#            print(message)
+            js = json.loads(message.value)
+            batch.append(js)
+            timestamp=message.timestamp
+#            print(js)
+#            print(timestamp)
+            
+        except :
+            print("Nothing found")
+        
+        for message in consumer:
+            js = json.loads(message.value)
+            batch.append(js)
+            if ( message.timestamp != timestamp ) :
+                break
+            
+            
+        if  len(batch) > 0 :
+            print("Sending", len(batch), "points")
+            ## influxdb implementation
+            try:
+                influx.write_points(batch)
+            except influxdb.exceptions.InfluxDBClientError as e:
+                print(e)
+            except:
+                print("Something went wrong: json batch not sent")
 
         
+
+#        else :
+#            print("Nothing is received")
+        
+            
 if __name__ == '__main__':
     cli(show_default=True, standalone_mode=True)
     
