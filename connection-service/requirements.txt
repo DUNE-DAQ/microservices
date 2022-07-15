@@ -1,0 +1,6 @@
+Flask
+gevent
+gunicorn==20.1.0
+kubernetes
+Werkzeug
+

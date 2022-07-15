@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: connections
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: connection-flask
+  namespace: connections
+spec:
+  selector:
+     name: connection-flask
+  ports:
+  - name: test
+    port: 5000
+    targetPort: 5000
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: connection-flask
+  namespace: connections
+  labels:
+    name: connection-flask
+spec:
+  containers:
+  - name: connection-service
+    image: localhost/connection-service:0.0.0
+    ports:
+    - containerPort: 5000
+    env:
+      - name: namespace
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
