@@ -25,7 +25,7 @@ from pymongo import MongoClient
 import configconfig as config
 
 import flask
-from flask import Flask, Response, request, render_template
+from flask import Flask, Response, request, render_template, abort
 from flask_restful import Api, Resource, reqparse
 from flask_caching import Cache
 from apispec import APISpec
@@ -57,12 +57,16 @@ mongo_client = None
 mongo_db = None
 coll_configs = None
 mongo_connection_string = f'mongodb://{config.mongo_user}:{config.mongo_pass}@{config.mongo_host}:{config.mongo_port}'
+# mongo_connection_string = f'mongodb://localhost:27017'
 try:
   mongo_client = MongoClient(mongo_connection_string)
   mongo_db = mongo_client[config.mongo_db]
 except:
   log.error('Please check your configuration details for the MongoDB connection!')
   exit(1)
+
+def resource_not_found(e):
+    return jsonify(error=str(e)), 404
 
 '''
 Resources
@@ -104,32 +108,79 @@ def getCollections():
   log.debug(docs)
   return docs
 
+def extract_data(request, dico, conf_name):
+  app_name = request.args.get('app_name')
+  cmd_name = request.args.get('cmd_name')
+  print(app_name)
+  print(cmd_name)
+
+  if app_name:
+    app_data = dico.get(app_name)
+    if not app_data:
+      abort(404, description=f"{app_name} app not found in configuration {conf_name}")
+    dico = app_data
+
+    if cmd_name:
+      cmd_data = dico.get(cmd_name)
+      if not cmd_data:
+        abort(404, description=f"{cmd_name} app not found in configuration {conf_name}, application {app_name}")
+      dico = cmd_data
+
+  if cmd_name and not app_name:
+    print(cmd_name)
+    cmd_data = dico.get(cmd_name)
+    print(cmd_data)
+    if not cmd_data:
+      abort(404, description=f"{cmd_name} cmd not found in configuration {conf_name} (did you forget to provide the app_name?)")
+    dico = cmd_data
+
+  res = flask.make_response(flask.jsonify(dico))
+
+  if res.data == b'{}\n':
+    res.status_code = 204
+  return res
+
+
 '''
 Resources for Flask app
 '''
 class RetrieveLast(BaseResource):
   def get(self):
-    log.debug('GET request with args: ' + str(request.args))
-    res = {}
-    if request.args['name']:
-      documents = mongo_db[request.args['name']].find().sort("version", -1)
-      res = flask.make_response( flask.jsonify(str(dumps(documents[0]))) )
+    log.debug(f'GET request with args: {request.args}')
+    conf_name = request.args.get('name')
 
-    if res.data == b'{}\n':
-      res.status_code = 204
-    return res
+    if conf_name:
+      log.debug(f"Looking for config {request.args['name']}")
+      dico = {}
+      try:
+        documents = mongo_db[conf_name].find().sort("version", -1)
+        dico = json.loads(dumps(documents[0]))
+      except:
+        abort(404, description=f'Couldn\'t find the configuration {conf_name}')
+      return extract_data(request, dico, conf_name)
+
+    else:
+      abort(404, description=f"You need to provide a configuration name at least")
+
 
 class RetrieveVersion(BaseResource):
   def get(self):
     log.debug(f'GET request with args: {request.args}')
-    res = {}
-    if request.args['name'] and request.args['version']:
-      log.debug("Looking for version", request.args['version'])
-      document = mongo_db[request.args['name']].find_one({'version': int(request.args['version'])})
-      res = flask.make_response( flask.jsonify( str(dumps(document)) ) )
-    if res.data == b'{}\n':
-      res.status_code = 204
-    return res
+    conf_name = request.args["name"]
+    version = request.args["version"]
+
+    if conf_name and version:
+      log.debug(f"Looking for version {version} of config {conf_name}")
+      dico = {}
+      try:
+        document = mongo_db[conf_name].find_one({'version': int(version)})
+        dico = json.loads(dumps(document))
+      except:
+        abort(404, description=f'Couldn\'t find the version {version} of the configuration {conf_name}')
+      return extract_data(request,  dico, conf_name)
+
+    else:
+      abort(404, description=f"You need to provide a configuration name and version")
 
 class Create(BaseResource):
   def get(self):
@@ -197,7 +248,7 @@ class ListVersions(BaseResource):
       documents = mongo_db[name].find()
       for k in documents:
         configs['versions'].append(k['version'])
-      
+
     return flask.make_response( flask.jsonify( configs ))
 
 '''
@@ -206,6 +257,7 @@ Main flask app
 app = Flask(__name__, static_url_path='',
             static_folder='web/static',
             template_folder='web/templates')
+app.errorhandler(404)(resource_not_found)
 
 # app.config['CACHE_TYPE'] = 'redis' # easier to scale it and async disk writes provides DB dumps.
 
@@ -232,3 +284,4 @@ Normally this app is spawned by Gunicorn
 As a testserver run this instead:
 '''
 # app.run(host=config.service_host, port=config.service_port, debug=True)
+# app.run(host="localhost", port=11111, debug=True)
