@@ -10,7 +10,7 @@ RUN yum clean all \
 COPY authentication.py /
 COPY credentials.py /
 COPY rest.py /
-COPY backend.py /
+COPY backends /
 COPY queries.py /
 COPY requirements.txt /
 
