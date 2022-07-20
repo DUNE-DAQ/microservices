@@ -11,7 +11,6 @@ COPY authentication.py /
 COPY credentials.py /
 COPY rest.py /
 COPY backends /
-COPY queries.py /
 COPY requirements.txt /
 
 RUN pip3 install --upgrade pip
