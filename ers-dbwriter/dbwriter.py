@@ -86,6 +86,8 @@ def cli(filename):
     # Infinite loop over the kafka messages
     for message in consumer:
         js = json.loads(message.value)
+        if js == '[]':
+            continue
         ls = [str(js[key]) for key in fields]
 
         try:
