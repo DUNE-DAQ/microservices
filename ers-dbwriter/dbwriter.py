@@ -1,6 +1,5 @@
-#
 # @file dbwriter.py Writing ERS info to PostgreSQL database
-# This is part of the DUNE DAQ software, copyright 2020.
+#  This is part of the DUNE DAQ software, copyright 2020.
 #  Licensing/copyright details are in the COPYING file that you should have
 #  received with this code.
 #
@@ -9,6 +8,7 @@ from kafka import KafkaConsumer
 import psycopg2
 import json
 import click
+import os
 
 @click.command()
 @click.option('--filename', type=click.Path(), default='./.auth', required=False,
@@ -18,16 +18,11 @@ def cli(filename):
                             bootstrap_servers='monkafka.cern.ch:30092',
                             group_id='group1')
 
-    # Get credentials, it expects a file with the following fields, each in a different line:
-
-    # host
-    # port
-    # user
-    # password
-    # dbname
-
-    with open(filename) as f:
-        host, port, user, password, dbname = f.read().split('\n')
+    host = os.environ['ERS_DBWRITER_HOST']
+    port = os.environ['ERS_DBWRITER_PORT']
+    user = os.environ['ERS_DBWRITER_USER']
+    password = os.environ['ERS_DBWRITER_PASS']
+    dbname = os.environ['ERS_DBWRITER_NAME']
 
     try:
         con = psycopg2.connect(host=host,
