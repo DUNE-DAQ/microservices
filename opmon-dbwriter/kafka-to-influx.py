@@ -10,6 +10,7 @@ from influxdb import InfluxDBClient
 import influxdb
 import json
 import click
+import logging
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
@@ -31,25 +32,30 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 def cli(kafka_address, kafka_port, kafka_topics, kafka_consumer_id, kafka_consumer_group, kafka_timeout, batch_size, influxdb_address, influxdb_port, influxdb_name, influxdb_create):
 
+    logging.basicConfig(
+        format='%(asctime)s %(levelname)-8s %(message)s',
+        level=logging.INFO,
+        datefmt='%Y-%m-%d %H:%M:%S')
+    
     bootstrap = f"{kafka_address}:{kafka_port}"
-    print("From Kafka server:",bootstrap)
+    logging.info("From Kafka server:",bootstrap)
     
     consumer = KafkaConsumer(bootstrap_servers=bootstrap,
                              group_id=kafka_consumer_group, 
                              client_id=kafka_consumer_id,
                              consumer_timeout_ms=kafka_timeout)
 
-    print("Consuming topics:", kafka_topics)
+    logging.info("Consuming topics:", kafka_topics)
     consumer.subscribe(kafka_topics)
     
     influx = InfluxDBClient(host=influxdb_address, port=influxdb_port)
     db_list = influx.get_list_database()
-    print("Available DBs:",db_list)
+    logging.info("Available DBs:",db_list)
     if {"name":influxdb_name}  not in db_list:
         print(influxdb_name, "DB not available")
         if influxdb_create:
             influx.create_database(influxdb_name);
-            print("New list of DBs:", influx.get_list_database())
+            logging.info("New list of DBs:", influx.get_list_database())
 
     influx.switch_database(influxdb_name)
 
@@ -68,7 +74,7 @@ def cli(kafka_address, kafka_port, kafka_topics, kafka_consumer_id, kafka_consum
 #            print(timestamp)
             
         except :
-            print("Nothing found")
+            logging.info("Nothing found")
         
         for message in consumer:
             js = json.loads(message.value)
@@ -78,14 +84,14 @@ def cli(kafka_address, kafka_port, kafka_topics, kafka_consumer_id, kafka_consum
             
             
         if  len(batch) > 0 :
-            print("Sending", len(batch), "points")
+            logging.info("Sending", len(batch), "points")
             ## influxdb implementation
             try:
                 influx.write_points(batch)
             except influxdb.exceptions.InfluxDBClientError as e:
-                print(e)
+                logging.error(e)
             except:
-                print("Something went wrong: json batch not sent")
+                logging.error("Something went wrong: json batch not sent")
 
         
 
