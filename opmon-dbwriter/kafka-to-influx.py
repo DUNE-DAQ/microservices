@@ -38,24 +38,26 @@ def cli(kafka_address, kafka_port, kafka_topics, kafka_consumer_id, kafka_consum
         datefmt='%Y-%m-%d %H:%M:%S')
     
     bootstrap = f"{kafka_address}:{kafka_port}"
-    logging.info("From Kafka server:",bootstrap)
+    logging.info( f"From Kafka server: {bootstrap}")
     
     consumer = KafkaConsumer(bootstrap_servers=bootstrap,
                              group_id=kafka_consumer_group, 
                              client_id=kafka_consumer_id,
                              consumer_timeout_ms=kafka_timeout)
 
-    logging.info("Consuming topics:", kafka_topics)
+    topic_string = ' '.join(kafka_topics)
+    logging.info(f"Consuming topics: {topic_string}")
     consumer.subscribe(kafka_topics)
     
     influx = InfluxDBClient(host=influxdb_address, port=influxdb_port)
     db_list = influx.get_list_database()
-    logging.info("Available DBs:",db_list)
+    print("Available DBs:", db_list)
     if {"name":influxdb_name}  not in db_list:
-        print(influxdb_name, "DB not available")
+        logging.warning(influxdb_name + " DB not available")
         if influxdb_create:
             influx.create_database(influxdb_name);
-            logging.info("New list of DBs:", influx.get_list_database())
+            db_list = influx.get_list_database()
+            print("New list of DBs:", db_list)
 
     influx.switch_database(influxdb_name)
 
@@ -84,7 +86,7 @@ def cli(kafka_address, kafka_port, kafka_topics, kafka_consumer_id, kafka_consum
             
             
         if  len(batch) > 0 :
-            logging.info("Sending", len(batch), "points")
+            logging.info("Sending "+str(len(batch))+ " points")
             ## influxdb implementation
             try:
                 influx.write_points(batch)
