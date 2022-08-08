@@ -5,7 +5,6 @@ RUN yum -y install python3-pip python3-devel libpq-devel gcc \
 
 COPY requirements.txt /
 COPY dbwriter.py /
-COPY .auth /
 
 RUN pip3 install -r requirements.txt
 
