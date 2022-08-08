@@ -7,7 +7,6 @@
 from kafka import KafkaConsumer
 import psycopg2
 import json
-import click
 import os
 
 def clean_database(cursor, connection):
