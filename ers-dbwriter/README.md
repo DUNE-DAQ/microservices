@@ -29,7 +29,7 @@ we should see something like
 NAME         TYPE     DATA   AGE
 ers-secret   Opaque   5      37m
 ```
-Once the secrets are set, do `kubectl apply -f manifest.yaml` with the corresponding manifest. 
+Once the secrets are set, do `kubectl apply -f manifest.yaml` with the corresponding manifest in `pocket`: [`manifest.yaml`](https://github.com/DUNE-DAQ/pocket/blob/develop/manifests/ers/ers-dbwriter.yaml). 
 We can get the pod name by doing `kubectl -n monitoring get pods` and then it will show something like
 ```
 NAME                           READY   STATUS    RESTARTS   AGE
