@@ -137,9 +137,10 @@ def retract():
         abort(404)
     elif 'connection' in request.form:
       conn=json.loads(request.form['connection'])
-      if conn['bind_endpoint'] in store['connection']:
-        store['connection'].pop(conn['bind_endpoint'])
-        store['endpoint'].pop(conn['bind_endpoint'])
+      ep=json.dumps(conn['bind_endpoint'])
+      if ep in store['connection']:
+        store['connection'].pop(ep)
+        store['endpoint'].pop(ep)
         partitions[part]=store
         cmgr.update(partitions)
         return 'OK'
@@ -183,6 +184,9 @@ def get_endpoint(part):
       return(result)
     else:
       abort(404)
+  else:
+    #print(f"Partition {part} not found")
+    abort(404)
 
 def lookup(part, map, key):
   if part in partitions:
