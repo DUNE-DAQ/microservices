@@ -32,29 +32,9 @@ def dump():
   #print(d)
   return d
 
+
 @app.route("/publish",methods=['POST'])
 def publish():
-  #  Store uri associated with a connection id in the dictionary of
-  #  the appropriate partition
-
-  #print(f"publish() request=[{request.form}]")
-  part=request.form['partition']
-  if part in partitions:
-    store=partitions[part]
-  else:
-    store={}
-
-  if 'connection_id' in request.form and 'uri' in request.form:
-    con=request.form['connection_id']
-    Connection=namedtuple('Connection',['uri','time'])
-    store[con]=Connection(request.form['uri'],datetime.now())
-    partitions[part]=store
-    return 'OK'
-  else:
-    abort(400)
-
-@app.route("/publishM",methods=['POST'])
-def publish_multi():
   #  Store multiple connection ids and corresponding uris in a
   #  dictionary associated with the appropriate partition.
   js=json.loads(request.data)
@@ -64,12 +44,19 @@ def publish_multi():
     store=partitions[part]
   else:
     store={}
+
   timestamp=datetime.now()
-  Connection=namedtuple('Connection',['uri','time'])
-  for con in js['connections']:
-    #print (f"{con=}")
-    id=con['connection_id']
-    store[id]=Connection(con['uri'],timestamp)
+  Connection=namedtuple(
+    'Connection',['uri','data_type','connection_type','time'])
+
+  for connection in js['connections']:
+    #print (f"{connection=}")
+    if 'uid' in  connection and 'uri' in connection:
+      uid=connection['uid']
+      store[uid]=Connection(uri=connection['uri'],
+                            connection_type=connection['connection_type'],
+                            data_type=connection['data_type'],
+                            time=datetime.now())
   partitions[part]=store
   return 'OK'
 
@@ -118,19 +105,26 @@ def retract():
 def get_connection(part):
   # Find connection uris that correspond to the connection id pattern
   # in the request. The pattern is treated as a regular expression.
+  js=json.loads(request.data)
+  #print(f"getconnection(): {js=}")
   if part in partitions:
     store=partitions[part]
-    if 'connection_id' in request.form:
-      pat=request.form['connection_id']
-      #print(f"Searching for connections matching {pat}")
+
+    if 'uid_regex' in js and 'data_type' in js:
+      #print(f"Searching for connections matching uid_regex<{js['uid_regex']}> and data_type {js['data_type']}")
       result=[]
-      regex=re.compile(pat)
+      regex=re.compile(js['uid_regex'])
+      dt=js['data_type']
       now=datetime.now()
       # Now try to find all matching entries for this connection
-      for id,con in store.items():
-        if regex.search(id) and now-con.time<entry_ttl:
-          #print (f"Found matching entry {id}")
-          result.append(con.uri)
+      for uid,con in store.items():
+        if regex.search(uid) and con.data_type==dt and now-con.time<entry_ttl:
+          #print (f"Found matching entry {uid} {con=}")
+          result.append(json.loads('{"uid":'+f'"{uid}",'+
+                                   '"uri":'+f'"{con.uri}",'+
+                                   '"connection_type":'+f'{con.connection_type},'+
+                                   '"data_type":'+f'"{con.data_type}"'+'}'))
+      #print(f'result=<{json.dumps(result)}')
       return json.dumps(result)
     else:
       abort(400)
