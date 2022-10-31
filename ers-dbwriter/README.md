@@ -43,3 +43,22 @@ If needed, the logs can be accessed by
 ```
 kubectl logs erskafka-7dfdf88864-4mwvd -n monitoring
 ```
+
+# Running locally
+The script can also be run locally which can be useful to debug or start up quickly. After setting up a working area and cloning this repo, run:
+```
+pip install -r requirements.txt
+export ERS_DBWRITER_HOST=host
+export ERS_DBWRITER_PORT=port
+export ERS_DBWRITER_USER=user
+export ERS_DBWRITER_PASS=pass
+export ERS_DBWRITER_NAME=name
+python3 dbwriter.python3
+```
+where the values of the env variables have to be substituted by their actual values. While running, the messages received from kafka will be printed as they arrive: 
+```
+$ python3 dbwriter.py
+ConsumerRecord(topic='erskafka-reporting', partition=0, offset=3156, timestamp=1667205932928, timestamp_type=0, key=None, value=b'{"application_name":"trigger","chain":0,"cwd":"/nfs/sw/jcarcell/N22-10-30","file_name":"/tmp/root/spack-stage/spack-stage-trigger-N22-10-30-mt5md7ywovoz27didgrn5grbucv623da/spack-src/plugins/ModuleLevelTrigger.cpp","function_name":"void dunedaq::trigger::ModuleLevelTrigger::do_start(const nlohmann::json&)","group_hash":987365171,"host_name":"np04-srv-022","issue_name":"trigger::TriggerStartOfRun","line_number":130,"message":"Start of run 293287","package_name":"unknown","params":["runno: 293287"],"partition":"jcarcell","process_id":1802216,"qualifiers":["unknown"],"severity":"INFO","thread_id":1802245,"time":1667205932928,"usecs_since_epoch":1667205932928264,"user_id":141008,"user_name":"jcarcell"}', headers=[], checksum=None, serialized_key_size=-1, serialized_value_size=707, serialized_header_size=-1)
+```
+It can run at the same time locally and in kubernetes.
+
