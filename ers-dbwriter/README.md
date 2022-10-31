@@ -7,7 +7,7 @@ and if the env variables are set, it should start printing the messages that it
 is receiving and writing to the database.
 
 # Deploying on kubernetes
-First, we need to make the secrets. Create a yaml file containing the secrets:
+First, we need to make the secrets. Create a yaml file `ers-secret.yaml` containing the secrets:
 ```
 apiVersion: v1
 kind: Secret
@@ -22,9 +22,11 @@ data:
   ERS_DBWRITER_PASS:
   ERS_DBWRITER_NAME:
 ```
-where after each of the env variables the secret goes in base64 form (can be obtained by doing `echo -n "secret" | base64`)
-If all went well when we do `kubectl get secrets`
-we should see something like
+where after each of the env variables (`ERS_DBWRITER_XXXX`) the secret goes in base64 form (can be obtained by doing `echo -n "secret" | base64`). To add the secrets run 
+```
+kubectl apply -f ers-secret.yaml
+```
+If all went well when we do `kubectl get secrets` we should see something like
 ```
 NAME         TYPE     DATA   AGE
 ers-secret   Opaque   5      37m
@@ -36,3 +38,8 @@ NAME                           READY   STATUS    RESTARTS   AGE
 erskafka-7dfdf88864-4mwvd      1/1     Running   0          15m
 ```
 where the important part is that `STATUS` is `Running`
+
+If needed, the logs can be accessed by
+```
+kubectl logs erskafka-7dfdf88864-4mwvd -n monitoring
+```
