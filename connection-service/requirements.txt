@@ -1,6 +1,5 @@
-Flask
-gevent
+Flask==2.0.3
+gevent==22.10.2
 gunicorn==20.1.0
-kubernetes
-Werkzeug
+Werkzeug==2.0.3
 
