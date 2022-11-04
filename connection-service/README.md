@@ -20,12 +20,12 @@ kubectl apply -f connection-service.yaml
 
 To test the basic operation of the server, you can connect to  pod in the k8s cluster and try getting the root document.
 
----
+```
 > kubectl exec gordon-test -i -t -- bash
 [root@gordon-test /]# curl http://connection-flask.connections:5000
 <h1>Dump of configuration dictionary</h1>[root@gordon-test /]# 
 [root@gordon-test /]#
----
+```
 
 ## REST interface
 
