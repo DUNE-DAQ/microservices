@@ -31,10 +31,7 @@ To test the basic operation of the server, you can connect to  pod in the k8s cl
 
   The server reponds to the following uris
 
-```
-http://connection-flask.connections:5000/publish
-```
-
+### /publish
  Allows publication of connection information. The content of the
  request should be JSON encoded. For example, the following json file
  can be published using curl.
@@ -63,11 +60,8 @@ http://connection-flask.connections:5000/publish
     http://connection-flask.connections:5000/publish
 ```
 
-```
-curl http://connection-flask.connections:5000/getconnection/<partition> 
-```
-
-This uri returns a list of connections matchin the 'uid_regex' and
+### /getconnection/<partition> 
+This uri returns a list of connections matching the 'uid_regex' and
 'data_type' specified in the JSON encoded request.
 
 ```
@@ -78,16 +72,18 @@ curl -d '{"uid_regex":"DRO.*","data_type":"TPSet"}' \
 ```
 
 
-```
-curl http://connection-flask.connections:5000/retract
-```
+### /retract
+This uri should be used to remove published connections. The request should be JSON encoded with the keys "partition" and "connections" with the latter being an array of "connection_id" and "data_type" values.
 
-This uri should be used to remove a published connections.
 
-```
-curl http://connection-flask.connections:5000/retract-partition
-```
-
+### /retract-partition
 This uri should be used to remove all published connections from the
-given partition.
+given partition. The request should be a urlencoded form with one field "partition" naming the partition to be retracted.
 
+## Running the server locally from the command line
+ To just run a local tes, the server can be started from within the dbt-pyenv environment as shown below:
+ ```
+ > export FLASK_APP=microservices/connection-service/connection-flask.py
+ > python -m flask run
+ ```
+ 
