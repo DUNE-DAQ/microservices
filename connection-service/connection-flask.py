@@ -23,12 +23,17 @@ app=Flask(__name__)
 
 @app.route("/")
 def dump():
+  now=datetime.now()
   d=f'<h1>Dump of configuration dictionary</h1>'
   for p in partitions:
     store=partitions[p]
     d=d+f'<h2>Partition {p}</h2> '
     for k,v in store.items():
-      d=d+f'<pre>{k}:  {v}</pre>'
+      if now-v.time<entry_ttl:
+        d=d+f'<p>{k}: {v}</p>'
+      else:
+        d=d+f'<p><strike>{k}: {v}</strike></p>'
+      # Now try to find all matching entries for this connection
   #print(d)
   return d
 
