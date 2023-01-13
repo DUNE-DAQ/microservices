@@ -81,9 +81,22 @@ This uri should be used to remove all published connections from the
 given partition. The request should be a urlencoded form with one field "partition" naming the partition to be retracted.
 
 ## Running the server locally from the command line
- To just run a local tes, the server can be started from within the dbt-pyenv environment as shown below:
+ To just run a local test, the server can be started from within the dbt-pyenv environment as shown below:
  ```
  > export FLASK_APP=microservices/connection-service/connection-flask.py
  > python -m flask run
  ```
- 
+
+ The server is intended to be run under the Gunicorn web server. This
+ is set up in the docker container but is not be available in the
+ dunedaq release. To run interactivley without creating the container
+ you can install the dependencies with
+
+ ```
+ 'pip install -r requirements.txt'
+ ```
+
+ ```
+ > gunicorn -b 0.0.0.0:5000 --workers=1 --worker-class=gthread --threads=2 \
+        --timeout 5000000000 --log-level=debug connection-flask:app
+ ```
