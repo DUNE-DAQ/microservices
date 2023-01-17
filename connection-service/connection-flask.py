@@ -40,11 +40,11 @@ def dump():
   dstream=StringIO()
   dstream.write(f'<h1>Dump of configuration dictionary</h1>')
   dstream.write(f"<h2>Active partitions</h2><p>")
-  pad=' style="padding-left: 1em;padding-right: 1em"'
-  dstream.write(f'<table style="border: 1px solid black">'
-                f'<tr style="background: #e0e0e0"><th{pad}>Partition</th>'
-                f'<th{pad}>Entries</th></tr>')
   if len(partitions)>0:
+    pad=' style="padding-left: 1em;padding-right: 1em"'
+    dstream.write(f'<table style="border: 1px solid black">'
+                  f'<tr style="background: #e0e0e0"><th{pad}>Partition</th>'
+                  f'<th{pad}>Entries</th></tr>')
     for p in partitions:
       dstream.write(f'<tr><td{pad}>{p}'
                     f'</td><td{pad}>{len(partitions[p])}</td></tr>')
