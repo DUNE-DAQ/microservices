@@ -88,12 +88,12 @@ given partition. The request should be a urlencoded form with one field "partiti
  ```
 
  The server is intended to be run under the Gunicorn web server. This
- is set up in the docker container but is not be available in the
+ is set up in the docker container but is not available in the
  dunedaq release. To run interactivley without creating the container
  you can install the dependencies with
 
  ```
- 'pip install -r requirements.txt'
+ 'pip install -r microservices/connection-service/requirements.txt'
  ```
 
  ```
