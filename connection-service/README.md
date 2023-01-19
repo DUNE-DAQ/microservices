@@ -90,13 +90,20 @@ given partition. The request should be a urlencoded form with one field "partiti
  The server is intended to be run under the Gunicorn web server. This
  is set up in the docker container but is not available in the
  dunedaq release. To run interactivley without creating the container
- you can install the dependencies with
+ you can install the connection-service and its dependencies with
 
  ```
- 'pip install -r microservices/connection-service/requirements.txt'
+ 'pip install -U microservices/connection-service'
  ```
 
  ```
- > gunicorn -b 0.0.0.0:5000 --workers=1 --worker-class=gthread --threads=2 \
-        --timeout 5000000000 --log-level=debug connection-flask:app
+ gunicorn -b 0.0.0.0:5000 --workers=1 --worker-class=gthread --threads=2 \
+        --timeout 5000000000 connection-service.connection-flask:app
  ```
+
+Some debug information will be printed by the connection-flask if the
+environment variable 'CONNECTION_FLASK_DEBUG' is set to a number
+greater than 0. Currently 1 will print timing information for the
+publish/lookup calls. 2 will give information about what was
+published/looked up and 3 is even more verbose printing the actual
+JSON of the requests.

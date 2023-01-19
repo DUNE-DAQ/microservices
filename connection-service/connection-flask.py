@@ -18,6 +18,11 @@ from flask import Flask, request, abort
 partitions={}
 partlock=Lock()
 
+if 'CONNECTION_FLASK_DEBUG' in os.environ:
+  debug_level=int(os.environ['CONNECTION_FLASK_DEBUG'])
+else:
+  debug_level=0
+
 if 'ENTRY_TTL' in os.environ:
   ttl=int(os.environ['ENTRY_TTL'])
 else:
@@ -97,9 +102,13 @@ def publish():
   #  dictionary associated with the appropriate partition.
   timestamp=datetime.now()
   js=json.loads(request.data)
-  #print (f"{js=}")
+  if debug_level>2:
+    print (f"{js=}")
   part=js['partition']
 
+  if debug_level>1:
+    print(f"Publish {len(js['connections'])} connections in partition {part}"
+          f" from {request.remote_addr} uri={js['connections'][0]['uri']} ...")
   partlock.acquire()
   if part in partitions:
     store=partitions[part]
@@ -125,7 +134,8 @@ def publish():
                             data_type=connection['data_type'],
                             time=timestamp)
   elapsed=datetime.now()-timestamp
-  #print(f"publish took {elapsed.microseconds} us to add {len(js['connections'])} connections")
+  if debug_level>0:
+    print(f"publish took {elapsed.microseconds} us to add {len(js['connections'])} connections")
   global npublishes, publish_time
   publish_time+=elapsed
   npublishes+=1
@@ -184,9 +194,12 @@ def get_connection(part):
   # in the request. The pattern is treated as a regular expression.
   now=datetime.now()
   js=json.loads(request.data)
+  if debug_level>2:
+    print (f"{js=}")
 
   if 'uid_regex' in js and 'data_type' in js:
-    #print(f"Searching for connections matching uid_regex<{js['uid_regex']}> and data_type {js['data_type']}")
+    if debug_level>1:
+      print(f"Searching for connections matching uid_regex<{js['uid_regex']}> and data_type {js['data_type']}")
     result=[]
     regex=re.compile(js['uid_regex'])
     dt=js['data_type']
@@ -215,7 +228,8 @@ def get_connection(part):
                       f'"data_type":"{con.data_type}"'
                       '}')
       td=datetime.now()-now
-      #print(f"Lookup took {td.microseconds} us to find {len(result)} connections")
+      if debug_level>0:
+        print(f"Lookup took {td.microseconds} us to find {len(result)} connections")
       global nlookups, lookup_time
       # Should we have the lock while updating statistics? It doesn't
       # really matter if the stats aren't entirely accurate.
