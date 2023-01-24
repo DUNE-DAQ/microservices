@@ -103,11 +103,11 @@ def publish():
   timestamp=datetime.now()
   js=json.loads(request.data)
   if debug_level>2:
-    print (f"{js=}")
+    print (f"[{timestamp}] Publish {js=}")
   part=js['partition']
 
   if debug_level>1:
-    print(f"Publish {len(js['connections'])} connections in partition {part}"
+    print(f"[{timestamp}] Publish {len(js['connections'])} connections in partition {part}"
           f" from {request.remote_addr} uri={js['connections'][0]['uri']} ...")
   partlock.acquire()
   if part in partitions:
@@ -133,9 +133,10 @@ def publish():
                             connection_type=connection['connection_type'],
                             data_type=connection['data_type'],
                             time=timestamp)
-  elapsed=datetime.now()-timestamp
+  now=datetime.now()
+  elapsed=now-timestamp
   if debug_level>0:
-    print(f"publish took {elapsed.microseconds} us to add {len(js['connections'])} connections")
+    print(f"[{now}] Publish took {elapsed.microseconds} us to add {len(js['connections'])} connections")
   global npublishes, publish_time
   publish_time+=elapsed
   npublishes+=1
@@ -147,7 +148,8 @@ def publish():
 
 @app.route("/retract-partition",methods=['POST'])
 def retract_partition():
-  #print(f"retract_partition() request=[{request.form}]")
+  if debug_level>2:
+    print(f"[datetime.now()] retract_partition() request=[{request.form}]")
   if 'partition' not in request.form:
     abort(400)
   part=request.form['partition']
@@ -195,11 +197,13 @@ def get_connection(part):
   now=datetime.now()
   js=json.loads(request.data)
   if debug_level>2:
-    print (f"{js=}")
+    print (f"[{now}] get_connection() {js=}")
 
   if 'uid_regex' in js and 'data_type' in js:
     if debug_level>1:
-      print(f"Searching for connections matching uid_regex<{js['uid_regex']}> and data_type {js['data_type']}")
+      print(f"[{now}] get_connection()"
+            f" Searching for connections matching uid_regex<{js['uid_regex']}>"
+            f" and data_type {js['data_type']}")
     result=[]
     regex=re.compile(js['uid_regex'])
     dt=js['data_type']
@@ -229,7 +233,8 @@ def get_connection(part):
                       '}')
       td=datetime.now()-now
       if debug_level>0:
-        print(f"Lookup took {td.microseconds} us to find {len(result)} connections")
+        print(f"[{now}] get_connection() "
+              f"Lookup took {td.microseconds} us to find {len(result)} connections")
       global nlookups, lookup_time
       # Should we have the lock while updating statistics? It doesn't
       # really matter if the stats aren't entirely accurate.
@@ -238,7 +243,7 @@ def get_connection(part):
       return "["+",".join(result)+"]"
     else:
       partlock.release()
-      print(f"get_connection() Partition {part} not found")
+      print(f"[{now}] get_connection() Partition {part} not found")
       abort(404)
   else:
     abort(400)
