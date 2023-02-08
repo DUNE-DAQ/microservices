@@ -96,6 +96,22 @@ def dumpStats():
   dstream.seek(0)
   return dstream.read()
 
+@app.route("/reset")
+def reset():
+  stats = dumpStats()
+
+  global partitions, last_stats,npublishes,nlookups,lookup_time,publish_time,maxpartitions,maxentries
+  partitions={}
+  last_stats=datetime.now()
+  npublishes=0
+  nlookups=0
+  lookup_time=timedelta(0)
+  publish_time=timedelta()
+  maxpartitions=0
+  maxentries={}
+
+  return stats
+
 @app.route("/publish",methods=['POST'])
 def publish():
   #  Store multiple connection ids and corresponding uris in a
