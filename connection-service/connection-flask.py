@@ -12,7 +12,7 @@ from threading import Lock
 from io import StringIO
 from datetime import datetime, timedelta
 from collections import namedtuple
-from flask import Flask, request, abort
+from flask import Flask, request, abort, make_response
 
 
 partitions={}
@@ -168,22 +168,23 @@ def retract():
   good=True
   part=js['partition']
   partlock.acquire()
-  if part in partitions:
-    store=partitions[part]
-    for con in js['connections']:
-      #print (f"{con=}")
-      id=con['connection_id']
-      if id in store:
-        store.pop(id)
-      else:
-        print(f"retract() could not find connection_id <{id}>")
-        good=False
-    if len(store)==0:
-      # We've deleted the last entry in this partition so delete the
-      # partition as well
-      partitions.pop(part)
-  else:
-    good=False
+  if part not in partitions:
+    partlock.release()
+    return make_response(f"partition {part} not found", 404)
+
+  store=partitions[part]
+  for con in js['connections']:
+    #print (f"{con=}")
+    id=con['connection_id']
+    if id in store:
+      store.pop(id)
+    else:
+      print(f"retract() could not find connection_id <{id}>")
+      good=False
+  if len(store)==0:
+    # We've deleted the last entry in this partition so delete the
+    # partition as well
+    partitions.pop(part)
   partlock.release()
   if good:
     return 'OK'
