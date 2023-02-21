@@ -7,7 +7,7 @@ server to serve connection information to DAQ applications.
 
  Build the docker image
 ```
-docker buildx build --tag connection-service:0.0.0 .
+docker buildx build --tag connection-service:0.0.1 .
 ```
 
  Apply the kubernetes manifest from connection-service.yaml. This
@@ -18,43 +18,92 @@ docker buildx build --tag connection-service:0.0.0 .
 kubectl apply -f connection-service.yaml
 ```
 
+To test the basic operation of the server, you can connect to  pod in the k8s cluster and try getting the root document.
+
+```
+> kubectl exec gordon-test -i -t -- bash
+[root@gordon-test /]# curl http://connection-flask.connections:5000
+<h1>Dump of configuration dictionary</h1>[root@gordon-test /]# 
+[root@gordon-test /]#
+```
+
 ## REST interface
 
   The server reponds to the following uris
 
-```
-http://connection-flask.connections:5000/publish
-```
-
- Allows publication of connection information. Requires the parameter
-'partition' with the name of the application's partition and either
-'endpoint' and 'uri' to associate an endpoint with a uri, or
-'connection' from which the endpoint and uri will be extracted. The
-values of the 'endpoint', 'uri' and 'connection' parameters should be
-set to a JSON string.  When setting from a connection, the endpoint is
-extracted from the 'bind_endpoint' item and the uri from the 'uri'
-item.
+### /publish
+ Allows publication of connection information. The content of the
+ request should be JSON encoded. For example, the following json file
+ can be published using curl.
 
 ```
-curl http://connection-flask.connections:5000/getendpoint/<partition> 
+> cat publish.json
+{
+ "connections":[
+  {
+   "connection_type":0,
+   "data_type":"TPSet",
+   "uid":"DRO-000-tp_to_trigger",
+   "uri":"tcp://192.168.1.100:1234"
+  },
+  {
+   "connection_type":0,
+   "data_type":"TPSet",
+   "uid":"DRO-001-tp_to_trigger",
+   "uri":"tcp://192.168.1.100:1235"
+  }
+ ],
+ "partition":"ccTest"
+}
+
+> curl -d @publish.json -H "content-type: application/json" \
+    http://connection-flask.connections:5000/publish
 ```
 
-This uri returns a list of uris and a connection type associated with
-the endpoint specification given in the required parameter
-'endpoint'. fields within the endpoint JSON can be wild carded to
-select all of a set of connections.
+### /getconnection/<partition> 
+This uri returns a list of connections matching the 'uid_regex' and
+'data_type' specified in the JSON encoded request.
 
 ```
-curl http://connection-flask.connections:5000/retract
+curl -d '{"uid_regex":"DRO.*","data_type":"TPSet"}' \
+    -H "content-type: application/json" \
+     http://connection-flask.connections:5000/getconnection/ccTest
+[{"uid": "DRO-000-tp_to_trigger", "uri": "tcp://192.168.1.100:1234", "connection_type": 0, "data_type": "TPSet"}, {"uid": "DRO-001-tp_to_trigger", "uri": "tcp://192.168.1.100:1235", "connection_type": 0, "data_type": "TPSet"}]
 ```
 
-This uri should be used to remove a published endpoint or connection
-definition.
 
-```
-curl http://connection-flask.connections:5000/retract-partition
-```
+### /retract
+This uri should be used to remove published connections. The request should be JSON encoded with the keys "partition" and "connections" with the latter being an array of "connection_id" and "data_type" values.
 
-This uri should be used to remove all published endpoints and connection
-definitions from the given partition.
 
+### /retract-partition
+This uri should be used to remove all published connections from the
+given partition. The request should be a urlencoded form with one field "partition" naming the partition to be retracted.
+
+## Running the server locally from the command line
+ To just run a local test, the server can be started from within the dbt-pyenv environment as shown below:
+ ```
+ > export FLASK_APP=microservices/connection-service/connection-flask.py
+ > python -m flask run
+ ```
+
+ The server is intended to be run under the Gunicorn web server. This
+ is set up in the docker container but is not available in the
+ dunedaq release. To run interactivley without creating the container
+ you can install the connection-service and its dependencies with
+
+ ```
+ 'pip install -U microservices/connection-service'
+ ```
+
+ ```
+ gunicorn -b 0.0.0.0:5000 --workers=1 --worker-class=gthread --threads=2 \
+        --timeout 5000000000 connection-service.connection-flask:app
+ ```
+
+Some debug information will be printed by the connection-flask if the
+environment variable 'CONNECTION_FLASK_DEBUG' is set to a number
+greater than 0. Currently 1 will print timing information for the
+publish/lookup calls. 2 will give information about what was
+published/looked up and 3 is even more verbose printing the actual
+JSON of the requests.
