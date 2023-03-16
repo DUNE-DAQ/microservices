@@ -27,5 +27,6 @@ To test the basic operation of the server, you can connect to  pod in the k8s cl
 [root@myPod /]#
 ```
 
-## Connectivityserver operation Plead refer to the documentaion in the
+## Connectivityserver operation
+Please refer to the documentaion in the
 connectivityserver package [https://github.com/DUNE-DAQ/connectivityserver].
