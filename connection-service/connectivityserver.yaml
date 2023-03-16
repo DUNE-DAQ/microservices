@@ -28,7 +28,7 @@ metadata:
 spec:
   containers:
   - name: connection-service
-    image: localhost/connection-service:0.0.1
+    image: localhost/connectivityserver:1.0.0
     ports:
     - containerPort: 5000
     env:
