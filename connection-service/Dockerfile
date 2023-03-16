@@ -1,15 +1,12 @@
-FROM docker.io/dunedaq/c8-minimal:latest
+FROM docker.io/almalinux:9
 
 RUN yum clean all \
- && yum -y install python3-pip \
- && yum -y install python3-devel \
+ && yum -y install python3-pip python3-devel git \
  && yum clean all
 
-COPY connection-flask.py /
-COPY requirements.txt /
 
-RUN pip3 install --upgrade pip
-RUN pip3 install -r /requirements.txt
+RUN git clone --depth 1 https://github.com/DUNE-DAQ/connectivityserver.git
+RUN pip3 install /connectivityserver
 
 COPY entrypoint.sh /
 RUN ["chmod", "+x", "/entrypoint.sh"]
