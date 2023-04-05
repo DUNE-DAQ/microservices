@@ -44,9 +44,18 @@ def create_database(cursor, connection):
     connection.commit()
 
 def main():
-    consumer = KafkaConsumer('erskafka-reporting',
-                            bootstrap_servers='monkafka.cern.ch:30092',
-                            group_id='group1')
+    kafka_host = os.environ['ERS_DBWRITER_KAFKA_HOST']
+    kafka_port = os.environ['ERS_DBWRITER_KAFKA_PORT']
+
+    try:
+        consumer = KafkaConsumer(
+            'erskafka-reporting',
+            bootstrap_servers=f'{kafka_host}:{kafka_port}',
+            group_id='group1'
+        )
+    except:
+        print('Connection to the kafka failed, aborting...')
+        exit()
 
     host = os.environ['ERS_DBWRITER_HOST']
     port = os.environ['ERS_DBWRITER_PORT']
@@ -61,7 +70,7 @@ def main():
                                password=password,
                                dbname=dbname)
     except:
-        print('Connection to the database failed, aborting...')
+        print('Connection to the postgres database failed, aborting...')
         exit()
 
     # These are the fields in the ERS messages, see erskafka/src/KafkaStream.cpp
