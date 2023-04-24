@@ -17,7 +17,7 @@ from flask_caching import Cache
 
 from authentication import auth
 
-if '-p' in sys.argv:
+if '-p' in sys.argv or os.environ["RGDB"] == 'postgres':
   import backends.pg_queries as queries
   import backends.pg_backend as db
 else:

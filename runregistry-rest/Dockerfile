@@ -1,16 +1,16 @@
-FROM cern/cc7-base
+FROM dunedaq/pocket-runregistry-rest:0.2
 
-RUN yum clean all \
- && yum -y install python3-pip \
- && yum -y install python3-devel \
- && yum --enablerepo=cernonly -y install oracle-instantclient12.1-devel \
- && yum --enablerepo=cernonly -y install oracle-instantclient-tnsnames.ora \
- && yum clean all
+#RUN yum clean all \
+# && yum -y install python3-pip \
+# && yum -y install python3-devel \
+# && yum --enablerepo=cernonly -y install oracle-instantclient12.1-devel \
+# && yum --enablerepo=cernonly -y install oracle-instantclient-tnsnames.ora \
+# && yum clean all
 
 COPY authentication.py /
 COPY credentials.py /
 COPY rest.py /
-COPY backends /
+COPY ./backends/. /backends/
 COPY requirements.txt /
 
 RUN pip3 install --upgrade pip
