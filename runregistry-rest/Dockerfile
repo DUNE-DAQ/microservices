@@ -13,6 +13,8 @@ COPY rest.py /
 COPY ./backends/. /backends/
 COPY requirements.txt /
 
+RUN mkdir /uploads
+
 RUN pip3 install --upgrade pip
 RUN pip3 install -r /requirements.txt
 
