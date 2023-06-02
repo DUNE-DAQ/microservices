@@ -1,6 +1,5 @@
 dburi='Secret from Kubernetes!'
 user='Secret from Kubernetes!'
 password='Secret from Kubernetes!'
-postgres='Secret from Kubernetes!'
 port='Secret from Kubernetes!'
-database='postgres'
+database='Secret from Kubernetes!'
