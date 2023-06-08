@@ -1,4 +1,4 @@
-__author__ = "Roland Sipos"
+_author__ = "Roland Sipos"
 __credits__ = [""]
 __version__ = "0.0.1"
 __maintainer__ = "Roland Sipos"
@@ -45,7 +45,7 @@ app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 32 * 1000 * 1000
 app.config['UPLOAD_EXTENSIONS'] = ['.gz', '.tgz']
 app.config['UPLOAD_PATH'] = 'uploads'
-app.config['CACHE_TYPE'] = 'redis' # easier to scale it and async disk writes provides DB dumps.
+app.config['CACHE_TYPE'] = 'simple' # easier to scale it and async disk writes provides DB dumps.
 cache = Cache(app)
 api = Api(app)
 
@@ -65,7 +65,7 @@ Append schema to results
 def add_schema_as_element(rowres):
     rowres.insert(0, queries.schema)
 
-# $ curl -u fooUsr:barPass -X GET np04-srv-021:5005/runregistry/getRunMeta/2 
+# $ curl -u fooUsr:barPass -X GET np04-srv-021:5005/runregistry/getRunMeta/2
 @api.resource("/runregistry/getRunMeta/<int:runNum>")
 class getRunMeta(Resource):
     @auth.login_required
@@ -83,7 +83,7 @@ class getRunMeta(Resource):
         resp = flask.make_response(flask.jsonify(rowRes))
         return resp
 
-# $ curl -u fooUsr:barPass -X GET np04-srv-021:5005/runregistry/getRunMetaLast/100 
+# $ curl -u fooUsr:barPass -X GET np04-srv-021:5005/runregistry/getRunMetaLast/100
 @api.resource("/runregistry/getRunMetaLast/<int:amount>")
 class getRunMetaLast(Resource):
     @auth.login_required
@@ -101,7 +101,7 @@ class getRunMetaLast(Resource):
         resp = flask.make_response(flask.jsonify(rowRes))
         return resp
 
-# $ curl -u fooUsr:barPass -X GET -O -J np04-srv-021:5005/runregistry/getRunBlob/2 
+# $ curl -u fooUsr:barPass -X GET -O -J np04-srv-021:5005/runregistry/getRunBlob/2
 @api.resource("/runregistry/getRunBlob/<int:runNum>")
 class getRunBlob(Resource):
     @auth.login_required
@@ -116,8 +116,9 @@ class getRunBlob(Resource):
             resp = flask.make_response(flask.jsonify({"Exception": err_obj.message}))
             return resp
         filename = rowRes[0][0][0]
+        print('returning '+filename)
         blob = rowRes[0][0][1]
-        resp = flask.make_response(blob.read())
+        resp = flask.make_response(bytes(blob))
         resp.headers["Content-Type"] = "application/octet-stream"
         resp.headers["Content-Disposition"] = "attachment; filename=%s" % filename
         return resp
@@ -164,7 +165,7 @@ class insertRun(Resource):
             query_list.append(queries.insertRunRegistryBlob)
             bind_vars.append({'run_num':run_num, 'det_id':det_id, 'run_type':run_type, 'filename':filename, 'software_version':software_version})
             bind_vars.append({'run_num':run_num, 'config_blob':data.getvalue()})
-            db.perform_transaction_multi(query_list, bind_vars) 
+            db.perform_transaction_multi(query_list, bind_vars)
             rowRes = []
             db.perform_query(queries.getRunMeta, {'run_num':run_num}, rowRes)
             resp = flask.make_response(flask.jsonify(rowRes))
