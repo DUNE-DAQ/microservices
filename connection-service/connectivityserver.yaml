@@ -1,4 +1,4 @@
---
+---
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -45,6 +45,18 @@ spec:
             memory: 8Mi
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
+        securityContext:
+          runAsUser: 10000
+          runAsGroup: 10000
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop:
+            - ALL
+      securityContext:
+        fsGroup: 10000
 ---
 apiVersion: v1
 kind: Service
@@ -56,12 +68,11 @@ metadata:
   namespace: connections
 spec:
   ports:
-  - containerPort: 5000
-    name: http
+  - name: http
     protocol: TCP
+    port: 5000
     targetPort: 5000
   selector:
-    matchLabels:
-      app.kubernetes.io/app: connectionservice
-      app.kubernetes.io/component: connectionservice
+    app.kubernetes.io/app: connectionservice
+    app.kubernetes.io/component: connectionservice
   type: ClusterIP
