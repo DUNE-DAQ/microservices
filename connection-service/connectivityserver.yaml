@@ -1,38 +1,67 @@
+--
 apiVersion: v1
 kind: Namespace
 metadata:
+  labels:
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
   name: connections
-
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/app: connectionservice
+    app.kubernetes.io/component: connectionservice
+  name: connectionservice
+  namespace: connections
+spec:
+  minReadySeconds: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/app: connectionservice
+      app.kubernetes.io/component: connectionservice
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/app: connectionservice
+        app.kubernetes.io/component: connectionservice
+    spec:
+      containers:
+      - image: docker.io/dunedaq/pocket-connectivityserver:1.0.0
+        name: connectionservice
+        ports:
+        - containerPort: 5000
+          name: http
+          protocol: TCP
+        resources:
+          limits:
+            memory: 512Mi
+          requests:
+            memory: 8Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: connection-flask
-  namespace: connections
-spec:
-  selector:
-     name: connection-flask
-  ports:
-  - name: test
-    port: 5000
-    targetPort: 5000
-
----
-apiVersion: v1
-kind: Pod
-metadata:
-  name: connection-flask
-  namespace: connections
   labels:
-    name: connection-flask
+    app.kubernetes.io/app: connectionservice
+    app.kubernetes.io/component: connectionservice
+  name: connectionservice
+  namespace: connections
 spec:
-  containers:
-  - name: connection-service
-    image: localhost/connectivityserver:1.0.0
-    ports:
-    - containerPort: 5000
-    env:
-      - name: namespace
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.namespace
+  ports:
+  - containerPort: 5000
+    name: http
+    protocol: TCP
+    targetPort: 5000
+  selector:
+    matchLabels:
+      app.kubernetes.io/app: connectionservice
+      app.kubernetes.io/component: connectionservice
+  type: ClusterIP
