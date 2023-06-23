@@ -1,4 +1,11 @@
-schema = ['RUN_NUMBER', 'START_TIME', 'STOP_TIME', 'DETECTOR_ID', 'RUN_TYPE', 'SOFTWARE_VERSION']
+schema = [
+    "RUN_NUMBER",
+    "START_TIME",
+    "STOP_TIME",
+    "DETECTOR_ID",
+    "RUN_TYPE",
+    "SOFTWARE_VERSION",
+]
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:5005/runregistry/getRunMeta/2
 getRunMeta = "select RUN_NUMBER, START_TIME, STOP_TIME, DETECTOR_ID, RUN_TYPE, SOFTWARE_VERSION from RUN_SCHEMA.RUN_REGISTRY_META where RUN_NUMBER=%(run_num)s"
