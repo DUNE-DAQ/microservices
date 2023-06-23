@@ -16,10 +16,12 @@ from flask_redis import FlaskRedis
 from flask_caching import Cache
 
 from authentication import auth
+postgres = False
 
 if '-p' in sys.argv or os.environ["RGDB"] == 'postgres':
   import backends.pg_queries as queries
   import backends.pg_backend as db
+  postgres = True
 else:
   import backends.ora_queries as queries
   import backends.ora_backend as db
@@ -118,7 +120,7 @@ class getRunBlob(Resource):
         filename = rowRes[0][0][0]
         print('returning '+filename)
         blob = rowRes[0][0][1]
-        resp = flask.make_response(bytes(blob))
+        resp = flask.make_response(bytes(blob)) if postgres else flask.make_response(blob.read())
         resp.headers["Content-Type"] = "application/octet-stream"
         resp.headers["Content-Disposition"] = "attachment; filename=%s" % filename
         return resp
