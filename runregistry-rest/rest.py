@@ -49,9 +49,7 @@ app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 32 * 1000 * 1000
 app.config["UPLOAD_EXTENSIONS"] = [".gz", ".tgz"]
 app.config["UPLOAD_PATH"] = "uploads"
-app.config[
-    "CACHE_TYPE"
-] = "simple"  # easier to scale it and async disk writes provides DB dumps.
+app.config["CACHE_TYPE"] = "simple"
 cache = Cache(app)
 api = Api(app)
 
