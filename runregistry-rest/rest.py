@@ -1,4 +1,4 @@
-_author__ = "Roland Sipos"
+__author__ = "Roland Sipos"
 __credits__ = [""]
 __version__ = "0.0.1"
 __maintainer__ = "Roland Sipos"
