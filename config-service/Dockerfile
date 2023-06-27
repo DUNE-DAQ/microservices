@@ -1,17 +1,15 @@
-FROM dunedaq/c8-minimal
+FROM ghcr.io/dune-daq/c8-minimal:latest
+
+EXPOSE 5003
 
 RUN yum clean all \
- && yum -y install python3-pip \
- && yum -y install python3-devel \
+ && yum -y install python3 python3-pip python3-wheel \
  && yum clean all
 
-COPY conf-service.py / 
-COPY configconfig.py /
-COPY requirements.txt / 
+COPY conf-service.py  configconfig.py requirements.txt / 
 
-RUN pip3 install --upgrade pip
-RUN pip3 install -r /requirements.txt
+RUN python3 -m pip install --upgrade pip
+RUN python3 -m pip install -r /requirements.txt
 
-COPY entrypoint.sh /
-RUN ["chmod", "+x", "/entrypoint.sh"]
+COPY --chmod=755 entrypoint.sh /
 ENTRYPOINT ["/entrypoint.sh"]
