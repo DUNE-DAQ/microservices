@@ -1,9 +1,6 @@
 #!/bin/bash
 
-sed -i "s/dburi\='Secret from Kubernetes\!'/dburi\='${RGURI}'/g" /credentials.py
-sed -i "s/user\='Secret from Kubernetes\!'/user\='${RGUSER}'/g" /credentials.py
-sed -i "s/password\='Secret from Kubernetes\!'/password\='${RGPASS}'/g" /credentials.py
-sed -i "s/port\='Secret from Kubernetes\!'/port\='${RGPORT}'/g" /credentials.py
-sed -i "s/database\='Secret from Kubernetes\!'/database\='${RGDBNAME}'/g" /credentials.py
+echo "You should probably define env vars for:"
+echo "  DB_HOSTNAME, DB_PORT, DB_NAME, DB_USERNAME, DB_PASSWORD"
 
 exec gunicorn -b 0.0.0.0:5005 --workers=1 --worker-class=gevent --timeout 5000000000 --log-level=debug rest:app

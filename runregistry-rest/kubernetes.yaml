@@ -1,0 +1,106 @@
+---
+# You must still deploy your database with its manifests from upstream
+# and create a secret called runregistry-rest-app - CNPG makes this automatically
+#   containing keys: username, password
+# and create a secret called runregistry-rest-database - CF. servicebinding.io
+#   containing keys: hostname, port, dbname
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/app: runregistry-rest
+    app.kubernetes.io/component: runregistry-rest
+  name: runregistry-rest
+  namespace: runcounter
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/app: runregistry-rest
+      app.kubernetes.io/component: runregistry-rest
+  minReadySeconds: 5
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/app: runregistry-rest
+        app.kubernetes.io/component: runregistry-rest
+    spec:
+      containers:
+      - env:
+        - name: RGDB
+          value: postgres
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              key: username
+              name: runregistry-rest-app
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: runregistry-rest-app
+        - name: DB_HOSTNAME
+          valueFrom:
+            secretKeyRef:
+              key: hostname
+              name: runregistry-rest-database
+        - name: DB_PORT
+          valueFrom:
+            secretKeyRef:
+              key: port
+              name: runregistry-rest-database
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              key: dbname
+              name: runregistry-rest-database
+        image: ghcr.io/dune-daq/pocket-runregistry-rest:0.9
+        name: runregistry-rest
+        ports:
+        - containerPort: 5005
+          name: http
+          protocol: TCP
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        resources:
+          limits:
+            memory: 1Gi
+          requests:
+            memory: 8Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsGroup: 11000
+          runAsNonRoot: true
+          runAsUser: 11000
+          seccompProfile:
+            type: RuntimeDefault
+      securityContext:
+        fsGroup: 11000
+      volumeMounts:
+      - mountPath: /uploads
+        name: uploads-volume
+    volumes: # persistance is not required at this time
+    - name: uploads-volume
+      emptyDir:
+        sizeLimit: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/app: runregistry-rest
+    app.kubernetes.io/component: runregistry-rest
+  name: runregistry-rest-svc
+  namespace: runcounter
+spec:
+  ports:
+  - name: http
+    port: 5005
+    protocol: TCP
+    targetPort: 5005
+  selector:
+    app.kubernetes.io/app: runregistry-rest
+    app.kubernetes.io/component: runregistry-rest
+  type: ClusterIP
