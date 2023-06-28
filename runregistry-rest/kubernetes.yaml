@@ -53,7 +53,7 @@ spec:
             secretKeyRef:
               key: dbname
               name: runregistry-rest-database
-        image: ghcr.io/dune-daq/pocket-runregistry-rest:0.9
+        image: ghcr.io/dune-daq/pocket-runregistry-rest:v.0.0.8
         name: runregistry-rest
         ports:
         - containerPort: 5005

@@ -1,6 +1,6 @@
 __author__ = "Roland Sipos"
 __credits__ = [""]
-__version__ = "0.0.1"
+__version__ = "0.0.8"
 __maintainer__ = "Roland Sipos"
 __email__ = "roland.sipos@cern.ch"
 
