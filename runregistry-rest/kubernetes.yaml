@@ -92,7 +92,7 @@ metadata:
   labels:
     app.kubernetes.io/app: runregistry-rest
     app.kubernetes.io/component: runregistry-rest
-  name: runregistry-rest-svc
+  name: runregistry-rest
   namespace: runcounter
 spec:
   ports:
