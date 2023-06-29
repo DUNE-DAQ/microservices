@@ -1,6 +1,6 @@
 ---
 # You must still deploy your database with its manifests from upstream
-# and create a secret called runregistry-rest-database - CF. servicebinding.io
+# and create a secret called runcounter-postgresql-svcbind-custom-user
 #   containing keys: hostname, port, dbname,  username, password
 apiVersion: apps/v1
 kind: Deployment
@@ -30,27 +30,27 @@ spec:
           valueFrom:
             secretKeyRef:
               key: username
-              name: runregistry-rest-database
+              name: runcounter-postgresql-svcbind-custom-user
         - name: DB_PASSWORD
           valueFrom:
             secretKeyRef:
               key: password
-              name: runregistry-rest-database
+              name: runcounter-postgresql-svcbind-custom-user
         - name: DB_HOSTNAME
           valueFrom:
             secretKeyRef:
               key: hostname
-              name: runregistry-rest-database
+              name: runcounter-postgresql-svcbind-custom-user
         - name: DB_PORT
           valueFrom:
             secretKeyRef:
               key: port
-              name: runregistry-rest-database
+              name: runcounter-postgresql-svcbind-custom-user
         - name: DB_NAME
           valueFrom:
             secretKeyRef:
               key: dbname
-              name: runregistry-rest-database
+              name: runcounter-postgresql-svcbind-custom-user
         image: ghcr.io/dune-daq/pocket-runregistry-rest:v0.0.8
         name: runregistry-rest
         ports:
