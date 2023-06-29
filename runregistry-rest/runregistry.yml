@@ -1,9 +1,7 @@
 ---
 # You must still deploy your database with its manifests from upstream
-# and create a secret called runregistry-rest-app - CNPG makes this automatically
-#   containing keys: username, password
 # and create a secret called runregistry-rest-database - CF. servicebinding.io
-#   containing keys: hostname, port, dbname
+#   containing keys: hostname, port, dbname,  username, password
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -32,12 +30,12 @@ spec:
           valueFrom:
             secretKeyRef:
               key: username
-              name: runregistry-rest-app
+              name: runregistry-rest-database
         - name: DB_PASSWORD
           valueFrom:
             secretKeyRef:
               key: password
-              name: runregistry-rest-app
+              name: runregistry-rest-database
         - name: DB_HOSTNAME
           valueFrom:
             secretKeyRef:
