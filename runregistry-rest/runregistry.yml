@@ -74,15 +74,15 @@ spec:
           runAsUser: 11000
           seccompProfile:
             type: RuntimeDefault
+        volumeMounts:
+        - mountPath: /uploads
+          name: uploads-volume
+      volumes: # persistance is not required at this time
+      - name: uploads-volume
+        emptyDir:
+          sizeLimit: 20Gi
       securityContext:
         fsGroup: 11000
-      volumeMounts:
-      - mountPath: /uploads
-        name: uploads-volume
-    volumes: # persistance is not required at this time
-    - name: uploads-volume
-      emptyDir:
-        sizeLimit: 20Gi
 ---
 apiVersion: v1
 kind: Service
