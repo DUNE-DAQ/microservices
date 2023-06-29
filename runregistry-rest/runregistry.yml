@@ -1,7 +1,7 @@
 ---
 # You must still deploy your database with its manifests from upstream
 # and create a secret called runcounter-postgresql-svcbind-custom-user
-#   containing keys: hostname, port, dbname,  username, password
+#   containing keys: host, port, dbname,  username, password
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -39,7 +39,7 @@ spec:
         - name: DB_HOSTNAME
           valueFrom:
             secretKeyRef:
-              key: hostname
+              key: host
               name: runcounter-postgresql-svcbind-custom-user
         - name: DB_PORT
           valueFrom:
