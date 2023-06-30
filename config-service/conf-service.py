@@ -30,7 +30,7 @@ from flask_restful import Api, Resource, reqparse
 from flask_caching import Cache
 from apispec import APISpec
 from bson.json_util import loads, dumps
-__version__='1.0.0'
+__version__='1.0.1'
 
 '''
 Preliminary setup
@@ -52,21 +52,8 @@ ch.setFormatter(formatter)
 log.addHandler(fh)
 log.addHandler(ch)
 
-# Mongo connection
-mongo_client = None
-mongo_db = None
-coll_configs = None
-mongo_connection_string = f'mongodb://{config.mongo_user}:{config.mongo_pass}@{config.mongo_host}:{config.mongo_port}'
-# mongo_connection_string = f'mongodb://localhost:27017'
-try:
-  mongo_client = MongoClient(mongo_connection_string)
-  mongo_db = mongo_client[config.mongo_db]
-except:
-  log.error('Please check your configuration details for the MongoDB connection!')
-  exit(1)
-
 def resource_not_found(e):
-    return jsonify(error=str(e)), 404
+    return flask.jsonify(error=str(e)), 404
 
 '''
 Resources
@@ -250,6 +237,32 @@ class ListVersions(BaseResource):
         configs['versions'].append(k['version'])
 
     return flask.make_response( flask.jsonify( configs ))
+
+'''
+Mongo connection
+'''
+mongo_client = None
+mongo_db = None
+coll_configs = None
+if config.mongo_pass != '':
+  mongo_connection_string = f'mongodb://{config.mongo_user}:{config.mongo_pass}@{config.mongo_host}:{config.mongo_port}'
+elif config.mongo_user != '':
+  mongo_connection_string = f'mongodb://{config.mongo_user}@{config.mongo_host}:{config.mongo_port}'
+else:
+  mongo_connection_string = f'mongodb://{config.mongo_host}:{config.mongo_port}'
+
+try:
+  mongo_client = MongoClient(mongo_connection_string)
+  mongo_db = mongo_client[config.mongo_db]
+except:
+  log.error('Please check your configuration details for the MongoDB connection!')
+  log.error(f'base connection_string=mongodb://{config.mongo_host}:{config.mongo_port}/{config.mongo_db}')
+  log.error(f'connection_username="{config.mongo_user}"')
+  if config.mongo_pass != '':
+    log.error('connection_password is defined')
+  else:
+    log.error('connection_password is NOT defined')
+  exit(1)
 
 '''
 Main flask app

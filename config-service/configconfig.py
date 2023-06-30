@@ -1,8 +1,10 @@
+import os
+
+mongo_host=os.environ.get('MONGO_HOST', 'localhost')
+mongo_port=os.environ.get('MONGO_PORT', '27017')
+mongo_user=os.environ.get('MONGO_USER','')
+mongo_pass=os.environ.get('MONGO_PASS','')
+mongo_db=os.environ.get('MONGO_DBNAME','daqconfigdb')
 logfile='/tmp/config-archiver.log'
-mongo_host='MONGO_HOST'
-mongo_port='MONGO_PORT'
-mongo_user='MONGO_USER'
-mongo_pass='MONGO_PASS'
-mongo_db='daqconfigdb'
 service_host='localhost'
 service_port=5003
