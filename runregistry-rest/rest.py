@@ -19,7 +19,7 @@ from authentication import auth
 
 postgres = False
 
-if "-p" in sys.argv or os.environ["RGDB"] == "postgres":
+if "-p" in sys.argv or os.environ.get("RGDB", None):
     import backends.pg_queries as queries
     import backends.pg_backend as db
 

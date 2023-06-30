@@ -6,7 +6,7 @@ print("psycopg2 client version: ", str(psycopg2.__version__))
 # user, pass, dsn, min, max, increment
 
 db_conn = psycopg2.connect(
-    user=credentials.user,
+    user=credentials.username,
     password=credentials.password,
     host=credentials.dbhost,
     port=credentials.port,
