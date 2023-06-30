@@ -5,7 +5,7 @@ import credentials
 print("cx_Oracle client version: ", str(cx_Oracle.clientversion()))
 # user, pass, dsn, min, max, increment
 db_pool = cx_Oracle.SessionPool(
-    credentials.user, credentials.password, credentials.dburi, 2, 4, 1, threaded=True
+    credentials.username, credentials.password, credentials.dburi, 2, 4, 1, threaded=True
 )
 print("cx_Oracle SessionPool:", str(db_pool))
 
