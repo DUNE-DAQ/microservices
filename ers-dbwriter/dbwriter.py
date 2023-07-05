@@ -72,6 +72,12 @@ def main():
 
     cur = con.cursor()
 
+    try: # try to make sure tables exist
+        create_database(cur, con)
+    except:
+        # if this errors out it may be because the database is already there
+        pass
+
     # Infinite loop over the kafka messages
     for message in consumer:
         print(message)

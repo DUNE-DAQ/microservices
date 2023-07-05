@@ -6,6 +6,8 @@ environment variables. To run it manually do:
 and if the env variables are set, it should start printing the messages that it
 is receiving and writing to the database.
 
+Long term, it may be preferable to use `telegraf` as a kafka to postgresql bridge or KafkaConnect for postgresql to avoid longterm code maintance here.
+
 # Deploying on kubernetes
 First, we need to make the secrets. Create a yaml file `ers-secret.yaml` containing the secrets:
 ```
@@ -31,7 +33,8 @@ If all went well when we do `kubectl get secrets` we should see something like
 NAME         TYPE     DATA   AGE
 ers-secret   Opaque   5      37m
 ```
-Once the secrets are set, do `kubectl apply -f manifest.yaml` with the corresponding manifest in `pocket`: [`manifest.yaml`](https://github.com/DUNE-DAQ/pocket/blob/develop/manifests/ers/ers-dbwriter.yaml). 
+Once the secrets are set, do `kubectl apply -f ersdbwriter.yaml`.
+
 We can get the pod name by doing `kubectl -n monitoring get pods` and then it will show something like
 ```
 NAME                           READY   STATUS    RESTARTS   AGE
