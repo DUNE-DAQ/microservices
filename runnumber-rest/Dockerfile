@@ -10,8 +10,7 @@ RUN yum clean all \
 COPY authentication.py /
 COPY credentials.py /
 COPY rest.py /
-COPY backend.py /
-COPY queries.py /
+COPY ./backends/. /backends/
 COPY requirements.txt /
 
 RUN pip3 install --upgrade pip
