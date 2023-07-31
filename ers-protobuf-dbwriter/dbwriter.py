@@ -45,15 +45,16 @@ def process_issue( issue, session ) :
 
 def clean_database(cursor, connection):
     ## add table name variable
-    cursor.execute('''
-                DROP TABLE public."ErrorReports";
-                ''')
+    command = "''' DROP TABLE public."
+    command += table_name
+    command += "; '''"
+    cursor.execute(command)
     connection.commit()
 
 def create_database(cursor, connection):
     ## make table name a variable
-    cursor.execute('''
-                CREATE TABLE public."ErrorReports" (
+    command = "''' CREATE TABLE public." + table_name + " ("
+    command += "
                 session             TEXT,
                 issue_name          TEXT,
                 message             TEXT,
@@ -72,9 +73,9 @@ def create_database(cursor, connection):
                 process_id          INT,
                 thread_id           INT,
                 line_number         INT
-               );
-               '''
-                )
+               ); ''' "
+    cursor.execute(command)
+
     connection.commit()
 
 def main():
@@ -95,7 +96,7 @@ def main():
         print('Connection to the database failed, aborting...')
         exit()
 
-    global table_name = "ERSTest"  # os.environ['TABLE_NAME']
+    global table_name = '"' + "ERSTest" + '"' # os.environ['TABLE_NAME']
 
     # These are the fields in the ERS messages, see erskafka/src/KafkaStream.cpp
     fields = ["partition", "issue_name", "message", "severity", "usecs_since_epoch", "time",
