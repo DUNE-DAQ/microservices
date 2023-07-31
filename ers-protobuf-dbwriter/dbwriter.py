@@ -24,7 +24,7 @@ def process_chain( issue, cursor, connection ) :
                        session = issue.session,
                        cursor=cursor)
 
-        connection.commit()
+        ##connection.commit()
     except psycopg2.errors.UndefinedTable:
         connection.rollback()
         create_database(cursor, connection)
@@ -45,8 +45,8 @@ def process_issue( issue, session, cursor ) :
     command += " (" + ",".join(fields) + ')'
     command += " VALUES (" + repr(tuple(values)) + ')'
 
-    cursor.execute(command)
-
+    ##cursor.execute(command)
+    print(command)
 
 def add_entry(field, value, fields, values):
     fileds.append(field)
@@ -59,8 +59,10 @@ def clean_database(cursor, connection):
     command = "''' DROP TABLE public."
     command += table_name
     command += "; '''"
-    cursor.execute(command)
-    connection.commit()
+    ##cursor.execute(command)
+    ##connection.commit()
+    print(command)
+
 
 def create_database(cursor, connection):
     ## make table name a variable
@@ -86,9 +88,11 @@ def create_database(cursor, connection):
                 line_number         INT
                ); ''' "
 
-    cursor.execute(command)
+    ##cursor.execute(command)
 
-    connection.commit()
+    ##connection.commit()
+
+    print(command)
 
 def main():
 
@@ -109,12 +113,6 @@ def main():
         exit()
 
     global table_name = '"' + "ERSTest" + '"' # os.environ['TABLE_NAME']
-
-    # These are the fields in the ERS messages, see erskafka/src/KafkaStream.cpp
-    fields = ["partition", "issue_name", "message", "severity", "usecs_since_epoch", "time",
-              "qualifiers", "params", "cwd", "file_name", "function_name", "host_name",
-              "package_name", "user_name", "application_name", "user_id", "process_id",
-              "thread_id", "line_number", "chain"]
 
     cur = con.cursor()
 
