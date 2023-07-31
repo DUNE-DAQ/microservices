@@ -12,9 +12,8 @@ metadata:
   name: daqconfig
 ---
 # You must still deploy mongodb with its manifests from upstream
-# and create a secret called daqconfig-mongodb-svcbind-daqconfig with the required keys.
+# and create a secret called daqconfig-mongodb-svcbind-0 with the required keys.
 # The ServiceBinding secret from bitnami is such a secret.
-# https://github.com/bitnami/charts/issues/17411
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -41,27 +40,27 @@ spec:
           valueFrom:
             secretKeyRef:
               key: host
-              name: daqconfig-mongodb-svcbind-daqconfig
+              name: daqconfig-mongodb-svcbind-0
         - name: MONGO_PORT
           valueFrom:
             secretKeyRef:
               key: port
-              name: daqconfig-mongodb-svcbind-daqconfig
+              name: daqconfig-mongodb-svcbind-0
         - name: MONGO_USER
           valueFrom:
             secretKeyRef:
               key: username
-              name: daqconfig-mongodb-svcbind-daqconfig
+              name: daqconfig-mongodb-svcbind-0
         - name: MONGO_PASS
           valueFrom:
             secretKeyRef:
               key: password
-              name: daqconfig-mongodb-svcbind-daqconfig
+              name: daqconfig-mongodb-svcbind-0
         - name: MONGO_DBNAME
           valueFrom:
             secretKeyRef:
               key: database
-              name: daqconfig-mongodb-svcbind-daqconfig
+              name: daqconfig-mongodb-svcbind-0
         image: ghcr.io/dune-daq/daqconfig-service:v1.0.1
         name: daqconfig-service
         ports:
