@@ -13,24 +13,25 @@ import json
 import os
 
 
-def process_chain( issue ) :
-
+def process_chain( issue, cursor, connection ) :
     try :
         for cause in reversed(issue.causes) :
             process_issue(issue=cause, 
-                          session=issue.session)
+                          session=issue.session,
+                          cursor=cursor)
         
         process_issue( issue = issue.final, 
-                   session = issue.session)
+                       session = issue.session,
+                       cursor=cursor)
 
-        con.commit()
+        connection.commit()
     except psycopg2.errors.UndefinedTable:
-        con.rollback()
-        create_database(cur, con)
+        connection.rollback()
+        create_database(cursor, connection)
     except psycopg2.errors.UndefinedColumn:
-        con.rollback()
-        clean_database(cur, con)
-        create_database(cur, con)
+        connection.rollback()
+        clean_database(cursor, connection)
+        create_database(cursor, cononection)
         
 
 def process_issue( issue, session, cursor ) :
@@ -132,9 +133,11 @@ def main():
     subscriber_conf["group_id"]  = "ers_microservice"
 
     sub = erssub.ERSSubscriber(subscriber_conf)
-    
+
+    callback_function = partial( process_chain, cursor=cur, connection=con)
+
     sub.add_callback(name="postgres", 
-                     function=process_chain)
+                     function=callback_function)
     
     sub.start()
 
