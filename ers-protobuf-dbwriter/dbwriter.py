@@ -15,31 +15,41 @@ import os
 
 def process_chain( issue ) :
 
-    for cause in reversed(issue.causes) :
-        process_issue(issue=cause, 
-                      session=issue.session)
+    try :
+        for cause in reversed(issue.causes) :
+            process_issue(issue=cause, 
+                          session=issue.session)
         
-    process_issue( issue = issue.final, 
+        process_issue( issue = issue.final, 
                    session = issue.session)
-    
 
-def process_issue( issue, session ) :
+        con.commit()
+    except psycopg2.errors.UndefinedTable:
+        con.rollback()
+        create_database(cur, con)
+    except psycopg2.errors.UndefinedColumn:
+        con.rollback()
+        clean_database(cur, con)
+        create_database(cur, con)
+        
+
+def process_issue( issue, session, cursor ) :
     fields = []
     values = []
 
+    add_entry(field="session", value=session, files, values)
+    add_entry(field="issue_name", value=isse.name, files, values)
+
+    command = "INSERT INTO public." + table_name;
+    command += " (" + ",".join(fields) + ')'
+    command += " VALUES (" + repr(tuple(values)) + ')'
+
+    cursor.execute(command)
 
 
-##    try:
-##        cur.execute(f'INSERT INTO public."ErrorReports" ({",".join(fields)}) VALUES({("%s, " * len(ls))[:-2]})', ls)
-##        # Save the insert (or any change) to the database
-##        con.commit()
-##    except psycopg2.errors.UndefinedTable:
-##        con.rollback()
-##        create_database(cur, con)
-##    except psycopg2.errors.UndefinedColumn:
-##        con.rollback()
-##        clean_database(cur, con)
-##        create_database(cur, con)
+def add_entry(field, value, fields, values):
+    fileds.append(field)
+    values.append(value)
 
 
 
@@ -74,6 +84,7 @@ def create_database(cursor, connection):
                 thread_id           INT,
                 line_number         INT
                ); ''' "
+
     cursor.execute(command)
 
     connection.commit()
