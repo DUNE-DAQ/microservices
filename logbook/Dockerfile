@@ -1,5 +1,7 @@
 FROM cern/cc7-base AS builder
 
+EXPOSE 5005
+
 RUN yum clean all \
  && yum update -y
 
@@ -27,6 +29,7 @@ COPY cern-get-sso-cookie /usr/local/bin
 RUN pip install -r /requirements.txt \
  && pip install ./elisa_client_api \
  && mkdir -p ./logfiles
+ && pip cache remove *
 
-EXPOSE 5005
+USER 10000:0
 CMD ["python3.9", "logbook.py"]

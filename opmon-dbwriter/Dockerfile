@@ -3,9 +3,9 @@ FROM dunedaq/c8-minimal
 RUN yum -y install python3-pip python3-devel libpq-devel gcc \
  && yum clean all
 
-COPY requirements.txt /
-COPY kafka-to-influx.py /
+COPY requirements.txt kafka-to-influx.py /
 
-RUN pip3 install -r requirements.txt
+RUN python3 -m pip install --upgrade pip && python3 -m pip install -r /requirements.txt && pip cache remove *
 
+USER 10000:0
 ENTRYPOINT ["python3", "kafka-to-influx.py"]

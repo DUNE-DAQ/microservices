@@ -7,18 +7,12 @@ RUN yum clean all \
  && yum --enablerepo=cernonly -y install oracle-instantclient-tnsnames.ora \
  && yum clean all
 
-COPY authentication.py /
-COPY credentials.py /
-COPY rest.py /
-COPY backend.py /
-COPY queries.py /
-COPY requirements.txt /
+COPY authentication.py credentials.py rest.py backend.py queries.py requirements.txt /
 
-RUN pip3 install --upgrade pip
-RUN pip3 install -r /requirements.txt
+RUN python3 -m pip install --upgrade pip && python3 -m pip install -r /requirements.txt && pip cache remove *
 
+COPY --chmod=755 entrypoint.sh /
+
+USER 10000:0
 ENV LD_LIBRARY_PATH=/usr/lib/oracle/12.1/client64/lib/
-
-COPY entrypoint.sh /
-RUN ["chmod", "+x", "/entrypoint.sh"]
 ENTRYPOINT ["/entrypoint.sh"]
