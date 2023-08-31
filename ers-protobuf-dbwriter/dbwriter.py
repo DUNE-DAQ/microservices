@@ -42,8 +42,31 @@ def process_issue( issue, session ) :
     fields = []
     values = []
 
+    ## top level info
     add_entry("session", session, fields, values)
     add_entry("issue_name", issue.name, fields, values)
+    add_entry("severity", issue.severity, fields, values)
+    add_entry("time", issue.time, fields, values)
+
+    ## context related info
+    add_entry("cwd", issue.context.cwd, fields, values)
+    add_entry("file_name", issue.context.file_name, fields, values)
+    add_entry("function_name", issue.context.function_name, fields, values)
+    add_entry("host_name", issue.context.host_name, fields, values)
+    add_entry("line_number", issue.context.line_number, fields, values)
+    add_entry("package_name", issue.context.package_name, fields, values)
+
+    add_entry("process_id", issue.context.process_id, fields, values)
+    add_entry("thread_id", issue.context.thread_id, fields, values)
+    add_entry("user_id", issue.context.user_id, fields, values)
+    add_entry("user_name", issue.context.user_name, fields, values)
+    add_entry("application_name", issue.context.application_name, fields, values)
+
+    # heavy information
+    add_entry("inheritance", '/'.join(issue.inheritance), fields, values)
+    add_entry("message", issue.message, fields, values)
+    add_entry("params", str(issue.parameters), fields, values)
+    
 
     command = "INSERT INTO public." + table_name;
     command += " (" + ", ".join(fields) + ')'
@@ -80,10 +103,10 @@ def create_database():
     command += '''
                 session             TEXT, 
                 issue_name          TEXT,
+                inheritance         TEXT,
                 message             TEXT,
                 severity            TEXT,
                 time                BIGINT,
-                qualifiers          TEXT,
                 params              TEXT,
                 cwd                 TEXT,
                 file_name           TEXT,
