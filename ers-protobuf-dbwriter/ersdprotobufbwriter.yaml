@@ -9,7 +9,7 @@ metadata:
     pod-security.kubernetes.io/enforce-version: latest
     pod-security.kubernetes.io/warn: baseline
     pod-security.kubernetes.io/warn-version: latest
-  name: ers
+  name: ers-test
 ---
 # You must still deploy kafka and postgresql with their upstream manifests
 # and create a secret called ers-secret.
@@ -25,7 +25,7 @@ metadata:
     app.kubernetes.io/app: ers-protobuf-dbwriter
     app.kubernetes.io/component: ers-protobuf-dbwriter
   name: ersstream
-  namespace: ers
+  namespace: ers-test
 spec:
   replicas: 1
   selector:
