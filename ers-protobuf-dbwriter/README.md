@@ -1,4 +1,4 @@
-`dbwriter.py` is the script responsible for taking the ERS messages from the broker
+`dbwriter.py` is the script responsible for taking the ERS schema messages from the broker
 and writing to a postgreSQL database so that the messages can be displayed in a
 grafana dashboard. The secrets to connect to the database are obtained from
 environment variables. To run it manually do:
@@ -33,18 +33,18 @@ If all went well when we do `kubectl get secrets` we should see something like
 NAME         TYPE     DATA   AGE
 ers-secret   Opaque   5      37m
 ```
-Once the secrets are set, do `kubectl apply -f ersdbwriter.yaml`.
+Once the secrets are set, do `kubectl apply -f ersprotobufdbwriter.yaml`.
 
 We can get the pod name by doing `kubectl -n monitoring get pods` and then it will show something like
 ```
 NAME                           READY   STATUS    RESTARTS   AGE
-erskafka-7dfdf88864-4mwvd      1/1     Running   0          15m
+ersstream-7dfdf88864-4mwvd      1/1     Running   0          15m
 ```
 where the important part is that `STATUS` is `Running`
 
 If needed, the logs can be accessed by
 ```
-kubectl logs erskafka-7dfdf88864-4mwvd -n monitoring
+kubectl logs ersstream-7dfdf88864-4mwvd -n monitoring
 ```
 
 # Running locally
