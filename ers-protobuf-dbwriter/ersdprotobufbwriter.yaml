@@ -11,6 +11,37 @@ metadata:
     pod-security.kubernetes.io/warn-version: latest
   name: ers-test
 ---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: cvmfs-volume
+  namespace: ers-test
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 10Gi
+  accessModes: ["ReadOnlyMany"]
+  hostPath:
+    path: '/cvmfs' 
+---
+apiVersion: v1 
+kind: PersistentVolumeClaim
+metadata:
+  name: cvmfs-claim
+  namespace: ers-test
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadOnlyMany
+  volumeName: "cvmfs-volume"
+  resources:
+    requests:
+      storage: 9Gi
+---
 # You must still deploy kafka and postgresql with their upstream manifests
 # and create a secret called ers-secret.
 # It MUST have the following keys defined:
@@ -41,6 +72,9 @@ spec:
       containers:
       - image: ghcr.io/dune-daq/pocket-ersprotobufdbwriter:latest
         name: ersstream
+        env: 
+        - name: DAQ_RTE
+          value: 
         envFrom:
         - secretRef:
             name: ers-secret
@@ -59,5 +93,8 @@ spec:
           runAsUser: 11000
           seccompProfile:
             type: RuntimeDefault
+        volumeMounts:
+        - name: cvmfs
+          mountPath: /cvmfs
       securityContext:
         fsGroup: 11000
