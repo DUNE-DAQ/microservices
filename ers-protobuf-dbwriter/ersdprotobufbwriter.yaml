@@ -74,7 +74,7 @@ spec:
         name: ersstream
         env: 
         - name: DAQ_RTE
-          value: 
+          value: '/cvmfs/dunedaq-development.opensciencegrid.org/nightly/NFD23-08-31/daq_app_rte.sh'
         envFrom:
         - secretRef:
             name: ers-secret
@@ -98,3 +98,7 @@ spec:
           mountPath: /cvmfs
       securityContext:
         fsGroup: 11000
+      volumes: 
+        - name: cvmfs
+          persistentVolumeClaim:
+            claimName: cvmfs-claim
