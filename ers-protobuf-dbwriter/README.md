@@ -1,4 +1,4 @@
-`dbwriter.py` is the script responsible for taking the ERS messages from kafka
+`dbwriter.py` is the script responsible for taking the ERS messages from the broker
 and writing to a postgreSQL database so that the messages can be displayed in a
 grafana dashboard. The secrets to connect to the database are obtained from
 environment variables. To run it manually do:

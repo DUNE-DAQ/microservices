@@ -6,26 +6,23 @@
 
 import erskafka.ERSSubscriber as erssub
 import ers.issue_pb2 as ersissue
-import google.protobuf.json_format as pb_json
 from functools import partial
 import psycopg2
 import json
 import os
 
 
-cursor = None
-connection = None
-
-def process_chain( chain ) :
+def process_chain( chain, cursor, connection ) :
     try :
         for cause in reversed(chain.causes) :
             process_issue(issue=cause, 
-                          session=chain.session)
+                          session=chain.session,
+                          cursor=cursor)
         
         process_issue( issue = chain.final, 
-                       session = chain.session)
+                       session = chain.session,
+                       cursor=cursor)
 
-        global connection
         ##connection.commit()
     except psycopg2.errors.UndefinedTable:
         connection.rollback()
@@ -38,7 +35,7 @@ def process_chain( chain ) :
         print(e)
         
 
-def process_issue( issue, session ) :
+def process_issue( issue, session, cursor ) :
     fields = []
     values = []
 
@@ -72,7 +69,6 @@ def process_issue( issue, session ) :
     command += " (" + ", ".join(fields) + ')'
     command += " VALUES " + repr(tuple(values)) + ';'
 
-    global cursor
     ##cursor.execute(command)
     
     print(command)
@@ -82,22 +78,20 @@ def add_entry(field, value, fields, values):
     values.append(value)
 
 
-def clean_database():
+def clean_database(cursor, connection):
     ## add table name variable
     command = "DROP TABLE public."
     command += table_name
     command += ";"
 
-    global cursor
     ##cursor.execute(command)
-
-    global connection
+    print(command)
+    
     ##connection.commit()
     
-    print(command)
 
 
-def create_database():
+def create_database( cursor, connection ):
     ## make table name a variable
     command = "CREATE TABLE public." + table_name + " ("
     command += '''
@@ -121,13 +115,10 @@ def create_database():
                 line_number         INT
                ); ''' 
 
-    global cursor
     ##cursor.execute(command)
-
-    global connection
-    ##connection.commit()
-
     print(command)
+
+    ##connection.commit()
 
 def main():
 
@@ -153,14 +144,14 @@ def main():
 #    cur = con.cursor()
 
     try: # try to make sure tables exist
-        create_database()
+        create_database(cursor=None, connection=None)
     except:
         # if this errors out it may be because the database is already there
         pass
     else :
         print( "Database creation: Success" )
     finally:
-        print( "Databased created" )
+        print( "Database is ready" )
 
     kafka_bootstrap = "monkafka.cern.ch:30092" # os.environ['KAFKA_BOOTSTRAP']
     kafka_timeout_ms   = 500                   # os.environ['KAFKA_TIMEOUT_MS'] 
@@ -172,8 +163,10 @@ def main():
 
     sub = erssub.ERSSubscriber(subscriber_conf)
 
+    callback_function = partial( process_chain, cursor=None, connection=None)
+    
     sub.add_callback(name="postgres", 
-                     function=process_chain)
+                     function=callback_function)
     
     sub.start()
 
