@@ -7,68 +7,78 @@
 import erskafka.ERSSubscriber as erssub
 import ers.issue_pb2 as ersissue
 import google.protobuf.json_format as pb_json
-#from functools import partial
+from functools import partial
 import psycopg2
 import json
 import os
 
 
-def process_chain( issue, cursor, connection ) :
-    try :
-        for cause in reversed(issue.causes) :
-            process_issue(issue=cause, 
-                          session=issue.session,
-                          cursor=cursor)
-        
-        process_issue( issue = issue.final, 
-                       session = issue.session,
-                       cursor=cursor)
+cursor = None
+connection = None
 
+def process_chain( chain ) :
+    try :
+        for cause in reversed(chain.causes) :
+            process_issue(issue=cause, 
+                          session=chain.session)
+        
+        process_issue( issue = chain.final, 
+                       session = chain.session)
+
+        global connection
         ##connection.commit()
     except psycopg2.errors.UndefinedTable:
         connection.rollback()
-        create_database(cursor, connection)
+        create_database()
     except psycopg2.errors.UndefinedColumn:
         connection.rollback()
-        clean_database(cursor, connection)
-        create_database(cursor, cononection)
+        clean_database()
+        create_database()
+    except Exception as e:
+        print(e)
         
 
-def process_issue( issue, session, cursor ) :
+def process_issue( issue, session ) :
     fields = []
     values = []
 
-    add_entry(field="session", value=session, files, values)
-    add_entry(field="issue_name", value=isse.name, files, values)
+    add_entry("session", session, fields, values)
+    add_entry("issue_name", issue.name, fields, values)
 
     command = "INSERT INTO public." + table_name;
-    command += " (" + ",".join(fields) + ')'
-    command += " VALUES (" + repr(tuple(values)) + ')'
+    command += " (" + ", ".join(fields) + ')'
+    command += " VALUES " + repr(tuple(values)) + ';'
 
+    global cursor
     ##cursor.execute(command)
+    
     print(command)
 
 def add_entry(field, value, fields, values):
-    fileds.append(field)
+    fields.append(field)
     values.append(value)
 
 
-
-def clean_database(cursor, connection):
+def clean_database():
     ## add table name variable
-    command = "''' DROP TABLE public."
+    command = "DROP TABLE public."
     command += table_name
-    command += "; '''"
+    command += ";"
+
+    global cursor
     ##cursor.execute(command)
+
+    global connection
     ##connection.commit()
+    
     print(command)
 
 
-def create_database(cursor, connection):
+def create_database():
     ## make table name a variable
-    command = "''' CREATE TABLE public." + table_name + " ("
-    command += "
-                session             TEXT,
+    command = "CREATE TABLE public." + table_name + " ("
+    command += '''
+                session             TEXT, 
                 issue_name          TEXT,
                 message             TEXT,
                 severity            TEXT,
@@ -86,41 +96,48 @@ def create_database(cursor, connection):
                 process_id          INT,
                 thread_id           INT,
                 line_number         INT
-               ); ''' "
+               ); ''' 
 
+    global cursor
     ##cursor.execute(command)
 
+    global connection
     ##connection.commit()
 
     print(command)
 
 def main():
 
-    host = os.environ['ERS_DBWRITER_HOST']
-    port = os.environ['ERS_DBWRITER_PORT']
-    user = os.environ['ERS_DBWRITER_USER']
-    password = os.environ['ERS_DBWRITER_PASS']
-    dbname = os.environ['ERS_DBWRITER_NAME']
+#    host = os.environ['ERS_DBWRITER_HOST']
+#    port = os.environ['ERS_DBWRITER_PORT']
+#    user = os.environ['ERS_DBWRITER_USER']
+#    password = os.environ['ERS_DBWRITER_PASS']
+#    dbname = os.environ['ERS_DBWRITER_NAME']
 
-    try:
-        con = psycopg2.connect(host=host,
-                               port=port,
-                               user=user,
-                               password=password,
-                               dbname=dbname)
-    except:
-        print('Connection to the database failed, aborting...')
-        exit()
+#    try:
+#        con = psycopg2.connect(host=host,
+#                               port=port,
+#                               user=user,
+#                               password=password,
+#                               dbname=dbname)
+#    except:
+#        print('Connection to the database failed, aborting...')
+#        exit()
 
-    global table_name = '"' + "ERSTest" + '"' # os.environ['TABLE_NAME']
+    global table_name
+    table_name = '"' + "ERSTest" + '"' # os.environ['TABLE_NAME']
 
-    cur = con.cursor()
+#    cur = con.cursor()
 
     try: # try to make sure tables exist
-        create_database(cur, con)
+        create_database()
     except:
         # if this errors out it may be because the database is already there
         pass
+    else :
+        print( "Database creation: Success" )
+    finally:
+        print( "Databased created" )
 
     kafka_bootstrap = "monkafka.cern.ch:30092" # os.environ['KAFKA_BOOTSTRAP']
     kafka_timeout_ms   = 500                   # os.environ['KAFKA_TIMEOUT_MS'] 
@@ -132,10 +149,8 @@ def main():
 
     sub = erssub.ERSSubscriber(subscriber_conf)
 
-    callback_function = partial( process_chain, cursor=cur, connection=con)
-
     sub.add_callback(name="postgres", 
-                     function=callback_function)
+                     function=process_chain)
     
     sub.start()
 
