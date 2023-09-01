@@ -22,7 +22,8 @@ spec:
   storageClassName: manual
   capacity:
     storage: 10Gi
-  accessModes: ["ReadOnlyMany"]
+  accessModes:
+    - ReadOnlyMany
   hostPath:
     path: '/cvmfs' 
 ---
@@ -37,7 +38,7 @@ spec:
   storageClassName: manual
   accessModes:
     - ReadOnlyMany
-  volumeName: "cvmfs-volume"
+  volumeName: 'cvmfs-volume'
   resources:
     requests:
       storage: 9Gi
