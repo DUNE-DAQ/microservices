@@ -1,5 +1,9 @@
 #!/bin/bash
 
+mkdir --mode=1777 /uploads
+
+export LD_LIBRARY_PATH=/usr/lib/oracle/12.1/client64/lib/:$LD_LIBRARY_PATH
+
 echo "You should probably define env vars for:"
 echo "  DB_HOSTNAME, DB_PORT, DB_NAME, DB_USERNAME, DB_PASSWORD"
 
