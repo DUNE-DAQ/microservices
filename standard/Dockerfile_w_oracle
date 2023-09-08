@@ -1,0 +1,29 @@
+FROM cern/cc7-base
+
+RUN yum clean all \
+  && yum -y install gcc make openssl-devel bzip2-devel libpq-devel libffi-devel \
+  && yum clean all
+
+
+RUN curl https://www.python.org/ftp/python/3.9.16/Python-3.9.16.tgz > Python-3.9.16.tgz
+RUN tar -zxvf Python-3.9.16.tgz 
+
+WORKDIR /Python-3.9.16
+RUN ./configure --enable-optimizations \
+ && make altinstall \
+ && /usr/local/bin/python3.9 -m pip install --upgrade pip
+WORKDIR /
+
+COPY requirements.txt /
+RUN pip install -r requirements.txt
+
+RUN yum -y install git
+RUN git clone https://github.com/DUNE-DAQ/elisa_client_api.git && pip install ./elisa_client_api
+
+RUN cd /usr/local/bin/ && ln -s python3.9 python3
+
+RUN yum clean all \
+ && yum --enablerepo=cernonly -y install oracle-instantclient12.1-devel \
+ && yum --enablerepo=cernonly -y install oracle-instantclient-tnsnames.ora \
+ && yum clean all
+ 
