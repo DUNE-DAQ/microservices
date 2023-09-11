@@ -1,5 +1,6 @@
 FROM cern/cc7-base
 
+# JCF, Sep-11-2023:
 # Running "yum list available" and "yum whatprovides" when building the image means you don't need to
 # sit through the initialization if you want to use yum inside the container
 # The arguments to these yum commands are arbitrarily chosen
@@ -14,18 +15,13 @@ RUN yum install gcc make openssl11 openssl11-devel bzip2-devel libpq-devel libff
 RUN yum --enablerepo=cernonly -y install oracle-instantclient12.1-devel \
  && yum --enablerepo=cernonly -y install oracle-instantclient-tnsnames.ora
 
+# JCF, Sep-11-2023:
 # Since after the openssl11 installation, above, there are two openssl's in the image, I need to isolate
 # openssl 1.1.1 for the Python build via creating softlinks in a new directory 
 
 RUN mkdir /ssldir && ln -s /usr/include/openssl11 /ssldir/include && \
  ln -s /usr/lib64/openssl11 /ssldir/lib && cd /ssldir/lib && rm -f libcrypto.so libssl.so && \
  ln -s /lib64/libcrypto.so.1.1.1k libcrypto.so && ln -s /lib64/libssl.so.1.1.1k libssl.so
-
-#RUN curl https://www.python.org/ftp/python/3.9.6/Python-3.9.6.tgz > Python-3.9.6.tgz
-#RUN tar -zxvf Python-3.9.6.tgz 
-
-#RUN curl https://www.python.org/ftp/python/3.9.10/Python-3.9.10.tgz > Python-3.9.10.tgz
-#RUN tar -zxvf Python-3.9.10.tgz 
 
 RUN curl https://www.python.org/ftp/python/3.9.16/Python-3.9.16.tgz > Python-3.9.16.tgz
 RUN tar -zxvf Python-3.9.16.tgz 
@@ -36,4 +32,12 @@ RUN ./configure --with-openssl=/ssldir --enable-optimizations \
  && /usr/local/bin/python3.9 -m pip install --upgrade pip
 WORKDIR /
 
-RU
+RUN cd /usr/local/bin/ && ln -s python3.9 python3
+
+COPY requirements.txt /
+RUN pip install -r requirements.txt
+
+RUN yum -y install git && pip install git+https://github.com/DUNE-DAQ/elisa_client_api.git
+
+
+ 
