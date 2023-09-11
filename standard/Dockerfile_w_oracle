@@ -5,9 +5,7 @@ FROM cern/cc7-base
 # sit through the initialization if you want to use yum inside the container
 # The arguments to these yum commands are arbitrarily chosen
 
-RUN yum list available 'zlib*' && yum whatprovides /lib64/libssl.so.10
-
-RUN yum clean all && yum update -y
+RUN yum clean all
 
 RUN yum install gcc make openssl11 openssl11-devel bzip2-devel libpq-devel libffi-devel zlib-static -y \
   && yum clean all
