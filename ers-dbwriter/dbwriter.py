@@ -46,7 +46,7 @@ def create_database(cursor, connection):
 def main():
     consumer = KafkaConsumer('erskafka-reporting',
                             bootstrap_servers='monkafka.cern.ch:30092',
-                            group_id='group1')
+                            group_id='ers-dbwriter')
 
     host = os.environ['ERS_DBWRITER_HOST']
     port = os.environ['ERS_DBWRITER_PORT']
