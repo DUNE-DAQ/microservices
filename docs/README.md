@@ -2,7 +2,7 @@
 
 To run one of the provided microservices in this repo, the basic command is the following:
 ```
-docker run --rm -e MICROSERVICE=<name of microservice> microservices:cc4f
+docker run --rm -e MICROSERVICE=<name of microservice> ghcr.io/dune-daq/microservices:cc4f
 ```
 
 There are a couple of points to note:
@@ -11,4 +11,4 @@ There are a couple of points to note:
 * If you don't know what these additional environment variables are, you can just run the `docker` command as above without setting them; the container will exit out almost immediately but only after telling you what variables are missing
 * The `cc4f` tag for the image in the example above just refers to the first four characters of the git commit of the microservices repo whose `dockerfiles/Dockerfile.microservices` Docker file was used to create the image
 
-For details on a given microservice, look at its own README file (format is `README_<microservice name>.md`)
+For details on a given microservice, look at its own README file (format is `docs/README_<microservice name>.md`). They may or may not be up to date, however.
