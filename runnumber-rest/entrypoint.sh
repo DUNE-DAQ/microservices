@@ -1,5 +1,11 @@
 #!/bin/bash
 
+
+cd $(dirname $0)
+source ../entrypoint_functions.sh
+
+ensure_required_variables "RNURI RNUSER RNPASS"
+
 export LD_LIBRARY_PATH=/usr/lib/oracle/12.1/client64/lib/:$LD_LIBRARY_PATH
 
 sed -i "s/dburi\='Secret from Kubernetes\!'/dburi\='${RNURI}'/g" credentials.py
