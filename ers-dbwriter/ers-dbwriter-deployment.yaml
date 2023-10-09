@@ -14,7 +14,7 @@ metadata:
 # You must still deploy kafka and postgresql with their upstream manifests
 # and create a secret called ers-secret.
 # It MUST have the following keys defined:
-# ERS_DBWRITER_KAFKA_HOST, ERS_DBWRITER_KAFKA_PORT,
+# ERS_DBWRITER_KAFKA_BOOTSTRAP_SERVER
 # ERS_DBWRITER_HOST, ERS_DBWRITER_PORT
 # ERS_DBWRITER_NAME
 # ERS_DBWRITER_USER, ERS_DBWRITER_PASS
@@ -44,9 +44,33 @@ spec:
         env:
         - name: MICROSERVICE
           value: ers-dbwriter
-        envFrom:
-        - secretRef:
-            name: ers-secret
+        - name: ERS_DBWRITER_KAFKA_BOOTSTRAP_SERVER
+          value: dune-daq.kafka.svc.cluster.local:9092
+        - name: ERS_DBWRITER_HOST
+          valueFrom:
+            secretKeyRef:
+              key: host
+              name: ers-postgresql-svcbind-custom-user
+        - name: ERS_DBWRITER_PORT
+          valueFrom:
+            secretKeyRef:
+              key: port
+              name: ers-postgresql-svcbind-custom-user
+        - name: ERS_DBWRITER_USER
+          valueFrom:
+            secretKeyRef:
+              key: username
+              name: ers-postgresql-svcbind-custom-user
+        - name: ERS_DBWRITER_PASS
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: ers-postgresql-svcbind-custom-user
+        - name: ERS_DBWRITER_NAME
+          valueFrom:
+            secretKeyRef:
+              key: database
+              name: ers-postgresql-svcbind-custom-user
         resources:
           limits:
             memory: 1Gi
