@@ -2,10 +2,10 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  labels: # https://github.com/bitnami/charts/pull/17388
+  labels:
     pod-security.kubernetes.io/audit: baseline
     pod-security.kubernetes.io/audit-version: latest
-    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/enforce: baseline # unified image runs as root :(
     pod-security.kubernetes.io/enforce-version: latest
     pod-security.kubernetes.io/warn: baseline
     pod-security.kubernetes.io/warn-version: latest
@@ -39,8 +39,11 @@ spec:
         app.kubernetes.io/component: ers-dbwriter
     spec:
       containers:
-      - image: ghcr.io/dune-daq/pocket-ersdbwriter:latest
+      - image: ghcr.io/dune-daq/microservices:latest
         name: erskafka
+        env:
+        - name: MICROSERVICE
+          value: ers-dbwriter
         envFrom:
         - secretRef:
             name: ers-secret
@@ -55,8 +58,6 @@ spec:
             drop:
             - ALL
           runAsGroup: 11000
-          runAsNonRoot: true
-          runAsUser: 11000
           seccompProfile:
             type: RuntimeDefault
       securityContext:

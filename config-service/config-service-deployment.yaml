@@ -3,11 +3,11 @@ apiVersion: v1
 kind: Namespace
 metadata:
   labels:
-    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit: baseline
     pod-security.kubernetes.io/audit-version: latest
-    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce: baseline # unified image runs as root :(
     pod-security.kubernetes.io/enforce-version: latest
-    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn: baseline
     pod-security.kubernetes.io/warn-version: latest
   name: daqconfig
 ---
@@ -35,7 +35,11 @@ spec:
         app.kubernetes.io/component: config-utility
     spec:
       containers:
-      - env:
+      - image: ghcr.io/dune-daq/microservices:latest
+        name: daqconfig-service
+        env:
+        - name: MICROSERVICE
+          value: config-service
         - name: MONGO_HOST
           valueFrom:
             secretKeyRef:
@@ -61,8 +65,6 @@ spec:
             secretKeyRef:
               key: database
               name: daqconfig-mongodb-svcbind-0
-        image: ghcr.io/dune-daq/daqconfig-service:v1.0.1
-        name: daqconfig-service
         ports:
         - containerPort: 5003
           name: http
@@ -77,8 +79,6 @@ spec:
             drop:
             - ALL
           runAsGroup: 11000
-          runAsNonRoot: true
-          runAsUser: 11000
           seccompProfile:
             type: RuntimeDefault
       securityContext:
