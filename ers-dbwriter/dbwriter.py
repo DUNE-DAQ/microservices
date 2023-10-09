@@ -44,15 +44,16 @@ def create_database(cursor, connection):
     connection.commit()
 
 def main():
-    consumer = KafkaConsumer('erskafka-reporting',
-                            bootstrap_servers='monkafka.cern.ch:30092',
-                            group_id='ers-dbwriter')
-
     host = os.environ['ERS_DBWRITER_HOST']
     port = os.environ['ERS_DBWRITER_PORT']
     user = os.environ['ERS_DBWRITER_USER']
     password = os.environ['ERS_DBWRITER_PASS']
     dbname = os.environ['ERS_DBWRITER_NAME']
+    kafka_bootstrap = os.environ.get('ERS_DBWRITER_KAFKA_BOOTSTRAP_SERVER', 'monkafka.cern.ch:30092')
+
+    consumer = KafkaConsumer('erskafka-reporting',
+                            bootstrap_servers=kafka_bootstrap,
+                            group_id='ers-dbwriter')
 
     try:
         con = psycopg2.connect(host=host,
