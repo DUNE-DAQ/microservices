@@ -8,9 +8,9 @@ if os.environ.get("RGDB", None) == "postgres":
     username = os.environ.get("DB_USERNAME", "")
     password = os.environ.get("DB_PASSWORD", "")
 else:  # is oracle?
-    dburi = "FIX ME to be a Secret from Kubernetes with good defaults!"
+    dburi = os.environ.get("DB_URI", None)
     port = os.environ.get("DB_PORT", 1521)
-    database = "set default database name here"
+    database = os.environ.get("DB_NAME", "runregistry")
 
     username = os.environ.get("DB_USERNAME", "")
     password = os.environ.get("DB_PASSWORD", "")
