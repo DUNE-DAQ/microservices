@@ -24,23 +24,23 @@ metadata:
   labels:
     app.kubernetes.io/app: ers-dbwriter
     app.kubernetes.io/component: ers-dbwriter
-  name: erskafka
+  name: ers-kafka-dbwriter
   namespace: ers
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: erskafka
+      app: erskafka-dbwriter
   template:
     metadata:
       labels:
-        app: erskafka
+        app: erskafka-dbwriter
         app.kubernetes.io/app: ers-dbwriter
         app.kubernetes.io/component: ers-dbwriter
     spec:
       containers:
       - image: ghcr.io/dune-daq/microservices:latest
-        name: erskafka
+        name: erskafka-dbwriter
         env:
         - name: MICROSERVICE
           value: ers-dbwriter
