@@ -1,5 +1,5 @@
 FROM ghcr.io/dune-daq/microservices_dependencies:latest
 
-RUN git clone https://github.com/DUNE-DAQ/microservices -b johnfreeman/daq-deliverables_issue105_standard_image
+RUN git clone https://github.com/DUNE-DAQ/microservices -b develop
 
 ENTRYPOINT ["/microservices/entrypoint.sh"]
