@@ -1,0 +1,43 @@
+FROM cern/alma9-base
+
+ARG ERSVERSION=dunedaq-v4.1.1  # For issue.proto from ers
+ARG ERSKAFKAVERSION=dunedaq-v4.1.1  # For ERSSubscriber.py from erskafka
+ARG LOCALPYDIR=/microservices_python
+
+# libaio and libnsl are needed when rpm is called on the Oracle client software 
+
+RUN yum clean all \
+  && yum -y install gcc make git unzip libaio libnsl libpq-devel libffi-devel python3-pip python3-wheel \
+  && yum clean all
+
+RUN curl -O https://download.oracle.com/otn_software/linux/instantclient/1919000/oracle-instantclient19.19-basic-19.19.0.0.0-1.el9.x86_64.rpm \
+  && rpm -iv oracle-instantclient19.19-basic-19.19.0.0.0-1.el9.x86_64.rpm
+
+COPY requirements.txt /
+RUN python3 -m pip install --upgrade setuptools && \
+  python3 -m pip install -r requirements.txt && \
+  python3 -m pip cache remove \*
+
+# elisa_client_api needed by the logbook microservice
+RUN git clone https://github.com/DUNE-DAQ/elisa_client_api.git && python3 -m pip install --upgrade setuptools && python3 -m pip install ./elisa_client_api 
+
+
+
+# protoc-24.3-linux-x86_64.zip is the latest zipfile available as of Sep-15-2023
+# See also https://grpc.io/docs/protoc-installation/#install-pre-compiled-binaries-any-os
+
+RUN curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v24.3/protoc-24.3-linux-x86_64.zip && \
+  unzip protoc-24.3-linux-x86_64.zip && \
+  curl -O https://raw.githubusercontent.com/DUNE-DAQ/ers/$ERSVERSION/schema/ers/issue.proto && \
+  mkdir -p $LOCALPYDIR/ers && \
+  protoc --python_out=$LOCALPYDIR/ers issue.proto
+
+RUN mkdir -p $LOCALPYDIR/erskafka && \
+    curl https://raw.githubusercontent.com/DUNE-DAQ/erskafka/$ERSKAFKAVERSION/python/erskafka/ERSSubscriber.py -o $LOCALPYDIR/erskafka/ERSSubscriber.py
+
+ENV PYTHONPATH=$LOCALPYDIR:$PYTHONPATH
+
+# This ensures the container will run as non-root by default. Hat tip Pat Riehecky.
+# [Commented out so various entrypoint.sh scripts as of Sep-12-2023 continue to work, to be addressed later]
+# USER 60000:0
+
