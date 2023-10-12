@@ -235,3 +235,45 @@ if __name__ == "__main__":
 # As a testserver.
 # app.run(host= '0.0.0.0', port=5000, debug=True)
 # Normally spawned by gunicorn
+
+
+from sqlalchemy import create_engine, ForeignKey, Column, TIMESTAMP, Boolean, String, Integer, CHAR
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy_utils import database_exists, create_database
+
+
+engine = create_engine('postgresql://{DUNE_runservices.postgresql_database_username}:{DUNE_runservices.postgresql_database_password}}@{DUNE_runservices.namespace}.{postgresql_release_name}}/{DUNE_runservices.postgresql_database_name}:5432')
+if not database_exists(engine.url):
+    print('Error: No database exists')
+    break
+
+Session = sessionmaker(bind=engine)
+session = Session()
+
+if not engine.dialect.has_table(engine, RunRegistryConfig(Base)):
+    metadata = MetaData(engine)
+    class RunRegistryConfig(Base):
+        #__tablename__ = "run_schema.run_registry_configs"
+        run_number = Column("run_number", Integer, ForeignKey("run_registry_meta.run_number"), primary_key=True)
+        configuration = Column("configuration", LargeBinary, nullable=False)
+        return
+
+
+if not engine.dialect.has_table(engine, RunRegistryMeta(Base)):
+    metadata = MetaData(engine)
+    class RunRegistryMeta(Base):
+        #__tablename__ = "run_schema.run_registry_meta"
+        run_number = Column("run_number", Integer, primary_key=True)
+        start_time = Column("start_time", TIMESTAMP(6, timezone=False), nullable=False, server_default=func.now())
+        stop_time = Column("stop_time", TIMESTAMP(6, timezone=False))
+        detector_id = Column("detector_id", String(40), nullable=False)
+        run_type = Column("run_type", String(40), nullable=False)
+        filename = Column("filename", String(100), nullable=False)
+        software_version = Column("software_version", String(40))
+        return
+
+
+
+Base.metadata.create_all(engine)
+session.close()
