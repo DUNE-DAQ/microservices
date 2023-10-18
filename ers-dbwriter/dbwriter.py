@@ -77,7 +77,7 @@ def main():
         create_database(cur, con)
     except:
         # if this errors out it may be because the database is already there
-        pass
+        con.rollback()
 
     # Infinite loop over the kafka messages
     for message in consumer:
