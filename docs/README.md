@@ -2,7 +2,7 @@
 
 To run one of the provided microservices in this repo, the basic command is the following:
 ```
-docker run --rm -e MICROSERVICE=<name of microservice> ghcr.io/dune-daq/microservices:77df
+docker run --rm -e MICROSERVICE=<name of microservice> ghcr.io/dune-daq/microservices:9e36
 ```
 
 There are a couple of points to note:
