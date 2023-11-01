@@ -1,0 +1,94 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    pod-security.kubernetes.io/audit: baseline
+    pod-security.kubernetes.io/audit-version: latest
+    pod-security.kubernetes.io/enforce: baseline # unified image runs as root :(
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: baseline
+    pod-security.kubernetes.io/warn-version: latest
+  name: ers
+---
+# You must still deploy kafka and postgresql with their upstream manifests
+# and create a secret called ers-secret.
+# It MUST have the following keys defined:
+# ERS_DBWRITER_KAFKA_BOOTSTRAP_SERVER
+# ERS_DBWRITER_HOST, ERS_DBWRITER_PORT
+# ERS_DBWRITER_NAME
+# ERS_DBWRITER_USER, ERS_DBWRITER_PASS
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/app: ers-protobuf-dbwriter
+    app.kubernetes.io/component: ers-protobuf-dbwriter
+  name: ersstream-dbwriter
+  namespace: ers
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ersprotobuf-dbwriter
+  template:
+    metadata:
+      labels:
+        app: ersprotobuf-dbwriter
+        app.kubernetes.io/app: ers-protobuf-dbwriter
+        app.kubernetes.io/component: ers-protobuf-dbwriter
+    spec:
+      containers:
+      - image: ghcr.io/dune-daq/microservices:9e36
+        name: ersprotobuf-dbwriter
+        env:
+        - name: MICROSERVICE
+          value: ers-protobuf-dbwriter
+        - name: ERS_DBWRITER_KAFKA_BOOTSTRAP_SERVER
+          value: dune-daq.kafka.svc.cluster.local:9092
+        - name: ERS_TABLE_NAME
+          value: ERSstream
+        - name: ERS_DBWRITER_KAFKA_TIMEOUT_MS
+          value: 500
+        - name: ERS_DBWRITER_KAFKA_GROUP
+          value: ers-protobuf-dbwriter
+        - name: ERS_DBWRITER_HOST
+          valueFrom:
+            secretKeyRef:
+              key: host
+              name: ers-postgresql-svcbind-custom-user
+        - name: ERS_DBWRITER_PORT
+          valueFrom:
+            secretKeyRef:
+              key: port
+              name: ers-postgresql-svcbind-custom-user
+        - name: ERS_DBWRITER_USER
+          valueFrom:
+            secretKeyRef:
+              key: username
+              name: ers-postgresql-svcbind-custom-user
+        - name: ERS_DBWRITER_PASS
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: ers-postgresql-svcbind-custom-user
+        - name: ERS_DBWRITER_NAME
+          valueFrom:
+            secretKeyRef:
+              key: database
+              name: ers-postgresql-svcbind-custom-user
+        resources:
+          limits:
+            memory: 1Gi
+          requests:
+            memory: 8Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsGroup: 11000
+          seccompProfile:
+            type: RuntimeDefault
+      securityContext:
+        fsGroup: 11000
