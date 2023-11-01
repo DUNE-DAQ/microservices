@@ -19,18 +19,21 @@ def process_chain( chain, cursor, connection ) :
                           session=chain.session,
                           cursor=cursor)
         
-        process_issue( issue = chain.final, 
-                       session = chain.session,
-                       cursor=cursor)
+        process_issue(issue=chain.final, 
+                      session=chain.session,
+                      cursor=cursor)
 
-        ##connection.commit()
+        connection.commit()
     except psycopg2.errors.UndefinedTable:
         connection.rollback()
-        create_database()
+        create_database(cursor=cursor,
+                        connection=connection)
     except psycopg2.errors.UndefinedColumn:
         connection.rollback()
-        clean_database()
-        create_database()
+        clean_database(cursor=cursor, 
+                       connection=connection)
+        create_database(cursor=cursor,
+                        connection=connection)
     except Exception as e:
         print(e)
         
@@ -69,30 +72,24 @@ def process_issue( issue, session, cursor ) :
     command += " (" + ", ".join(fields) + ')'
     command += " VALUES " + repr(tuple(values)) + ';'
 
-    ##cursor.execute(command)
+    cursor.execute(command)
     
-    print(command)
-
+    
 def add_entry(field, value, fields, values):
     fields.append(field)
     values.append(value)
 
 
 def clean_database(cursor, connection):
-    ## add table name variable
     command = "DROP TABLE public."
     command += table_name
     command += ";"
 
-    ##cursor.execute(command)
-    print(command)
-    
-    ##connection.commit()
+    cursor.execute(command)
+    connection.commit()
     
 
-
-def create_database( cursor, connection ):
-    ## make table name a variable
+def create_database(cursor, connection):
     command = "CREATE TABLE public." + table_name + " ("
     command += '''
                 session             TEXT, 
@@ -115,55 +112,55 @@ def create_database( cursor, connection ):
                 line_number         INT
                ); ''' 
 
-    ##cursor.execute(command)
-    print(command)
-
-    ##connection.commit()
+    cursor.execute(command)
+    connection.commit()
 
 def main():
 
-#    host = os.environ['ERS_DBWRITER_HOST']
-#    port = os.environ['ERS_DBWRITER_PORT']
-#    user = os.environ['ERS_DBWRITER_USER']
-#    password = os.environ['ERS_DBWRITER_PASS']
-#    dbname = os.environ['ERS_DBWRITER_NAME']
+    host = os.environ['ERS_DBWRITER_HOST']
+    port = os.environ['ERS_DBWRITER_PORT']
+    user = os.environ['ERS_DBWRITER_USER']
+    password = os.environ['ERS_DBWRITER_PASS']
+    dbname = os.environ['ERS_DBWRITER_NAME']
 
-#    try:
-#        con = psycopg2.connect(host=host,
-#                               port=port,
-#                               user=user,
-#                               password=password,
-#                               dbname=dbname)
-#    except:
-#        print('Connection to the database failed, aborting...')
-#        exit()
+    try:
+        con = psycopg2.connect(host=host,
+                              port=port,
+                              user=user,
+                              password=password,
+                              dbname=dbname)
+    except:
+        print('Connection to the database failed, aborting...')
+        exit()
 
     global table_name
-    table_name = '"' + "ERSTest" + '"' # os.environ['TABLE_NAME']
+    table_name = '"' + os.environ['ERS_TABLE_NAME'] + '"'
 
-#    cur = con.cursor()
+    cur = con.cursor()
 
     try: # try to make sure tables exist
-        create_database(cursor=None, connection=None)
+        create_database(cursor=cur, connection=con)
     except:
-        # if this errors out it may be because the database is already there
-        pass
+        con.rollback()
+        print( "Database was already created" )
     else :
         print( "Database creation: Success" )
     finally:
         print( "Database is ready" )
 
-    kafka_bootstrap = "monkafka.cern.ch:30092" # os.environ['KAFKA_BOOTSTRAP']
-    kafka_timeout_ms   = 500                   # os.environ['KAFKA_TIMEOUT_MS'] 
+    kafka_bootstrap   = os.environ['ERS_DBWRITER_KAFKA_BOOTSTRAP_SERVER']
+    kafka_timeout_ms  = os.environ['ERS_DBWRITER_KAFKA_TIMEOUT_MS'] 
 
     subscriber_conf = json.loads("{}")
     subscriber_conf["bootstrap"] = kafka_bootstrap
     subscriber_conf["timeout"]   = kafka_timeout_ms
-    subscriber_conf["group_id"]  = "ers_microservice"
+    subscriber_conf["group_id"]  = os.environ['ERS_DBWRITER_KAFKA_GROUP'] 
 
     sub = erssub.ERSSubscriber(subscriber_conf)
 
-    callback_function = partial( process_chain, cursor=None, connection=None)
+    callback_function = partial(process_chain, 
+                                cursor=cur, 
+                                connection=con)
     
     sub.add_callback(name="postgres", 
                      function=callback_function)
