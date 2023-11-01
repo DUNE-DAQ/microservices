@@ -22,30 +22,36 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app.kubernetes.io/app: ers-dbwriter
-    app.kubernetes.io/component: ers-dbwriter
-  name: ers-kafka-dbwriter
+    app.kubernetes.io/app: ers-protobuf-dbwriter
+    app.kubernetes.io/component: ers-protobuf-dbwriter
+  name: ersstream-dbwriter
   namespace: ers
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: erskafka-dbwriter
+      app: ersprotobuf-dbwriter
   template:
     metadata:
       labels:
-        app: erskafka-dbwriter
-        app.kubernetes.io/app: ers-dbwriter
-        app.kubernetes.io/component: ers-dbwriter
+        app: ersprotobuf-dbwriter
+        app.kubernetes.io/app: ers-protobuf-dbwriter
+        app.kubernetes.io/component: ers-protobuf-dbwriter
     spec:
       containers:
       - image: ghcr.io/dune-daq/microservices:9e36
-        name: erskafka-dbwriter
+        name: ersprotobuf-dbwriter
         env:
         - name: MICROSERVICE
-          value: ers-dbwriter
+          value: ers-protobuf-dbwriter
         - name: ERS_DBWRITER_KAFKA_BOOTSTRAP_SERVER
           value: dune-daq.kafka.svc.cluster.local:9092
+        - name: ERS_TABLE_NAME
+          value: ERSstream
+        - name: ERS_DBWRITER_KAFKA_TIMEOUT_MS
+          value: 500
+        - name: ERS_DBWRITER_KAFKA_GROUP
+          value: ers-protobuf-dbwriter
         - name: ERS_DBWRITER_HOST
           valueFrom:
             secretKeyRef:
