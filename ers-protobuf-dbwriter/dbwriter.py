@@ -1,30 +1,106 @@
-# @file dbwriter.py Writing ERS info to PostgreSQL database
+# @file dbwriter.py Writing ERS schemas info to PostgreSQL database
 #  This is part of the DUNE DAQ software, copyright 2020.
 #  Licensing/copyright details are in the COPYING file that you should have
 #  received with this code.
 #
 
-from kafka import KafkaConsumer
+import erskafka.ERSSubscriber as erssub
+import ers.issue_pb2 as ersissue
+from functools import partial
 import psycopg2
 import json
 import os
 
-def clean_database(cursor, connection):
-    cursor.execute('''
-                DROP TABLE public."ErrorReports";
-                ''')
-    connection.commit()
 
-def create_database(cursor, connection):
-    cursor.execute('''
-                CREATE TABLE public."ErrorReports" (
-                partition           TEXT,
+def process_chain( chain, cursor, connection ) :
+    try :
+        for cause in reversed(chain.causes) :
+            process_issue(issue=cause, 
+                          session=chain.session,
+                          cursor=cursor)
+        
+        process_issue( issue = chain.final, 
+                       session = chain.session,
+                       cursor=cursor)
+
+        ##connection.commit()
+    except psycopg2.errors.UndefinedTable:
+        connection.rollback()
+        create_database()
+    except psycopg2.errors.UndefinedColumn:
+        connection.rollback()
+        clean_database()
+        create_database()
+    except Exception as e:
+        print(e)
+        
+
+def process_issue( issue, session, cursor ) :
+    fields = []
+    values = []
+
+    ## top level info
+    add_entry("session", session, fields, values)
+    add_entry("issue_name", issue.name, fields, values)
+    add_entry("severity", issue.severity, fields, values)
+    add_entry("time", issue.time, fields, values)
+
+    ## context related info
+    add_entry("cwd", issue.context.cwd, fields, values)
+    add_entry("file_name", issue.context.file_name, fields, values)
+    add_entry("function_name", issue.context.function_name, fields, values)
+    add_entry("host_name", issue.context.host_name, fields, values)
+    add_entry("line_number", issue.context.line_number, fields, values)
+    add_entry("package_name", issue.context.package_name, fields, values)
+
+    add_entry("process_id", issue.context.process_id, fields, values)
+    add_entry("thread_id", issue.context.thread_id, fields, values)
+    add_entry("user_id", issue.context.user_id, fields, values)
+    add_entry("user_name", issue.context.user_name, fields, values)
+    add_entry("application_name", issue.context.application_name, fields, values)
+
+    # heavy information
+    add_entry("inheritance", '/'.join(issue.inheritance), fields, values)
+    add_entry("message", issue.message, fields, values)
+    add_entry("params", str(issue.parameters), fields, values)
+    
+
+    command = "INSERT INTO public." + table_name;
+    command += " (" + ", ".join(fields) + ')'
+    command += " VALUES " + repr(tuple(values)) + ';'
+
+    ##cursor.execute(command)
+    
+    print(command)
+
+def add_entry(field, value, fields, values):
+    fields.append(field)
+    values.append(value)
+
+
+def clean_database(cursor, connection):
+    ## add table name variable
+    command = "DROP TABLE public."
+    command += table_name
+    command += ";"
+
+    ##cursor.execute(command)
+    print(command)
+    
+    ##connection.commit()
+    
+
+
+def create_database( cursor, connection ):
+    ## make table name a variable
+    command = "CREATE TABLE public." + table_name + " ("
+    command += '''
+                session             TEXT, 
                 issue_name          TEXT,
+                inheritance         TEXT,
                 message             TEXT,
                 severity            TEXT,
-                usecs_since_epoch   BIGINT,
                 time                BIGINT,
-                qualifiers          TEXT,
                 params              TEXT,
                 cwd                 TEXT,
                 file_name           TEXT,
@@ -36,68 +112,64 @@ def create_database(cursor, connection):
                 user_id             INT,
                 process_id          INT,
                 thread_id           INT,
-                line_number         INT,
-                chain               TEXT
-               );
-               '''
-                )
-    connection.commit()
+                line_number         INT
+               ); ''' 
+
+    ##cursor.execute(command)
+    print(command)
+
+    ##connection.commit()
 
 def main():
-    host = os.environ['ERS_DBWRITER_HOST']
-    port = os.environ['ERS_DBWRITER_PORT']
-    user = os.environ['ERS_DBWRITER_USER']
-    password = os.environ['ERS_DBWRITER_PASS']
-    dbname = os.environ['ERS_DBWRITER_NAME']
-    kafka_bootstrap = os.environ.get('ERS_DBWRITER_KAFKA_BOOTSTRAP_SERVER', 'monkafka.cern.ch:30092')
 
-    consumer = KafkaConsumer('erskafka-reporting',
-                            bootstrap_servers=kafka_bootstrap,
-                            group_id='ers-dbwriter')
+#    host = os.environ['ERS_DBWRITER_HOST']
+#    port = os.environ['ERS_DBWRITER_PORT']
+#    user = os.environ['ERS_DBWRITER_USER']
+#    password = os.environ['ERS_DBWRITER_PASS']
+#    dbname = os.environ['ERS_DBWRITER_NAME']
 
-    try:
-        con = psycopg2.connect(host=host,
-                               port=port,
-                               user=user,
-                               password=password,
-                               dbname=dbname)
-    except:
-        print('Connection to the database failed, aborting...')
-        exit()
+#    try:
+#        con = psycopg2.connect(host=host,
+#                               port=port,
+#                               user=user,
+#                               password=password,
+#                               dbname=dbname)
+#    except:
+#        print('Connection to the database failed, aborting...')
+#        exit()
 
-    # These are the fields in the ERS messages, see erskafka/src/KafkaStream.cpp
-    fields = ["partition", "issue_name", "message", "severity", "usecs_since_epoch", "time",
-              "qualifiers", "params", "cwd", "file_name", "function_name", "host_name",
-              "package_name", "user_name", "application_name", "user_id", "process_id",
-              "thread_id", "line_number", "chain"]
+    global table_name
+    table_name = '"' + "ERSTest" + '"' # os.environ['TABLE_NAME']
 
-    cur = con.cursor()
+#    cur = con.cursor()
 
     try: # try to make sure tables exist
-        create_database(cur, con)
+        create_database(cursor=None, connection=None)
     except:
         # if this errors out it may be because the database is already there
-        con.rollback()
+        pass
+    else :
+        print( "Database creation: Success" )
+    finally:
+        print( "Database is ready" )
 
-    # Infinite loop over the kafka messages
-    for message in consumer:
-        print(message)
-        js = json.loads(message.value)
-        if js == '[]':
-            continue
-        ls = [str(js[key]) for key in fields]
+    kafka_bootstrap = "monkafka.cern.ch:30092" # os.environ['KAFKA_BOOTSTRAP']
+    kafka_timeout_ms   = 500                   # os.environ['KAFKA_TIMEOUT_MS'] 
 
-        try:
-            cur.execute(f'INSERT INTO public."ErrorReports" ({",".join(fields)}) VALUES({("%s, " * len(ls))[:-2]})', ls)
-            # Save the insert (or any change) to the database
-            con.commit()
-        except psycopg2.errors.UndefinedTable:
-            con.rollback()
-            create_database(cur, con)
-        except psycopg2.errors.UndefinedColumn:
-            con.rollback()
-            clean_database(cur, con)
-            create_database(cur, con)
+    subscriber_conf = json.loads("{}")
+    subscriber_conf["bootstrap"] = kafka_bootstrap
+    subscriber_conf["timeout"]   = kafka_timeout_ms
+    subscriber_conf["group_id"]  = "ers_microservice"
+
+    sub = erssub.ERSSubscriber(subscriber_conf)
+
+    callback_function = partial( process_chain, cursor=None, connection=None)
+    
+    sub.add_callback(name="postgres", 
+                     function=callback_function)
+    
+    sub.start()
+
 
 if __name__ == '__main__':
     main()
