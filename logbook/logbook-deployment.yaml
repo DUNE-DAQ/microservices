@@ -2,6 +2,8 @@
 apiVersion: v1
 kind: Namespace
 metadata:
+  annotations:
+    kluctl.io/skip-delete-if-tags: "true"
   labels:
     pod-security.kubernetes.io/audit: baseline
     pod-security.kubernetes.io/audit-version: latest
@@ -31,6 +33,13 @@ spec:
         app.kubernetes.io/app: logbook
         app.kubernetes.io/component: logbook
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: {{ kubernetes_label.worker }}
+                operator: Exists
       containers:
       - image: ghcr.io/dune-daq/microservices:latest
         name: logbook
