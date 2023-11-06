@@ -40,13 +40,13 @@ spec:
         app.kubernetes.io/app: ers-dbwriter
         app.kubernetes.io/component: ers-dbwriter
     spec:
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: {{ kubernetes_label.worker }}
-                operator: Exists
+#      affinity:
+#        nodeAffinity:
+#          requiredDuringSchedulingIgnoredDuringExecution:
+#            nodeSelectorTerms:
+#            - matchExpressions:
+#              - key: {{ kubernetes_label.worker }}
+#                operator: Exists
       containers:
       - image: ghcr.io/dune-daq/microservices:9e36
         name: erskafka-dbwriter
