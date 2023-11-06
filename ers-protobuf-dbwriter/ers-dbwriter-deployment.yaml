@@ -58,7 +58,7 @@ spec:
         - name: ERS_TABLE_NAME
           value: ERSstream
         - name: ERS_DBWRITER_KAFKA_TIMEOUT_MS
-          value: 500
+          value: "500"
         - name: ERS_DBWRITER_KAFKA_GROUP
           value: ers-protobuf-dbwriter
         - name: ERS_DBWRITER_HOST

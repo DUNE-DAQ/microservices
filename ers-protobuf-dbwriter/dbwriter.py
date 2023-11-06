@@ -154,7 +154,7 @@ def main():
     subscriber_conf = json.loads("{}")
     subscriber_conf["bootstrap"] = kafka_bootstrap
     subscriber_conf["timeout"]   = kafka_timeout_ms
-    subscriber_conf["group_id"]  = os.environ['ERS_DBWRITER_KAFKA_GROUP'] 
+    subscriber_conf["group_id"]  = int(os.environ['ERS_DBWRITER_KAFKA_GROUP'])
 
     sub = erssub.ERSSubscriber(subscriber_conf)
 
