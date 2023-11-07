@@ -45,6 +45,7 @@ spec:
 #                operator: Exists
       containers:
       - image: ghcr.io/dune-daq/microservices:latest
+        imagePullPolicy: Always
         name: daqconfig-service
         env:
         - name: MICROSERVICE

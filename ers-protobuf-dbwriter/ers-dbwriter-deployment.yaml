@@ -49,6 +49,7 @@ spec:
 #                operator: Exists
       containers:
       - image: ghcr.io/dune-daq/microservices:9e36
+        imagePullPolicy: Always
         name: ersprotobuf-dbwriter
         env:
         - name: MICROSERVICE
