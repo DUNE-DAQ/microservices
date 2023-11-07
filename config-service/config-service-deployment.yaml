@@ -36,13 +36,13 @@ spec:
         app.kubernetes.io/app: config-utility
         app.kubernetes.io/component: config-utility
     spec:
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: {{ kubernetes_label.worker }}
-                operator: Exists
+#      affinity:
+#        nodeAffinity:
+#          requiredDuringSchedulingIgnoredDuringExecution:
+#            nodeSelectorTerms:
+#            - matchExpressions:
+#              - key: {{ kubernetes_label.worker }}
+#                operator: Exists
       containers:
       - image: ghcr.io/dune-daq/microservices:latest
         name: daqconfig-service
