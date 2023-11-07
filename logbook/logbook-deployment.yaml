@@ -38,7 +38,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
             - matchExpressions:
-              - key: {{ kubernetes_label.worker }}
+              - key: node-role.kubernetes.io/worker
                 operator: Exists
       containers:
       - image: ghcr.io/dune-daq/microservices:latest
