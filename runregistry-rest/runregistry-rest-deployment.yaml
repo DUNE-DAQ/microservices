@@ -103,6 +103,5 @@ spec:
       - name: uploads-volume
         emptyDir:
           sizeLimit: 20Gi
-      imagePullPolicy: Always
       securityContext:
         fsGroup: 11000
