@@ -67,5 +67,6 @@ spec:
             - ALL
           seccompProfile:
             type: RuntimeDefault
+      imagePullPolicy: Always
       securityContext:
         fsGroup: 11000
