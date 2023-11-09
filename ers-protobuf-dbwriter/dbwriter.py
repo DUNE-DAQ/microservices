@@ -13,6 +13,7 @@ import os
 
 
 def process_chain( chain, cursor, connection ) :
+    print(chain)
     try :
         for cause in reversed(chain.causes) :
             process_issue(issue=cause, 
@@ -72,6 +73,7 @@ def process_issue( issue, session, cursor ) :
     command += " (" + ", ".join(fields) + ')'
     command += " VALUES " + repr(tuple(values)) + ';'
 
+    print(command)
     cursor.execute(command)
     
     
