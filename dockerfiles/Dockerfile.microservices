@@ -2,6 +2,6 @@ ARG DEPENDENCY_TAG=latest
 FROM ghcr.io/dune-daq/microservices_dependencies:$DEPENDENCY_TAG
 
 ARG BRANCH=titavare/dk_runserv
-RUN git clone git@github.com:DUNE-DAQ/microservices -b $BRANCH
+RUN git clone https://github.com/DUNE-DAQ/microservices -b $BRANCH
 
 ENTRYPOINT ["/microservices/entrypoint.sh"]
