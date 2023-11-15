@@ -96,7 +96,7 @@ from sqlalchemy_utils import database_exists, create_database
 engine = create_engine('postgresql://{DUNE_runservices.postgresql_database_username}:{DUNE_runservices.postgresql_database_password}}@{DUNE_runservices.namespace}.{postgresql_release_name}}/{DUNE_runservices.postgresql_database_name}:5432')
 if not database_exists(engine.url):
     print('Error: No database exists')
-    return
+return
 
 Session = sessionmaker(bind=engine)
 session = Session()
@@ -112,7 +112,7 @@ if not engine.dialect.has_table(engine, RunRegistryConfig(Base)):
     new_run_number = RunNumber(rn=1000000, flag=True, stop_time=datetime.now())
     session.add(new_run_number)
     session.commit()
-    return
+return
         
 Base.metadata.create_all(engine)
 session.close()
