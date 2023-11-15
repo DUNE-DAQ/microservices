@@ -246,7 +246,6 @@ from sqlalchemy_utils import database_exists, create_database
 engine = create_engine('postgresql://{DUNE_runservices.postgresql_database_username}:{DUNE_runservices.postgresql_database_password}}@{DUNE_runservices.namespace}.{postgresql_release_name}}/{DUNE_runservices.postgresql_database_name}:5432')
 if not database_exists(engine.url):
     print('Error: No database exists')
-    break
 
 Session = sessionmaker(bind=engine)
 session = Session()
