@@ -8,7 +8,7 @@ from flask_httpauth import HTTPBasicAuth
 
 from authentication import auth
 
-# postgres = False
+postgres = True
 
 #temporary until I figure out what is wrong
 import backends.pg_queries as queries

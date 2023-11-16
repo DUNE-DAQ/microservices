@@ -5,7 +5,7 @@ if os.environ.get("RGDB", None) == "postgres":
     port = os.environ.get("DB_PORT", 5432)
     database = os.environ.get("DB_NAME", "runregistry")
 
-    username = os.environ.get("DB_USERNAME", "")
+    username = os.environ.get("DB_USERNAME", "runregistry")
     password = os.environ.get("DB_PASSWORD", "")
 else:  # is oracle?
     dburi = os.environ.get("DB_URI", None)
