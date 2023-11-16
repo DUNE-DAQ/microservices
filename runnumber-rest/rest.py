@@ -11,8 +11,8 @@ from authentication import auth
 # postgres = False
 
 #temporary until I figure out what is wrong
-import backend.pg_queries as queries
-import backend.pg_backend as db
+import backends.pg_queries as queries
+import backends.pg_backend as db
 
 # if "-p" in sys.argv or os.environ.get("RGDB", None):
 #     import backend.pg_queries as queries

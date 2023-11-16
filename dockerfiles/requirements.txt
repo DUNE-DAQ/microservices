@@ -29,4 +29,4 @@ zipp==3.8.0
 zope.event==4.6
 zope.interface==5.5.2
 protobuf==4.24.3
-sqlalchmey==2.0.20
+sqlalchemy==2.0.20

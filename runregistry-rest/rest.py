@@ -17,16 +17,20 @@ from flask_caching import Cache
 
 from authentication import auth
 
-postgres = False
+# postgres = False
 
-if "-p" in sys.argv or os.environ.get("RGDB", None):
-    import backends.pg_queries as queries
-    import backends.pg_backend as db
+#temporary until I figure out what is wrong
+import backends.pg_queries as queries
+import backends.pg_backend as db
 
-    postgres = True
-else:
-    import backends.ora_queries as queries
-    import backends.ora_backend as db
+# if "-p" in sys.argv or os.environ.get("RGDB", None):
+#     import backend.pg_queries as queries
+#     import backend.pg_backend as db
+
+#     postgres = True
+# else:
+#     import backend.ora_queries as queries
+#     import backend.ora_backend as db
 
 """
 Specs
