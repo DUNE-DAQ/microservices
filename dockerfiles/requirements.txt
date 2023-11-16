@@ -23,10 +23,11 @@ pytz==2022.1
 redis==3.5.3
 setuptools==39.2.0
 six==1.16.0
-typing_extensions==4.1.1
+typing_extensions==4.2.0
 Werkzeug==2.1.1
 zipp==3.8.0
 zope.event==4.6
 zope.interface==5.5.2
 protobuf==4.24.3
 sqlalchemy==2.0.20
+sqlalchemy_utils==0.41.1
