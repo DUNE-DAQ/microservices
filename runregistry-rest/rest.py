@@ -247,7 +247,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import database_exists, create_database
 
 
-engine = create_engine('postgresql://{DUNE_runservices.postgresql_database_username}:{DUNE_runservices.postgresql_database_password}@{postgresql_release_name}.{DUNE_runservices.namespace}:5432/{DUNE_runservices.postgresql_database_name}')
+engine = create_engine('postgresql://{DUNE_runservices.postgresql_database_username}:{DUNE_runservices.postgresql_database_password}@{DUNE_runservices.postgresql_release_name}.{DUNE_runservices.namespace}:5432/{DUNE_runservices.postgresql_database_name}')
 if not database_exists(engine.url):
     print('Error: No database exists')
 
@@ -255,8 +255,8 @@ Session = sessionmaker(bind=engine)
 session = Session()
 
 # if not engine.dialect.has_table(engine, RunRegistryConfig(Base)):
-#     metadata = MetaData(engine)
-class RunRegistryConfig(Base):
+metadata = MetaData(engine)
+class RunRegistryConfig():
     print('This seems to be where the problem is.')
     #__tablename__ = "run_schema.run_registry_configs"
     run_number = Column("run_number", Integer, ForeignKey("run_registry_meta.run_number"), primary_key=True)
@@ -265,7 +265,7 @@ class RunRegistryConfig(Base):
 
 # if not engine.dialect.has_table(engine, RunRegistryMeta(Base)):
 #     metadata = MetaData(engine)
-class RunRegistryMeta(Base):
+class RunRegistryMeta():
     run_number = Column("run_number", Integer, primary_key=True)
     start_time = Column("start_time", TIMESTAMP(6, timezone=False), nullable=False, server_default=func.now())
     stop_time = Column("stop_time", TIMESTAMP(6, timezone=False))
@@ -276,5 +276,5 @@ class RunRegistryMeta(Base):
 
 
 
-Base.metadata.create_all(engine)
+metadata.create_all(engine)
 session.close()

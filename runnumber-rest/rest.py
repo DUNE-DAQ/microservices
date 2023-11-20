@@ -97,16 +97,15 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import database_exists, create_database
 
-engine = create_engine('postgresql://{DUNE_runservices.postgresql_database_username}:{DUNE_runservices.postgresql_database_password}@{postgresql_release_name}.{DUNE_runservices.namespace}:5432/{DUNE_runservices.postgresql_database_name}')
+engine = create_engine('postgresql://{DUNE_runservices.postgresql_database_username}:{DUNE_runservices.postgresql_database_password}@{DUNE_runservices.postgresql_release_name}.{DUNE_runservices.namespace}:5432/{DUNE_runservices.postgresql_database_name}')
 if not database_exists(engine.url):
     print('Error: No database exists')
 Session = sessionmaker(bind=engine)
 session = Session()
 
 # if not engine.dialect.has_table(engine, RunNumber(Base)):
-#     metadata = MetaData(engine)
-class RunNumber11(Base):
-    print('This seems to be where the problem is.')
+metadata = MetaData(engine)
+class RunNumber():
     #__tablename__ = "run_schema.run_number"
     rn = Column("rn", Integer, primary_key=True, nullable=False)
     start_time = Column("start_time", TIMESTAMP(6, timezone=False), nullable=False)
