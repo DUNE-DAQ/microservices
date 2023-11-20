@@ -241,7 +241,7 @@ if __name__ == "__main__":
 # Normally spawned by gunicorn
 
 
-from sqlalchemy import create_engine, ForeignKey, Column, TIMESTAMP, Boolean, String, Integer, CHAR
+from sqlalchemy import create_engine, ForeignKey, Column, TIMESTAMP, Boolean, String, Integer, CHAR, MetaData
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import database_exists, create_database

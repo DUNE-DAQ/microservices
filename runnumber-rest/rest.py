@@ -92,7 +92,7 @@ if __name__ == '__main__':
     app.run(host= '0.0.0.0', port=5000, debug=False)
 
 
-from sqlalchemy import create_engine, ForeignKey, Column, TIMESTAMP, Boolean, String, Integer, CHAR
+from sqlalchemy import create_engine, ForeignKey, Column, TIMESTAMP, Boolean, String, Integer, CHAR, MetaData
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import database_exists, create_database
@@ -115,5 +115,5 @@ new_run_number = RunNumber(rn=1000000, flag=True, stop_time=datetime.now())
 session.add(new_run_number)
 session.commit()
         
-Base.metadata.create_all(engine)
+metadata.create_all(engine)
 session.close()
