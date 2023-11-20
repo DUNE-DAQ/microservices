@@ -247,23 +247,23 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import database_exists, create_database
 
 
-engine = create_engine('postgresql://{DUNE_runservices.postgresql_database_username}:{DUNE_runservices.postgresql_database_password}}@{DUNE_runservices.namespace}.{postgresql_release_name}}/{DUNE_runservices.postgresql_database_name}:5432')
+engine = create_engine('postgresql://{DUNE_runservices.postgresql_database_username}:{DUNE_runservices.postgresql_database_password}@{postgresql_release_name}.{DUNE_runservices.namespace}:5432/{DUNE_runservices.postgresql_database_name}')
 if not database_exists(engine.url):
     print('Error: No database exists')
 
 Session = sessionmaker(bind=engine)
 session = Session()
 
-if not engine.dialect.has_table(engine, RunRegistryConfig(Base)):
-    metadata = MetaData(engine)
+# if not engine.dialect.has_table(engine, RunRegistryConfig(Base)):
+#     metadata = MetaData(engine)
     class RunRegistryConfig(Base):
         #__tablename__ = "run_schema.run_registry_configs"
         run_number = Column("run_number", Integer, ForeignKey("run_registry_meta.run_number"), primary_key=True)
         configuration = Column("configuration", LargeBinary, nullable=False)
 
 
-if not engine.dialect.has_table(engine, RunRegistryMeta(Base)):
-    metadata = MetaData(engine)
+# if not engine.dialect.has_table(engine, RunRegistryMeta(Base)):
+#     metadata = MetaData(engine)
     class RunRegistryMeta(Base):
         #__tablename__ = "run_schema.run_registry_meta"
         run_number = Column("run_number", Integer, primary_key=True)
