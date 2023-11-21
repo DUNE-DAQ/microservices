@@ -241,7 +241,7 @@ if __name__ == "__main__":
 # Normally spawned by gunicorn
 
 
-from sqlalchemy import create_engine, ForeignKey, Column, TIMESTAMP, Boolean, String, Integer, CHAR, MetaData
+from sqlalchemy import create_engine, ForeignKey, Column, TIMESTAMP, Boolean, String, Integer, CHAR, MetaData, LargeBinary
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import database_exists, create_database
@@ -267,8 +267,8 @@ class RunRegistryConfig():
 #     metadata = MetaData(engine)
 class RunRegistryMeta():
     run_number = Column("run_number", Integer, primary_key=True)
-    start_time = Column("start_time", TIMESTAMP(6, timezone=False), nullable=False, server_default=func.now())
-    stop_time = Column("stop_time", TIMESTAMP(6, timezone=False))
+    start_time = Column("start_time", TIMESTAMP(6, nullable=False, server_default=func.now()))
+    stop_time = Column("stop_time", TIMESTAMP(6))
     detector_id = Column("detector_id", String(40), nullable=False)
     run_type = Column("run_type", String(40), nullable=False)
     filename = Column("filename", String(100), nullable=False)

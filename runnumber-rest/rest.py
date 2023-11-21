@@ -108,9 +108,9 @@ metadata = MetaData()
 class RunNumber():
     #__tablename__ = "run_schema.run_number"
     rn = Column("rn", Integer, primary_key=True, nullable=False)
-    start_time = Column("start_time", TIMESTAMP(6, timezone=False), nullable=False)
+    start_time = Column("start_time", TIMESTAMP(6), nullable=False)
     flag = Column("flag", Boolean, nullable=False)
-    stop_time = Column("stop_time", TIMESTAMP(6, timezone=False))
+    stop_time = Column("stop_time", TIMESTAMP(6))
 new_run_number = RunNumber(rn=1000000, flag=True, stop_time=datetime.now())
 session.add(new_run_number)
 session.commit()
