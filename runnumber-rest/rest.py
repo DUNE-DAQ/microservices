@@ -104,7 +104,7 @@ Session = sessionmaker(bind=engine)
 session = Session()
 
 # if not engine.dialect.has_table(engine, RunNumber(Base)):
-metadata = MetaData(engine)
+metadata = MetaData()
 class RunNumber():
     #__tablename__ = "run_schema.run_number"
     rn = Column("rn", Integer, primary_key=True, nullable=False)

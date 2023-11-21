@@ -255,7 +255,7 @@ Session = sessionmaker(bind=engine)
 session = Session()
 
 # if not engine.dialect.has_table(engine, RunRegistryConfig(Base)):
-metadata = MetaData(engine)
+metadata = MetaData()
 class RunRegistryConfig():
     print('This seems to be where the problem is.')
     #__tablename__ = "run_schema.run_registry_configs"
