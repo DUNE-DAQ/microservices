@@ -267,7 +267,7 @@ class RunRegistryConfig():
 #     metadata = MetaData(engine)
 class RunRegistryMeta():
     run_number = Column("run_number", Integer, primary_key=True)
-    start_time = Column("start_time", TIMESTAMP(6, nullable=False, server_default=func.now()))
+    start_time = Column("start_time", TIMESTAMP(6, nullable=False))
     stop_time = Column("stop_time", TIMESTAMP(6))
     detector_id = Column("detector_id", String(40), nullable=False)
     run_type = Column("run_type", String(40), nullable=False)
