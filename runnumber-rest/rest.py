@@ -97,7 +97,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import database_exists, create_database
 
-engine = create_engine('postgresql+psycopg2://{{DUNE_runservices.postgresql_database_username}}:{{DUNE_runservices.postgresql_database_password}}@{{DUNE_runservices.postgresql_release_name}}.{{DUNE_runservices.namespace}}.svc:5432/{{DUNE_runservices.postgresql_database_name}}')
+#engine = create_engine('postgresql+psycopg2://{{DUNE_runservices.postgresql_database_username}}:{{DUNE_runservices.postgresql_database_password}}@{{DUNE_runservices.postgresql_release_name}}.{{DUNE_runservices.namespace}}.svc:5432/{{DUNE_runservices.postgresql_database_name}}')
+engine = create_engine('postgresql+psycopg2://runservices:run4evah@runservices-postgresql.runservices.svc:5432/runservices')
 if not database_exists(engine.url):
     print('Error: No database exists')
 Session = sessionmaker(bind=engine)
@@ -111,9 +112,9 @@ class RunNumber():
     start_time = Column("start_time", TIMESTAMP(6), nullable=False)
     flag = Column("flag", Boolean, nullable=False)
     stop_time = Column("stop_time", TIMESTAMP(6))
-new_run_number = RunNumber(rn=1000000, flag=True)
-session.add(new_run_number)
-session.commit()
+# new_run_number = RunNumber(rn=1000000, flag=True)
+# session.add(new_run_number)
+# session.commit()
         
 metadata.create_all(engine)
 session.close()
