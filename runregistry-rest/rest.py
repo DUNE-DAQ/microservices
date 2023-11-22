@@ -247,7 +247,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import database_exists, create_database
 
 
-engine = create_engine('postgresql://{DUNE_runservices.postgresql_database_username}:{DUNE_runservices.postgresql_database_password}@{DUNE_runservices.postgresql_release_name}.{DUNE_runservices.namespace}-hl.svc:5432/{DUNE_runservices.postgresql_database_name}')
+engine = create_engine('postgresql+psycopg2://{DUNE_runservices.postgresql_database_username}:{DUNE_runservices.postgresql_database_password}@{DUNE_runservices.postgresql_release_name}.{DUNE_runservices.namespace}.svc:5432/{DUNE_runservices.postgresql_database_name}')
 if not database_exists(engine.url):
     print('Error: No database exists')
 
@@ -267,11 +267,11 @@ class RunRegistryConfig():
 #     metadata = MetaData(engine)
 class RunRegistryMeta():
     run_number = Column("run_number", Integer, primary_key=True)
-    start_time = Column("start_time", TIMESTAMP(6, nullable=False))
+    start_time = Column("start_time", TIMESTAMP(6))
     stop_time = Column("stop_time", TIMESTAMP(6))
-    detector_id = Column("detector_id", String(40), nullable=False)
-    run_type = Column("run_type", String(40), nullable=False)
-    filename = Column("filename", String(100), nullable=False)
+    detector_id = Column("detector_id", String(40))
+    run_type = Column("run_type", String(40))
+    filename = Column("filename", String(100))
     software_version = Column("software_version", String(40))
 
 

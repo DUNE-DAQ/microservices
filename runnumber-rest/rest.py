@@ -97,7 +97,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import database_exists, create_database
 
-engine = create_engine('postgresql://{DUNE_runservices.postgresql_database_username}:{DUNE_runservices.postgresql_database_password}@{DUNE_runservices.postgresql_release_name}.{DUNE_runservices.namespace}-hl.svc:5432/{DUNE_runservices.postgresql_database_name}')
+engine = create_engine('postgresql+psycopg2://{DUNE_runservices.postgresql_database_username}:{DUNE_runservices.postgresql_database_password}@{DUNE_runservices.postgresql_release_name}.{DUNE_runservices.namespace}.svc:5432/{DUNE_runservices.postgresql_database_name}')
 if not database_exists(engine.url):
     print('Error: No database exists')
 Session = sessionmaker(bind=engine)
