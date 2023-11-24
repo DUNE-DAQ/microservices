@@ -176,7 +176,8 @@ def cli(subscriber_address, subscriber_port, subscriber_group, subscriber_timeou
     subscriber_conf = json.loads("{}")
     subscriber_conf["bootstrap"] = kafka_bootstrap
     subscriber_conf["timeout"]   = subscriber_timeout
-    subscriber_conf["group_id"]  = subscriber_group
+    if subscriber_group:
+        subscriber_conf["group_id"]  = subscriber_group
 
     sub = erssub.ERSSubscriber(subscriber_conf)
 
