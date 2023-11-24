@@ -10,6 +10,8 @@ from functools import partial
 import psycopg2
 import json
 import click
+import logging
+
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
@@ -26,8 +28,11 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 @click.option('--db-name',     required=True, type=click.STRING, help='name of the PostgreSQL db')
 @click.option('--db-table',    required=True, type=click.STRING, help='name of table used in the PostgreSQL db')
 
+@click.option('--debug',       type=click.BOOL, default=True, help='Set debug print levels')
+
+
 def process_chain( chain, cursor, connection ) :
-    print(chain)
+    logging.debug(chain)
     try :
         for cause in reversed(chain.causes) :
             process_issue(issue=cause, 
@@ -50,7 +55,7 @@ def process_chain( chain, cursor, connection ) :
         create_database(cursor=cursor,
                         connection=connection)
     except Exception as e:
-        print(e)
+        logging.error(e)
         
 
 def process_issue( issue, session, cursor ) :
@@ -87,7 +92,7 @@ def process_issue( issue, session, cursor ) :
     command += " (" + ", ".join(fields) + ')'
     command += " VALUES " + repr(tuple(values)) + ';'
 
-    print(command)
+    logging.debug(command)
     cursor.execute(command)
     
     
@@ -133,7 +138,13 @@ def create_database(cursor, connection):
 
 def cli(subscriber_address, subscriber_port, subscriber_group, subscriber_timeout,
         db_address, db_port, db_user, db_password, db_name,
-        db_table):
+        db_table,
+        debug):
+
+    logging.basicConfig(
+        format='%(asctime)s %(levelname)-8s %(message)s',
+        level=logging.DEBUG if debug else logging.INFO,
+        datefmt='%Y-%m-%d %H:%M:%S')
 
     try:
         con = psycopg2.connect(host=db_address,
@@ -142,7 +153,7 @@ def cli(subscriber_address, subscriber_port, subscriber_group, subscriber_timeou
                               password=db_password,
                               dbname=db_name)
     except:
-        print('Connection to the database failed, aborting...')
+        logging.fatal('Connection to the database failed, aborting...')
         exit()
 
     global table_name
@@ -154,11 +165,11 @@ def cli(subscriber_address, subscriber_port, subscriber_group, subscriber_timeou
         create_database(cursor=cur, connection=con)
     except:
         con.rollback()
-        print( "Database was already created" )
+        logging.info( "Database was already created" )
     else :
-        print( "Database creation: Success" )
+        logging.info( "Database creation: Success" )
     finally:
-        print( "Database is ready" )
+        logging.info( "Database is ready" )
 
     kafka_bootstrap   = "{}:{}".format(subscriber_address, subscriber_port)
 

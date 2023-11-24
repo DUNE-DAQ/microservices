@@ -9,5 +9,7 @@ python3 ./dbwriter.py --subscriber-address $ERS_DBWRITER_KAFKA_SERVER  --subscri
                       --subscriber-group $ERS_DBWRITER_KAFKA_GROUP --subscriber-timeout  $ERS_DBWRITER_KAFKA_TIMEOUT_MS  \
                       --db-address $ERS_DBWRITER_HOST  --db-port $ERS_DBWRITER_PORT \
                       --db-user $ERS_DBWRITER_USER  --db-password $ERS_DBWRITER_PASS \
-                      --db-name $ERS_DBWRITER_NAME  --db-table $ERS_TABLE_NAME 
+                      --db-name $ERS_DBWRITER_NAME  --db-table $ERS_TABLE_NAME \
+                      --debug False 
+                      
 
