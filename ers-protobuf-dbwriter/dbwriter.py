@@ -9,7 +9,6 @@ import ers.issue_pb2 as ersissue
 from functools import partial
 import psycopg2
 import json
-import os
 import click
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
