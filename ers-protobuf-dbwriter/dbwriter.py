@@ -10,7 +10,22 @@ from functools import partial
 import psycopg2
 import json
 import os
+import click
 
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
+
+@click.command(context_settings=CONTEXT_SETTINGS)
+@click.option('--subscriber-address', type=click.STRING, default="monkafka.cern.ch", help="address of the ERSSubscriber")
+@click.option('--subscriber-port',    type=click.INT,    default=30092, help='port of the ERSSubscriber')       
+@click.option('--subscriber-group',   type=click.STRING, default=None, help='group ID of the ERSSubscriber')
+@click.option('--subscriber-timeout', type=click.INT,    default=500, help='timeout in ms used in the ERSSubscriber')
+
+@click.option('--db-address',  required=True, type=click.STRING, help='address of the PostgreSQL db')
+@click.option('--db-port',     required=True, type=click.STRING, help='port of the PostgreSQL db')
+@click.option('--db-user',     required=True, type=click.STRING, help='user for login to the PostgreSQL db')
+@click.option('--db-password', required=True, type=click.STRING, help='password for login to the PostgreSQL db')
+@click.option('--db-name',     required=True, type=click.STRING, help='name of the PostgreSQL db')
+@click.option('--db-table',    required=True, type=click.STRING, help='name of table used in the PostgreSQL db')
 
 def process_chain( chain, cursor, connection ) :
     print(chain)
@@ -117,26 +132,22 @@ def create_database(cursor, connection):
     cursor.execute(command)
     connection.commit()
 
-def main():
-
-    host = os.environ['ERS_DBWRITER_HOST']
-    port = os.environ['ERS_DBWRITER_PORT']
-    user = os.environ['ERS_DBWRITER_USER']
-    password = os.environ['ERS_DBWRITER_PASS']
-    dbname = os.environ['ERS_DBWRITER_NAME']
+def cli(subscriber_address, subscriber_port, subscriber_group, subscriber_timeout,
+        db_address, db_port, db_user, db_password, db_name,
+        db_table):
 
     try:
-        con = psycopg2.connect(host=host,
-                              port=port,
-                              user=user,
-                              password=password,
-                              dbname=dbname)
+        con = psycopg2.connect(host=db_address,
+                              port=db_port,
+                              user=db_user,
+                              password=db_password,
+                              dbname=db_name)
     except:
         print('Connection to the database failed, aborting...')
         exit()
 
     global table_name
-    table_name = '"' + os.environ['ERS_TABLE_NAME'] + '"'
+    table_name = '"' + db_table + '"'
 
     cur = con.cursor()
 
@@ -150,13 +161,12 @@ def main():
     finally:
         print( "Database is ready" )
 
-    kafka_bootstrap   = os.environ['ERS_DBWRITER_KAFKA_BOOTSTRAP_SERVER']
-    kafka_timeout_ms  = int(os.environ['ERS_DBWRITER_KAFKA_TIMEOUT_MS'])
+    kafka_bootstrap   = "{}:{}".format(subscriber_address, subscriber_port)
 
     subscriber_conf = json.loads("{}")
     subscriber_conf["bootstrap"] = kafka_bootstrap
-    subscriber_conf["timeout"]   = kafka_timeout_ms
-    subscriber_conf["group_id"]  = os.environ['ERS_DBWRITER_KAFKA_GROUP']
+    subscriber_conf["timeout"]   = subscriber_timeout
+    subscriber_conf["group_id"]  = subscriber_group
 
     sub = erssub.ERSSubscriber(subscriber_conf)
 
@@ -171,4 +181,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    cli(show_default=True, standalone_mode=True)
+
