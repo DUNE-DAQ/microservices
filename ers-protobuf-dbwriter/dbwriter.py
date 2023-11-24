@@ -30,6 +30,60 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 @click.option('--debug',       type=click.BOOL, default=True, help='Set debug print levels')
 
+def cli(subscriber_address, subscriber_port, subscriber_group, subscriber_timeout,
+        db_address, db_port, db_user, db_password, db_name,
+        db_table,
+        debug):
+
+    logging.basicConfig(
+        format='%(asctime)s %(levelname)-8s %(message)s',
+        level=logging.DEBUG if debug else logging.INFO,
+        datefmt='%Y-%m-%d %H:%M:%S')
+
+    try:
+        con = psycopg2.connect(host=db_address,
+                              port=db_port,
+                              user=db_user,
+                              password=db_password,
+                              dbname=db_name)
+    except:
+        logging.fatal('Connection to the database failed, aborting...')
+        exit()
+
+    global table_name
+    table_name = '"' + db_table + '"'
+
+    cur = con.cursor()
+
+    try: # try to make sure tables exist
+        create_database(cursor=cur, connection=con)
+    except:
+        con.rollback()
+        logging.info( "Database was already created" )
+    else :
+        logging.info( "Database creation: Success" )
+    finally:
+        logging.info( "Database is ready" )
+
+    kafka_bootstrap   = "{}:{}".format(subscriber_address, subscriber_port)
+
+    subscriber_conf = json.loads("{}")
+    subscriber_conf["bootstrap"] = kafka_bootstrap
+    subscriber_conf["timeout"]   = subscriber_timeout
+    if subscriber_group:
+        subscriber_conf["group_id"]  = subscriber_group
+
+    sub = erssub.ERSSubscriber(subscriber_conf)
+
+    callback_function = partial(process_chain, 
+                                cursor=cur, 
+                                connection=con)
+    
+    sub.add_callback(name="postgres", 
+                     function=callback_function)
+    
+    sub.start()
+
 
 def process_chain( chain, cursor, connection ) :
     logging.debug(chain)
@@ -136,61 +190,8 @@ def create_database(cursor, connection):
     cursor.execute(command)
     connection.commit()
 
-def cli(subscriber_address, subscriber_port, subscriber_group, subscriber_timeout,
-        db_address, db_port, db_user, db_password, db_name,
-        db_table,
-        debug):
-
-    logging.basicConfig(
-        format='%(asctime)s %(levelname)-8s %(message)s',
-        level=logging.DEBUG if debug else logging.INFO,
-        datefmt='%Y-%m-%d %H:%M:%S')
-
-    try:
-        con = psycopg2.connect(host=db_address,
-                              port=db_port,
-                              user=db_user,
-                              password=db_password,
-                              dbname=db_name)
-    except:
-        logging.fatal('Connection to the database failed, aborting...')
-        exit()
-
-    global table_name
-    table_name = '"' + db_table + '"'
-
-    cur = con.cursor()
-
-    try: # try to make sure tables exist
-        create_database(cursor=cur, connection=con)
-    except:
-        con.rollback()
-        logging.info( "Database was already created" )
-    else :
-        logging.info( "Database creation: Success" )
-    finally:
-        logging.info( "Database is ready" )
-
-    kafka_bootstrap   = "{}:{}".format(subscriber_address, subscriber_port)
-
-    subscriber_conf = json.loads("{}")
-    subscriber_conf["bootstrap"] = kafka_bootstrap
-    subscriber_conf["timeout"]   = subscriber_timeout
-    if subscriber_group:
-        subscriber_conf["group_id"]  = subscriber_group
-
-    sub = erssub.ERSSubscriber(subscriber_conf)
-
-    callback_function = partial(process_chain, 
-                                cursor=cur, 
-                                connection=con)
-    
-    sub.add_callback(name="postgres", 
-                     function=callback_function)
-    
-    sub.start()
 
 
 if __name__ == '__main__':
-    cli(show_default=True, standalone_mode=True)
+    cli()
 
