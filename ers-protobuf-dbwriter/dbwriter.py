@@ -49,9 +49,9 @@ def cli(subscriber_address, subscriber_port, subscriber_group, subscriber_timeou
     except:
         logging.fatal('Connection to the database failed, aborting...')
         exit()
-
+        
     global table_name
-    table_name = '"' + db_table + '"'
+    table_name = db_table
 
     cur = con.cursor()
 
@@ -65,6 +65,8 @@ def cli(subscriber_address, subscriber_port, subscriber_group, subscriber_timeou
     finally:
         logging.info( "Database is ready" )
 
+    check_tables(cursor=cur, connection=con)
+        
     kafka_bootstrap   = "{}:{}".format(subscriber_address, subscriber_port)
 
     subscriber_conf = json.loads("{}")
@@ -87,29 +89,41 @@ def cli(subscriber_address, subscriber_port, subscriber_group, subscriber_timeou
 
 def process_chain( chain, cursor, connection ) :
     logging.debug(chain)
-    try :
-        for cause in reversed(chain.causes) :
-            process_issue(issue=cause, 
+
+    counter = 0;
+    success = False
+    while(not success) :
+        counter += 1
+        try :
+            for cause in reversed(chain.causes) :
+                process_issue(issue=cause, 
+                              session=chain.session,
+                              cursor=cursor)
+
+            process_issue(issue=chain.final, 
                           session=chain.session,
                           cursor=cursor)
-        
-        process_issue(issue=chain.final, 
-                      session=chain.session,
-                      cursor=cursor)
+            connection.commit()
+        except psycopg2.errors.UndefinedTable as e:
+       	    logging.error(e)
+            logging.error("Table was undefined yet it was supposed to be defined at this point")
+            connection.rollback()
+            create_database(cursor=cursor,
+                            connection=connection)
+        except psycopg2.errors.UndefinedColumn as e:
+            logging.warning(e)
+            connection.rollback()
+            clean_database(cursor=cursor, 
+                           connection=connection)
+            create_database(cursor=cursor,
+                            connection=connection)
+        except Exception as e:
+            logging.error("Something unexpected happened")
+            logging.error(e)
 
-        connection.commit()
-    except psycopg2.errors.UndefinedTable:
-        connection.rollback()
-        create_database(cursor=cursor,
-                        connection=connection)
-    except psycopg2.errors.UndefinedColumn:
-        connection.rollback()
-        clean_database(cursor=cursor, 
-                       connection=connection)
-        create_database(cursor=cursor,
-                        connection=connection)
-    except Exception as e:
-        logging.error(e)
+        else:
+            success=True
+            logging.debug(f"Entry sent after {counter} attempts")
         
 
 def process_issue( issue, session, cursor ) :
@@ -139,33 +153,43 @@ def process_issue( issue, session, cursor ) :
     # heavy information
     add_entry("inheritance", '/'.join(issue.inheritance), fields, values)
     add_entry("message", issue.message, fields, values)
-    add_entry("params", str(issue.parameters), fields, values)
+#    add_entry("params", str(issue.parameters), fields, values)
     
 
-    command = "INSERT INTO public." + table_name;
+    command = "INSERT INTO " + table_name;
     command += " (" + ", ".join(fields) + ')'
     command += " VALUES " + repr(tuple(values)) + ';'
 
     logging.debug(command)
     cursor.execute(command)
-    
-    
+
+
 def add_entry(field, value, fields, values):
     fields.append(field)
     values.append(value)
 
 
 def clean_database(cursor, connection):
-    command = "DROP TABLE public."
+    command = "DROP TABLE "
     command += table_name
     command += ";"
 
+    logging.debug(command)
     cursor.execute(command)
     connection.commit()
+
+def check_tables(cursor, connection) :
+    command = """SELECT relname FROM pg_class WHERE relkind='r'
+                  AND relname !~ '^(pg_|sql_)';"""
     
+    logging.debug(command)
+    cursor.execute(command)
+    tables = [i[0] for i in cursor.fetchall()] # A list() of tables.
+    logging.info(f"Tables: {tables}")
+    return tables
 
 def create_database(cursor, connection):
-    command = "CREATE TABLE public." + table_name + " ("
+    command = "CREATE TABLE " + table_name + " ("
     command += '''
                 session             TEXT, 
                 issue_name          TEXT,
@@ -173,7 +197,6 @@ def create_database(cursor, connection):
                 message             TEXT,
                 severity            TEXT,
                 time                BIGINT,
-                params              TEXT,
                 cwd                 TEXT,
                 file_name           TEXT,
                 function_name       TEXT,
@@ -187,6 +210,7 @@ def create_database(cursor, connection):
                 line_number         INT
                ); ''' 
 
+    logging.debug(command)
     cursor.execute(command)
     connection.commit()
 
