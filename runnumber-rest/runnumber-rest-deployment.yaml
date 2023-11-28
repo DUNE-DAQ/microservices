@@ -46,9 +46,11 @@ spec:
         env:
         - name: MICROSERVICE
           value: runnumber-rest
-        envFrom:
-        - secretRef:
-            name: run-db-secret
+        - name: DATABASE_URI
+          valueFrom:
+            secretKeyRef:
+              key: uri
+              name: runservices-postgresql-svcbind-custom-user
         ports:
         - containerPort: 5000
           protocol: TCP
