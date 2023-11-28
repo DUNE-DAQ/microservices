@@ -153,7 +153,7 @@ def process_issue( issue, session, cursor ) :
     # heavy information
     add_entry("inheritance", '/'.join(issue.inheritance), fields, values)
     add_entry("message", issue.message, fields, values)
-#    add_entry("params", str(issue.parameters), fields, values)
+    add_entry("params", convert_params(issue.parameters), fields, values)
     
 
     command = "INSERT INTO " + table_name;
@@ -164,6 +164,10 @@ def process_issue( issue, session, cursor ) :
     cursor.execute(command)
 
 
+def convert_params( params ) -> str :
+    s = str(params)
+    return s.replace("'", '"')
+    
 def add_entry(field, value, fields, values):
     fields.append(field)
     values.append(value)
@@ -195,6 +199,7 @@ def create_database(cursor, connection):
                 issue_name          TEXT,
                 inheritance         TEXT,
                 message             TEXT,
+                params              TEXT,
                 severity            TEXT,
                 time                BIGINT,
                 cwd                 TEXT,
