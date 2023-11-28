@@ -2,6 +2,10 @@ from flask_httpauth import HTTPBasicAuth
 
 auth = HTTPBasicAuth()
 
+__all__ = [
+    "auth",
+]
+
 APP_PASS = {"fooUsr": "barPass"}
 
 
