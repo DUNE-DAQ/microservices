@@ -8,11 +8,11 @@ __all__ = ["db", "RunRegistryConfig", "RunRegistryMeta"]
 db = SQLAlchemy
 
 class RunRegistryConfig(db.Model):
-    run_number = Column("run_number", Integer, primary_key=True, autoincrement=True, nullable=False)
+    rn = Column("rn", Integer, primary_key=True, autoincrement=True, nullable=False)
     configuration = Column("configuration", LargeBinary, nullable=False)
 
 class RunRegistryMeta(db.Model):
-    run_number = Column("run_number", Integer, primary_key=True, autoincrement=True, nullable=False)
+    rn = Column("rn", Integer, primary_key=True, autoincrement=True, nullable=False)
     start_time = Column("start_time", TIMESTAMP(6), nullable=False, default=datetime.now)
     stop_time = Column("stop_time", TIMESTAMP(6), nullable=True)
     detector_id = Column("detector_id", String(40))
