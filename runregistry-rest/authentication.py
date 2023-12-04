@@ -2,6 +2,10 @@ from flask_httpauth import HTTPBasicAuth
 
 auth = HTTPBasicAuth()
 
+__all__ = [
+    "auth",
+]
+
 # This is reset by the image creation
 APP_PASS = {"fooUsr": "barPass"}
 
