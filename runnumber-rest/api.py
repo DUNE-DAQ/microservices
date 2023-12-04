@@ -31,7 +31,7 @@ class getRunNumber(Resource):
             rowRes.append(
                 db.session.execute(
                     db.select(RunNumber).order_by(desc(RunNumber.rn))
-                ).scalar_one()
+                ).scalar()
             )
         except Exception as e:
             (err_obj,) = e.args
@@ -60,7 +60,7 @@ class getNewtRunNumber(Resource):
             rowRes.append(
                 db.session.execute(
                     db.select(RunNumber).order_by(desc(RunNumber.rn))
-                ).scalar_one()
+                ).scalar()
             )
         except Exception as e:
             (err_obj,) = e.args
