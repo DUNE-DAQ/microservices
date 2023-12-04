@@ -4,8 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 __all__ = ["db", "RunRegistryConfig", "RunRegistryMeta"]
 
-
-db = SQLAlchemy
+db = SQLAlchemy()
 
 class RunRegistryConfig(db.Model):
     rn = Column("rn", Integer, primary_key=True, autoincrement=True, nullable=False)
