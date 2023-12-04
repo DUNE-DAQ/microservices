@@ -29,10 +29,14 @@ from database import RunRegistryMeta, RunRegistryConfig, db
 __all__ = ["app", "api"]
 
 app = Flask(__name__)
+
 app.config["MAX_CONTENT_LENGTH"] = 32 * 1000 * 1000
 app.config["UPLOAD_EXTENSIONS"] = [".gz", ".tgz"]
 app.config["UPLOAD_PATH"] = "uploads"
 app.config["CACHE_TYPE"] = "simple"
+app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
+    "DATABASE_URI", "sqlite:///tmp/db.sqlite"
+)
 cache = Cache(app)
 api = Api(app)
 
@@ -44,11 +48,16 @@ def add_schema_as_element(rowres):
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:5005/runregistry/getRunMeta/2
 @api.resource("/runregistry/getRunMeta/<int:runNum>")
 class getRunMeta(Resource):
+    
     @auth.login_required
     def get(self, runNum):
         rowRes = []
         try:
-            db.perform_query(queries.getRunMeta, {"run_num": runNum}, rowRes)
+            rowRes.append(
+                db.session.execute(
+                    db.select(RunRegistryMeta).order_by(desc(RunRegistryMeta.rn))
+                ).scalar()
+            )
         except Exception as e:
             (err_obj,) = e.args
             print("Exception:", err_obj.message)
