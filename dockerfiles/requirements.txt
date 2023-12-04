@@ -3,7 +3,7 @@ apispec==5.1.1
 click==8.1.2
 cx-Oracle==8.2.1
 dataclasses==0.6
-Flask==2.1.1
+Flask==2.2.5
 Flask-Caching==2.0.2
 Flask-HTTPAuth==4.6.0
 flask-redis==0.4.0
@@ -17,7 +17,7 @@ influxdb==5.3.1
 itsdangerous==2.0.1
 Jinja2==3.1.1
 kafka-python==2.0.2
-MarkupSafe==2.0.1
+MarkupSafe==2.1.1
 psycopg2-binary==2.9.7
 pymongo==4.0.2
 pytz==2022.1
@@ -25,7 +25,7 @@ redis==3.5.3
 setuptools==39.2.0
 six==1.16.0
 typing_extensions==4.2.0
-Werkzeug==2.1.1
+Werkzeug==2.2.2
 zipp==3.8.0
 zope.event==4.6
 zope.interface==5.5.2
