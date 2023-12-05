@@ -16,7 +16,7 @@ class RunNumber(db.Model):
     """
 
     rn = Column("rn", Integer, primary_key=True, autoincrement=True, nullable=False)
-    flag = Column("flag", Boolean, nullable=False, default=False)
+    flag = Column("flag", db.Boolean, nullable=False, default=False)
     start_time = Column(
         "start_time", TIMESTAMP(6), nullable=False, default=datetime.now
     )

@@ -41,6 +41,17 @@ cache = Cache(app)
 api = Api(app)
 
 
+def cache_key():
+    args = flask.request.args
+    key = (
+        flask.request.path
+        + "?"
+        + urllib.urlencode(
+            [(k, v) for k in sorted(args) for v in sorted(args.getlist(k))]
+        )
+    )
+    return key
+
 def add_schema_as_element(rowres):
     rowres.insert(0, queries.schema)
 
