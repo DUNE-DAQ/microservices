@@ -21,7 +21,7 @@ app.config["UPLOAD_EXTENSIONS"] = [".gz", ".tgz"]
 app.config["UPLOAD_PATH"] = "uploads"
 app.config["CACHE_TYPE"] = "simple"
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
-    "DATABASE_URI", "postgresql+psycopg2://runservices:run4evah@runservices-postgresql.runservices:5432/runservices"
+    "DATABASE_URI", "sqlite:////tmp/test.sqlite"
 )
 cache = Cache(app)
 db = SQLAlchemy(app)
