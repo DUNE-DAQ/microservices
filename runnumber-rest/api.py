@@ -3,11 +3,11 @@ from datetime import datetime
 
 import flask
 from flask_restful import Api, Resource
+from flask_sqlalchemy import SQLAlchemy
 
 from authentication import auth
-from database import RunNumber, db
 
-__all__ = ["app", "api"]
+__all__ = ["app", "api", "db"]
 
 app = flask.Flask(__name__)
 
@@ -15,7 +15,10 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
     "DATABASE_URI", "sqlite:///tmp/db.sqlite"
 )
 
+db = SQLAlchemy(app)
 api = Api(app)
+
+from database import RunNumber
 
 
 @api.resource("/runnumber/get")

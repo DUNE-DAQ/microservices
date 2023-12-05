@@ -1,10 +1,8 @@
 from datetime import datetime
 
-from flask_sqlalchemy import SQLAlchemy
+from api import db
 
-__all__ = ["db", "RunNumber"]
-
-db = SQLAlchemy()
+__all__ = ["RunNumber"]
 
 
 class RunNumber(db.Model):
@@ -14,7 +12,9 @@ class RunNumber(db.Model):
     TODO: how to specify start value for auto increment of run number
     """
 
-    rn = db.Column("rn", db.Integer, primary_key=True, autoincrement=True, nullable=False)
+    rn = db.Column(
+        "rn", db.Integer, primary_key=True, autoincrement=True, nullable=False
+    )
     flag = db.Column("flag", db.Boolean, nullable=False, default=False)
     start_time = db.Column(
         "start_time", db.TIMESTAMP(6), nullable=False, default=datetime.now
