@@ -49,34 +49,6 @@ spec:
         envFrom:
         - secretRef:
             name: run-db-secret
-
-#        - name: RGDB
-#          value: postgres
-#        - name: DB_USERNAME
-#          valueFrom:
-#            secretKeyRef:
-#              key: username
-#              name: runservices-postgresql-svcbind-custom-user
-#        - name: DB_PASSWORD
-#          valueFrom:
-#            secretKeyRef:
-#              key: password
-#              name: runservices-postgresql-svcbind-custom-user
-#        - name: DB_HOSTNAME
-#          valueFrom:
-#            secretKeyRef:
-#              key: host
-#              name: runservices-postgresql-svcbind-custom-user
-#        - name: DB_PORT
-#          valueFrom:
-#            secretKeyRef:
-#              key: port
-#              name: runservices-postgresql-svcbind-custom-user
-#        - name: DB_NAME
-#          valueFrom:
-#            secretKeyRef:
-#              key: database
-#              name: runservices-postgresql-svcbind-custom-user
         ports:
         - containerPort: 5005
           name: http
