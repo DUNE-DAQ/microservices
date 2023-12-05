@@ -1,24 +1,23 @@
 from datetime import datetime
 
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import Column, Integer, LargeBinary, TIMESTAMP, String
 
 __all__ = ["db", "RunRegistryConfig", "RunRegistryMeta"]
 
 db = SQLAlchemy()
 
 class RunRegistryConfig(db.Model):
-    rn = Column("rn", Integer, primary_key=True, autoincrement=True, nullable=False)
-    configuration = Column("configuration", LargeBinary, nullable=False)
+    rn = db.Column("rn", db.Integer, primary_key=True, autoincrement=True, nullable=False)
+    configuration = db.Column("configuration", db.LargeBinary, nullable=False)
 
 class RunRegistryMeta(db.Model):
-    rn = Column("rn", Integer, primary_key=True, autoincrement=True, nullable=False)
-    start_time = Column("start_time", TIMESTAMP(6), nullable=False, default=datetime.now)
-    stop_time = Column("stop_time", TIMESTAMP(6), nullable=True)
-    detector_id = Column("detector_id", String(40))
-    run_type = Column("run_type", String(40))
-    filename = Column("filename", String(100))
-    software_version = Column("software_version", String(40))
+    rn = db.Column("rn", db.Integer, primary_key=True, autoincrement=True, nullable=False)
+    start_time = db.Column("start_time", db.TIMESTAMP(6), nullable=False, default=datetime.now)
+    stop_time = db.Column("stop_time", db.TIMESTAMP(6), nullable=True)
+    detector_id = db.Column("detector_id", db.String(40))
+    run_type = db.Column("run_type", db.String(40))
+    filename = db.Column("filename", db.String(100))
+    software_version = db.Column("software_version", db.String(40))
 
 
 
