@@ -4,7 +4,7 @@
 cd $(dirname $0)
 source ../entrypoint_functions.sh
 
-ensure_required_variables "DB_HOSTNAME DB_PORT DB_NAME DB_USERNAME DB_PASSWORD"
+ensure_required_variables "DATABASE_URI"
 
 
 mkdir --mode=1777 /uploads
