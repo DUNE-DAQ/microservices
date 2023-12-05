@@ -8,8 +8,7 @@ DEBUG - set to TRUE for flask debugging
 """
 import os
 
-from api import app
-from database import db
+from api import app, db
 
 if __name__ == "__main__":
     # setenv DEBUG=True to enable debug mode    

@@ -11,7 +11,8 @@ from flask_caching import Cache
 
 from authentication import auth
 
-from database import RunRegistryMeta, RunRegistryConfig, db
+from database import RunRegistryMeta, RunRegistryConfig
+from flask_sqlalchemy import SQLAlchemy
 
 # import backends.pg_queries as queries ## I don't know why this was also removed from runnumber but keeping it commented for now 
 # import backends.pg_backend as db
@@ -26,7 +27,7 @@ from database import RunRegistryMeta, RunRegistryConfig, db
 #     import backend.ora_backend as db
 
 
-__all__ = ["app", "api"]
+__all__ = ["app", "api", "db"]
 
 app = Flask(__name__)
 
@@ -38,6 +39,7 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
     "DATABASE_URI", "sqlite:///tmp/db.sqlite"
 )
 cache = Cache(app)
+db=SQLAlchemy()
 api = Api(app)
 
 
