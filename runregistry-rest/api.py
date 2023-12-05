@@ -8,11 +8,9 @@ from flask_restful import Api, Resource
 from flask_httpauth import HTTPBasicAuth
 from flask_redis import FlaskRedis
 from flask_caching import Cache
+from flask_sqlalchemy import SQLAlchemy
 
 from authentication import auth
-
-from database import RunRegistryMeta, RunRegistryConfig
-from flask_sqlalchemy import SQLAlchemy
 
 __all__ = ["app", "api", "db"]
 
@@ -23,11 +21,13 @@ app.config["UPLOAD_EXTENSIONS"] = [".gz", ".tgz"]
 app.config["UPLOAD_PATH"] = "uploads"
 app.config["CACHE_TYPE"] = "simple"
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
-    "DATABASE_URI", "postgresql+psycopg2://runservices:run4evah@runservices-postgresql.runservices.svc:5432/runservices"
+    "DATABASE_URI", "postgresql+psycopg2://runservices:run4evah@runservices-postgresql.runservices:5432/runservices"
 )
 cache = Cache(app)
 db = SQLAlchemy(app)
 api = Api(app)
+
+from database import RunRegistryMeta, RunRegistryConfig
 
 
 def cache_key():

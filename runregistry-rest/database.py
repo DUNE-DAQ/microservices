@@ -4,8 +4,6 @@ from api import db
 
 __all__ = ["RunRegistryConfig", "RunRegistryMeta"]
 
-db = SQLAlchemy()
-
 class RunRegistryConfig(db.Model):
     rn = db.Column(
         "rn", db.Integer, primary_key=True, autoincrement=True, nullable=False
