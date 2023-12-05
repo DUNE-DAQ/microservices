@@ -10,11 +10,10 @@ import os
 
 from api import app, db
 
-if __name__ == "__main__":
-    # setenv DEBUG=True to enable debug mode
-    DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+# setenv DEBUG=True to enable debug mode
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
-    with app.app_context():
-        db.create_all()
+with app.app_context():
+    db.create_all()
 
-    app.run(host="0.0.0.0", port=5000, debug=DEBUG)
+app.run(host="0.0.0.0", port=5000, debug=DEBUG)
