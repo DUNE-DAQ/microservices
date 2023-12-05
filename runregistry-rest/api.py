@@ -14,19 +14,6 @@ from authentication import auth
 from database import RunRegistryMeta, RunRegistryConfig
 from flask_sqlalchemy import SQLAlchemy
 
-# import backends.pg_queries as queries ## I don't know why this was also removed from runnumber but keeping it commented for now 
-# import backends.pg_backend as db
-#
-# if "-p" in sys.argv or os.environ.get("RGDB", None):
-#     import backend.pg_queries as queries
-#     import backend.pg_backend as db
-
-#     postgres = True
-# else:
-#     import backend.ora_queries as queries
-#     import backend.ora_backend as db
-
-
 __all__ = ["app", "api", "db"]
 
 app = Flask(__name__)
@@ -36,7 +23,7 @@ app.config["UPLOAD_EXTENSIONS"] = [".gz", ".tgz"]
 app.config["UPLOAD_PATH"] = "uploads"
 app.config["CACHE_TYPE"] = "simple"
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
-    "DATABASE_URI", "sqlite:////tmp/db.sqlite"
+    "DATABASE_URI", "postgresql+psycopg2://runservices:run4evah@runservices-postgresql.runservices.svc:5432/runservices"
 )
 cache = Cache(app)
 db = SQLAlchemy(app)
