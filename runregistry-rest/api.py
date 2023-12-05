@@ -35,7 +35,7 @@ app.config["UPLOAD_EXTENSIONS"] = [".gz", ".tgz"]
 app.config["UPLOAD_PATH"] = "uploads"
 app.config["CACHE_TYPE"] = "simple"
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
-    "DATABASE_URI", "sqlite:///tmp/db.sqlite"
+    "DATABASE_URI", "postgresql:///tmp/db.postgresql"
 )
 cache = Cache(app)
 api = Api(app)
