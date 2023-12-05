@@ -12,7 +12,7 @@ __all__ = ["app", "api"]
 app = flask.Flask(__name__)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
-    "DATABASE_URI", "postgresql:///tmp/db.sqlite"
+    "DATABASE_URI", "postgresql+psycopg2://runservices:{{DUNE_runservices.postgresql_database_password}}@runservices-postgresql.runservices.svc:5432/runservices"
 )
 
 api = Api(app)

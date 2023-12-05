@@ -18,6 +18,3 @@ class RunRegistryMeta(db.Model):
     run_type = db.Column("run_type", db.String(40))
     filename = db.Column("filename", db.String(100))
     software_version = db.Column("software_version", db.String(40))
-
-
-
