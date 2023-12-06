@@ -11,7 +11,7 @@ metadata:
     pod-security.kubernetes.io/enforce-version: latest
     pod-security.kubernetes.io/warn: baseline
     pod-security.kubernetes.io/warn-version: latest
-  name: runservices
+  name: {{ DUNE_runservices.namespace }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -20,13 +20,12 @@ metadata:
     app.kubernetes.io/app: runregistry-rest
     app.kubernetes.io/component: runregistry-rest
   name: runregistry-rest
-  namespace: runservices
+  namespace: {{ DUNE_runservices.namespace }}
 spec:
   selector:
     matchLabels:
       app.kubernetes.io/app: runregistry-rest
       app.kubernetes.io/component: runregistry-rest
-  minReadySeconds: 5
   template:
     metadata:
       labels:
@@ -34,21 +33,26 @@ spec:
         app.kubernetes.io/component: runregistry-rest
     spec:
       affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: node-role.kubernetes.io/worker
-                operator: Exists
+       nodeAffinity:
+         requiredDuringSchedulingIgnoredDuringExecution:
+           nodeSelectorTerms:
+           - matchExpressions:
+             - key: {{ kubernetes_label.worker }}
+               operator: Exists
+      initContainers:
+      - name: wait-for-run-postgres
+        image: busybox:1.28
+        command: ['sh','-c', 'until nc -z runservices-postgresql.runservices.svc.cluster.local 5432; do echo "Waiting for PostgreSQL"; sleep 2; done']
       containers:
-      - image: ghcr.io/dune-daq/microservices:latest
+      - env:
+        - name: MICROSERVICE
+          value: runregistry-rest
+        - name: DATABASE_URI
+          valueFrom:
+            secretKeyRef:
+              key: uri
+              name: runservices-postgresql-svcbind-custom-user
         name: runregistry-rest
-        env:
-         - name: MICROSERVICE
-           value: runregistry-rest
-        envFrom:
-        - secretRef:
-            name: run-db-secret
         ports:
         - containerPort: 5005
           name: http
@@ -66,6 +70,8 @@ spec:
             drop:
             - ALL
           runAsGroup: 11000
+          runAsNonRoot: true
+          runAsUser: 11000
           seccompProfile:
             type: RuntimeDefault
         volumeMounts:
@@ -77,3 +83,22 @@ spec:
           sizeLimit: 20Gi
       securityContext:
         fsGroup: 11000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/app: runregistry-rest
+    app.kubernetes.io/component: runregistry-rest
+  name: runregistry-rest
+  namespace: runservices
+spec:
+  ports:
+  - name: http
+    port: 5005
+    protocol: TCP
+    targetPort: 5005
+  selector:
+    app.kubernetes.io/app: runregistry-rest
+    app.kubernetes.io/component: runregistry-rest
+  type: ClusterIP

@@ -11,7 +11,7 @@ metadata:
     pod-security.kubernetes.io/enforce-version: latest
     pod-security.kubernetes.io/warn: baseline
     pod-security.kubernetes.io/warn-version: latest
-  name: runservices
+  name: {{ DUNE_runservices.namespace }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -22,7 +22,6 @@ metadata:
   name: runnumber-rest
   namespace: {{ DUNE_runservices.namespace }}
 spec:
-  minReadySeconds: 5
   selector:
     matchLabels:
       app.kubernetes.io/app: runnumber-rest
@@ -34,15 +33,18 @@ spec:
         app.kubernetes.io/component: runnumber-rest
     spec:
       affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-            - matchExpressions:
-              - key: node-role.kubernetes.io/worker
-                operator: Exists
+       nodeAffinity:
+         requiredDuringSchedulingIgnoredDuringExecution:
+           nodeSelectorTerms:
+           - matchExpressions:
+             - key: {{ kubernetes_label.worker }}
+               operator: Exists
+      initContainers:
+      - name: wait-for-run-postgres
+        image: busybox:1.28
+        command: ['sh','-c', 'until nc -z runservices-postgresql.runservices.svc.cluster.local 5432; do echo "Waiting for PostgreSQL"; sleep 2; done']
       containers:
-      - image: ghcr.io/dune-daq/microservices:latest
-        name: runnumber-rest
+      - name: runnumber-rest
         env:
         - name: MICROSERVICE
           value: runnumber-rest
@@ -63,11 +65,30 @@ spec:
         terminationMessagePolicy: File
         securityContext:
           allowPrivilegeEscalation: false
-          runAsGroup: 11000
           capabilities:
             drop:
             - ALL
+          runAsGroup: 11000
           seccompProfile:
             type: RuntimeDefault
       securityContext:
         fsGroup: 11000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/app: runnumber-rest
+    app.kubernetes.io/component: runnumber-rest
+  name: runnumber-rest
+  namespace: runservices
+spec:
+  ports:
+  - name: http
+    port: 5000
+    protocol: TCP
+    targetPort: 5000
+  selector:
+    app.kubernetes.io/app: runnumber-rest
+    app.kubernetes.io/component: runnumber-rest
+  type: ClusterIP
