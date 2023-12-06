@@ -39,12 +39,10 @@ spec:
            - matchExpressions:
              - key: {{ kubernetes_label.worker }}
                operator: Exists
-      initContainers:
-      - name: wait-for-run-postgres
-        image: busybox:1.28
-        command: ['sh','-c', 'until nc -z runservices-postgresql.runservices.svc.cluster.local 5432; do echo "Waiting for PostgreSQL"; sleep 2; done']
       containers:
-      - env:
+      - image: ghcr.io/dune-daq/microservices:latest
+        name: runregistry-rest
+        env:
         - name: MICROSERVICE
           value: runregistry-rest
         - name: DATABASE_URI
@@ -52,7 +50,6 @@ spec:
             secretKeyRef:
               key: uri
               name: runservices-postgresql-svcbind-custom-user
-        name: runregistry-rest
         ports:
         - containerPort: 5005
           name: http
@@ -91,7 +88,7 @@ metadata:
     app.kubernetes.io/app: runregistry-rest
     app.kubernetes.io/component: runregistry-rest
   name: runregistry-rest
-  namespace: runservices
+  name: {{ DUNE_runservices.namespace }}
 spec:
   ports:
   - name: http
