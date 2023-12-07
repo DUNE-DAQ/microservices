@@ -1,7 +1,7 @@
 FROM cern/alma9-base
 
-ARG ERSVERSION=dunedaq-v4.1.1  # For issue.proto from ers
-ARG ERSKAFKAVERSION=v1.5.2  # For ERSSubscriber.py from erskafka
+ARG ERSVERSION=v1.5.0  # For issue.proto from ers
+ARG ERSKAFKAVERSION=v1.5.3  # For ERSSubscriber.py from erskafka
 ARG LOCALPYDIR=/microservices_python
 
 # libaio and libnsl are needed when rpm is called on the Oracle client software 
