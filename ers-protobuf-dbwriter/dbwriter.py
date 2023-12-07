@@ -51,7 +51,7 @@ def cli(subscriber_address, subscriber_port, subscriber_group, subscriber_timeou
         exit()
         
     global table_name
-    table_name = db_table
+    table_name = '"' + db_table + '"'
 
     cur = con.cursor()
 
