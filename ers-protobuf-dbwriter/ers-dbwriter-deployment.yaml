@@ -54,8 +54,10 @@ spec:
         env:
         - name: MICROSERVICE
           value: ers-protobuf-dbwriter
-        - name: ERS_DBWRITER_KAFKA_BOOTSTRAP_SERVER
-          value: dune-daq.kafka.svc.cluster.local:9092
+        - name: ERS_DBWRITER_KAFKA_SERVER
+          value: dune-daq.kafka.svc.cluster.local
+        - name: ERS_DBWRITER_KAFKA_port
+          value: "9092"
         - name: ERS_TABLE_NAME
           value: ERSstream
         - name: ERS_DBWRITER_KAFKA_TIMEOUT_MS
