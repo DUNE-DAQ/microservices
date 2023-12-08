@@ -2,7 +2,7 @@
 and writing to a postgreSQL database so that the messages can be displayed in a
 grafana dashboard. The secrets to connect to the database are obtained from
 environment variables. To run it manually do:
-```python dbwriter.py```
+```python dbwriter.py [options]```
 and if the env variables are set, it should start printing the messages that it
 is receiving and writing to the database.
 
@@ -44,15 +44,9 @@ where the important part is that `STATUS` is `Running`
 # Running locally
 The script can also be run locally which can be useful to debug or start up quickly. After setting up a working area and cloning this repo, run:
 ```
-pip install -r requirements.txt
-export ERS_DBWRITER_HOST=host
-export ERS_DBWRITER_PORT=port
-export ERS_DBWRITER_USER=user
-export ERS_DBWRITER_PASS=pass
-export ERS_DBWRITER_NAME=name
-python3 dbwriter.python3
+python3 dbwriter.py
 ```
-where the values of the env variables have to be substituted by their actual values. 
+Passing the appropriate variables. 
 As this script requires ers and erskafak, it has to be launched by a developing envirnoment.
 It can run at the same time locally and in kubernetes.
 
