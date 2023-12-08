@@ -4,6 +4,7 @@ from datetime import datetime
 import flask
 from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import func
 
 from authentication import auth
 
@@ -32,9 +33,7 @@ class getRunNumber(Resource):
         rowRes = []
         try:
             rowRes.append(
-                db.session.execute(
-                    db.select(RunNumber).order_by(desc(RunNumber.rn))
-                ).scalar()
+                db.session.execute(db.select(func.max(RunNumber.rn))).scalar_one()
             )
         except Exception as e:
             (err_obj,) = e.args
@@ -57,14 +56,16 @@ class getNewtRunNumber(Resource):
     def get(self):
         rowRes = []
         try:
-            run = RunNumber()
+            # if we start at a higher number
+            # the primary key sequence may not match
+            current_max_run = db.session.execute(
+                db.select(func.max(RunNumber.rn))
+            ).scalar_one()
+            current_max_run += 1
+            run = RunNumber(rn=current_max_run)
             db.session.add(run)
             db.session.commit()
-            rowRes.append(
-                db.session.execute(
-                    db.select(RunNumber).order_by(desc(RunNumber.rn))
-                ).scalar()
-            )
+            rowRes.append(current_max_run)
         except Exception as e:
             (err_obj,) = e.args
             print("Exception:", err_obj.message)

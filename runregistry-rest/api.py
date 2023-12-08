@@ -10,6 +10,8 @@ from flask_redis import FlaskRedis
 from flask_caching import Cache
 from flask_sqlalchemy import SQLAlchemy
 
+from sqlalchemy import desc, func
+
 from authentication import auth
 
 __all__ = ["app", "api", "db"]
@@ -41,6 +43,7 @@ def cache_key():
     )
     return key
 
+
 def add_schema_as_element(rowres):
     rowres.insert(0, queries.schema)
 
@@ -48,15 +51,19 @@ def add_schema_as_element(rowres):
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:5005/runregistry/getRunMeta/2
 @api.resource("/runregistry/getRunMeta/<int:runNum>")
 class getRunMeta(Resource):
-    
+    """
+    Get XYZ
+    should return the RunMeta in format: XXXXXX
+    """
+
     @auth.login_required
     def get(self, runNum):
         rowRes = []
         try:
             rowRes.append(
                 db.session.execute(
-                    db.select(RunRegistryMeta).order_by(desc(RunRegistryMeta.rn))
-                ).scalar()
+                    db.select(func.max(RunRegistryMeta.rn))
+                ).scalar_one()
             )
         except Exception as e:
             (err_obj,) = e.args
@@ -72,12 +79,17 @@ class getRunMeta(Resource):
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:5005/runregistry/getRunMetaLast/100
 @api.resource("/runregistry/getRunMetaLast/<int:amount>")
 class getRunMetaLast(Resource):
+    """
+    Get XYZ
+    should return the RunMeta in format: XXXXXX
+    """
+
     @auth.login_required
     def get(self, amount):
         rowRes = []
         try:
             rowRes.append(
-            db.session.query(func.max(RunRegistryMeta.rn)).limit(amount).scalar()
+                db.session.query(RunRegistryMeta.rn).order_by(desc(RunRegistryMeta.rn)).limit(amount)
             )
         except Exception as e:
             (err_obj,) = e.args
@@ -93,12 +105,16 @@ class getRunMetaLast(Resource):
 # # $ curl -u fooUsr:barPass -X GET -O -J np04-srv-021:5005/runregistry/getRunBlob/2
 # @api.resource("/runregistry/getRunBlob/<int:runNum>")
 # class getRunBlob(Resource):
+#     """
+#     Get XYZ
+#     should return the ZYX in format: XXXXXX
+#     """
 #     @auth.login_required
 #     @cache.cached(timeout=0, key_prefix=cache_key, query_string=True)
 #     def get(self, runNum):
 #         rowRes = []
 #         try:
-#             db.perform_query(queries.getRunBlob, {"rn": runNum}, rowRes)
+#             rowRes.append(db.session.execute(db.select(RunRegistryMeta.filename, RunRegistryConfig.configuration).join(RunRegistryConfig, RunRegistryConfig.rn == RunRegistryMeta.rn)))
 #         except Exception as e:
 #             (err_obj,) = e.args
 #             print("Exception:", err_obj.message)
@@ -120,6 +136,10 @@ class getRunMetaLast(Resource):
 # # $ curl -u fooUsr:barPass -F "file=@sspconf.tar.gz" -F "rn=4" -F "det_id=foo" -F "run_type=bar" -F "software_version=dunedaq-vX.Y.Z" -X POST http://localhost:5005/runregistry/insertRun/
 # @api.resource("/runregistry/insertRun/")
 # class insertRun(Resource):
+#     """
+#     Get XYZ
+#     should return the XYZ in format: XXXXXX
+#     """
 #     @auth.login_required
 #     def post(self):
 #         filename = ""
@@ -153,23 +173,11 @@ class getRunMetaLast(Resource):
 #                 data = io.BytesIO(fin.read())
 
 #             # Perform insert
-#             query_list = []
-#             bind_vars = []
-#             query_list.append(queries.insertRunRegistryMeta)
-#             query_list.append(queries.insertRunRegistryBlob)
-#             bind_vars.append(
-#                 {
-#                     "rn": rn,
-#                     "det_id": det_id,
-#                     "run_type": run_type,
-#                     "filename": filename,
-#                     "software_version": software_version,
-#                 }
-#             )
-#             bind_vars.append({"rn": rn, "config_blob": data.getvalue()})
-#             db.perform_transaction_multi(query_list, bind_vars)
-#             rowRes = []
-#             db.perform_query(queries.getRunMeta, {"rn": rn}, rowRes)
+#             run_config = RunRegistryConfig(rn=rn, configuration=data.getvalue())
+#             run_meta = RunRegistryMeta(rn=rn, detector_id=det_id, run_type=run_type, filename=filename, software_version=software_version)
+#             db.session.add(run_config)
+#             db.session.add(run_meta)
+#             db.session.commit()
 #             resp = flask.make_response(flask.jsonify(rowRes))
 #             # remove uploaded temp file
 #             os.remove(local_file_name)
@@ -181,15 +189,21 @@ class getRunMetaLast(Resource):
 
 @api.resource("/runregistry/updateStopTime/<int:runNum>")
 class updateStopTimestamp(Resource):
+    """
+    Get XYZ
+    should return the times in format: XXXXXX
+    """
+
     @auth.login_required
     def get(self, runNum):
         rowRes = []
         try:
             rowRes.append(
-                db.session.query(RunRegistryMeta).filter(
-                    RunRegistryMeta.rn == runNum,
-                    RunRegistryMeta.stop_time.is_(None)
-                ).update({RunRegistryMeta.stop_time: datetime.now()})
+                db.session.query(RunRegistryMeta)
+                .filter(
+                    RunRegistryMeta.rn == runNum, RunRegistryMeta.stop_time.is_(None)
+                )
+                .update({RunRegistryMeta.stop_time: datetime.now()})
             )
         except Exception as e:
             (err_obj,) = e.args
@@ -204,4 +218,3 @@ class updateStopTimestamp(Resource):
 @app.route("/")
 def index():
     return "Best thing since sliced bread!"
-
