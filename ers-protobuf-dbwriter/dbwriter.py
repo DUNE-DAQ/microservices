@@ -16,8 +16,7 @@ import logging
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 @click.command(context_settings=CONTEXT_SETTINGS)
-@click.option('--subscriber-address', type=click.STRING, default="monkafka.cern.ch", help="address of the ERSSubscriber")
-@click.option('--subscriber-port',    type=click.INT,    default=30092, help='port of the ERSSubscriber')       
+@click.option('--subscriber-bootstrap', type=click.STRING, default="monkafka.cern.ch:30092", help="boostrap server and port of the ERSSubscriber")
 @click.option('--subscriber-group',   type=click.STRING, default=None, help='group ID of the ERSSubscriber')
 @click.option('--subscriber-timeout', type=click.INT,    default=500, help='timeout in ms used in the ERSSubscriber')
 
@@ -30,7 +29,7 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 @click.option('--debug',       type=click.BOOL, default=True, help='Set debug print levels')
 
-def cli(subscriber_address, subscriber_port, subscriber_group, subscriber_timeout,
+def cli(subscriber_bootstrap, subscriber_group, subscriber_timeout,
         db_address, db_port, db_user, db_password, db_name,
         db_table,
         debug):
@@ -67,10 +66,8 @@ def cli(subscriber_address, subscriber_port, subscriber_group, subscriber_timeou
 
     check_tables(cursor=cur, connection=con)
         
-    kafka_bootstrap   = "{}:{}".format(subscriber_address, subscriber_port)
-
     subscriber_conf = json.loads("{}")
-    subscriber_conf["bootstrap"] = kafka_bootstrap
+    subscriber_conf["bootstrap"] = subscriber_bootstrap
     subscriber_conf["timeout"]   = subscriber_timeout
     if subscriber_group:
         subscriber_conf["group_id"]  = subscriber_group
