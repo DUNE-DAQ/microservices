@@ -9,33 +9,118 @@ import ers.issue_pb2 as ersissue
 from functools import partial
 import psycopg2
 import json
-import os
+import click
+import logging
+
+
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
+
+@click.command(context_settings=CONTEXT_SETTINGS)
+@click.option('--subscriber-bootstrap', type=click.STRING, default="monkafka.cern.ch:30092", help="boostrap server and port of the ERSSubscriber")
+@click.option('--subscriber-group',   type=click.STRING, default=None, help='group ID of the ERSSubscriber')
+@click.option('--subscriber-timeout', type=click.INT,    default=500, help='timeout in ms used in the ERSSubscriber')
+
+@click.option('--db-address',  required=True, type=click.STRING, help='address of the PostgreSQL db')
+@click.option('--db-port',     required=True, type=click.STRING, help='port of the PostgreSQL db')
+@click.option('--db-user',     required=True, type=click.STRING, help='user for login to the PostgreSQL db')
+@click.option('--db-password', required=True, type=click.STRING, help='password for login to the PostgreSQL db')
+@click.option('--db-name',     required=True, type=click.STRING, help='name of the PostgreSQL db')
+@click.option('--db-table',    required=True, type=click.STRING, help='name of table used in the PostgreSQL db')
+
+@click.option('--debug',       type=click.BOOL, default=True, help='Set debug print levels')
+
+def cli(subscriber_bootstrap, subscriber_group, subscriber_timeout,
+        db_address, db_port, db_user, db_password, db_name,
+        db_table,
+        debug):
+
+    logging.basicConfig(
+        format='%(asctime)s %(levelname)-8s %(message)s',
+        level=logging.DEBUG if debug else logging.INFO,
+        datefmt='%Y-%m-%d %H:%M:%S')
+
+    try:
+        con = psycopg2.connect(host=db_address,
+                              port=db_port,
+                              user=db_user,
+                              password=db_password,
+                              dbname=db_name)
+    except:
+        logging.fatal('Connection to the database failed, aborting...')
+        exit()
+        
+    global table_name
+    table_name = '"' + db_table + '"'
+
+    cur = con.cursor()
+
+    try: # try to make sure tables exist
+        create_database(cursor=cur, connection=con)
+    except:
+        con.rollback()
+        logging.info( "Database was already created" )
+    else :
+        logging.info( "Database creation: Success" )
+    finally:
+        logging.info( "Database is ready" )
+
+    check_tables(cursor=cur, connection=con)
+        
+    subscriber_conf = json.loads("{}")
+    subscriber_conf["bootstrap"] = subscriber_bootstrap
+    subscriber_conf["timeout"]   = subscriber_timeout
+    if subscriber_group:
+        subscriber_conf["group_id"]  = subscriber_group
+
+    sub = erssub.ERSSubscriber(subscriber_conf)
+
+    callback_function = partial(process_chain, 
+                                cursor=cur, 
+                                connection=con)
+    
+    sub.add_callback(name="postgres", 
+                     function=callback_function)
+    
+    sub.start()
 
 
 def process_chain( chain, cursor, connection ) :
-    try :
-        for cause in reversed(chain.causes) :
-            process_issue(issue=cause, 
+    logging.debug(chain)
+
+    counter = 0;
+    success = False
+    while(not success) :
+        counter += 1
+        try :
+            for cause in reversed(chain.causes) :
+                process_issue(issue=cause, 
+                              session=chain.session,
+                              cursor=cursor)
+
+            process_issue(issue=chain.final, 
                           session=chain.session,
                           cursor=cursor)
-        
-        process_issue(issue=chain.final, 
-                      session=chain.session,
-                      cursor=cursor)
+            connection.commit()
+        except psycopg2.errors.UndefinedTable as e:
+       	    logging.error(e)
+            logging.error("Table was undefined yet it was supposed to be defined at this point")
+            connection.rollback()
+            create_database(cursor=cursor,
+                            connection=connection)
+        except psycopg2.errors.UndefinedColumn as e:
+            logging.warning(e)
+            connection.rollback()
+            clean_database(cursor=cursor, 
+                           connection=connection)
+            create_database(cursor=cursor,
+                            connection=connection)
+        except Exception as e:
+            logging.error("Something unexpected happened")
+            logging.error(e)
 
-        connection.commit()
-    except psycopg2.errors.UndefinedTable:
-        connection.rollback()
-        create_database(cursor=cursor,
-                        connection=connection)
-    except psycopg2.errors.UndefinedColumn:
-        connection.rollback()
-        clean_database(cursor=cursor, 
-                       connection=connection)
-        create_database(cursor=cursor,
-                        connection=connection)
-    except Exception as e:
-        print(e)
+        else:
+            success=True
+            logging.debug(f"Entry sent after {counter} attempts")
         
 
 def process_issue( issue, session, cursor ) :
@@ -65,15 +150,20 @@ def process_issue( issue, session, cursor ) :
     # heavy information
     add_entry("inheritance", '/'.join(issue.inheritance), fields, values)
     add_entry("message", issue.message, fields, values)
-    add_entry("params", str(issue.parameters), fields, values)
+    add_entry("params", convert_params(issue.parameters), fields, values)
     
 
-    command = "INSERT INTO public." + table_name;
+    command = "INSERT INTO " + table_name;
     command += " (" + ", ".join(fields) + ')'
     command += " VALUES " + repr(tuple(values)) + ';'
 
+    logging.debug(command)
     cursor.execute(command)
-    
+
+
+def convert_params( params ) -> str :
+    s = str(params)
+    return s.replace("'", '"')
     
 def add_entry(field, value, fields, values):
     fields.append(field)
@@ -81,24 +171,34 @@ def add_entry(field, value, fields, values):
 
 
 def clean_database(cursor, connection):
-    command = "DROP TABLE public."
+    command = "DROP TABLE "
     command += table_name
     command += ";"
 
+    logging.debug(command)
     cursor.execute(command)
     connection.commit()
+
+def check_tables(cursor, connection) :
+    command = """SELECT relname FROM pg_class WHERE relkind='r'
+                  AND relname !~ '^(pg_|sql_)';"""
     
+    logging.debug(command)
+    cursor.execute(command)
+    tables = [i[0] for i in cursor.fetchall()] # A list() of tables.
+    logging.info(f"Tables: {tables}")
+    return tables
 
 def create_database(cursor, connection):
-    command = "CREATE TABLE public." + table_name + " ("
+    command = "CREATE TABLE " + table_name + " ("
     command += '''
                 session             TEXT, 
                 issue_name          TEXT,
                 inheritance         TEXT,
                 message             TEXT,
+                params              TEXT,
                 severity            TEXT,
                 time                BIGINT,
-                params              TEXT,
                 cwd                 TEXT,
                 file_name           TEXT,
                 function_name       TEXT,
@@ -112,61 +212,12 @@ def create_database(cursor, connection):
                 line_number         INT
                ); ''' 
 
+    logging.debug(command)
     cursor.execute(command)
     connection.commit()
 
-def main():
-
-    host = os.environ['ERS_DBWRITER_HOST']
-    port = os.environ['ERS_DBWRITER_PORT']
-    user = os.environ['ERS_DBWRITER_USER']
-    password = os.environ['ERS_DBWRITER_PASS']
-    dbname = os.environ['ERS_DBWRITER_NAME']
-
-    try:
-        con = psycopg2.connect(host=host,
-                              port=port,
-                              user=user,
-                              password=password,
-                              dbname=dbname)
-    except:
-        print('Connection to the database failed, aborting...')
-        exit()
-
-    global table_name
-    table_name = '"' + os.environ['ERS_TABLE_NAME'] + '"'
-
-    cur = con.cursor()
-
-    try: # try to make sure tables exist
-        create_database(cursor=cur, connection=con)
-    except:
-        con.rollback()
-        print( "Database was already created" )
-    else :
-        print( "Database creation: Success" )
-    finally:
-        print( "Database is ready" )
-
-    kafka_bootstrap   = os.environ['ERS_DBWRITER_KAFKA_BOOTSTRAP_SERVER']
-    kafka_timeout_ms  = int(os.environ['ERS_DBWRITER_KAFKA_TIMEOUT_MS'])
-
-    subscriber_conf = json.loads("{}")
-    subscriber_conf["bootstrap"] = kafka_bootstrap
-    subscriber_conf["timeout"]   = kafka_timeout_ms
-    subscriber_conf["group_id"]  = os.environ['ERS_DBWRITER_KAFKA_GROUP']
-
-    sub = erssub.ERSSubscriber(subscriber_conf)
-
-    callback_function = partial(process_chain, 
-                                cursor=cur, 
-                                connection=con)
-    
-    sub.add_callback(name="postgres", 
-                     function=callback_function)
-    
-    sub.start()
 
 
 if __name__ == '__main__':
-    main()
+    cli()
+
