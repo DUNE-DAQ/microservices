@@ -1,6 +1,6 @@
 FROM cern/alma9-base
 
-ARG ERSVERSION=v1.5.0  # For issue.proto from ers
+ARG ERSVERSION=v1.5.1  # For issue.proto from ers
 ARG ERSKAFKAVERSION=v1.5.4  # For ERSSubscriber.py from erskafka
 ARG LOCALPYDIR=/microservices_python
 
