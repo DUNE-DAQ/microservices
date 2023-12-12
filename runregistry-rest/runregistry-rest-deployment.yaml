@@ -44,6 +44,7 @@ spec:
                operator: Exists
       containers:
       - image: ghcr.io/dune-daq/microservices:latest
+        imagePullPolicy: Always
         name: runregistry-rest
         env:
         - name: MICROSERVICE
