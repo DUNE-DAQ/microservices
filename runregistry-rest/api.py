@@ -1,18 +1,10 @@
-import os, io, gzip, tarfile
+import os, io
 import flask
-import sys
-
-from flask import Flask, render_template, request, redirect, url_for, send_file
-
+from flask import Flask, request
 from flask_restful import Api, Resource
-from flask_httpauth import HTTPBasicAuth
-from flask_redis import FlaskRedis
 from flask_caching import Cache
 from flask_sqlalchemy import SQLAlchemy
-
 from sqlalchemy import desc, func
-
-from authentication import auth
 
 __all__ = ["app", "api", "db"]
 
@@ -29,6 +21,7 @@ cache = Cache(app)
 db = SQLAlchemy(app)
 api = Api(app)
 
+from authentication import auth
 from database import RunRegistryMeta, RunRegistryConfig
 
 
