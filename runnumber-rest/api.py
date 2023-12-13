@@ -4,9 +4,11 @@ from datetime import datetime
 import flask
 from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import func
 
 from authentication import auth
-from sqlalchemy import func
+from database import RunNumber
+
 
 __all__ = ["app", "api", "db"]
 
@@ -19,7 +21,6 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
 db = SQLAlchemy(app)
 api = Api(app)
 
-from database import RunNumber
 
 
 @api.resource("/runnumber/get")
@@ -61,7 +62,10 @@ class getNewtRunNumber(Resource):
             current_max_run = db.session.execute(
                 db.select(func.max(RunNumber.rn))
             ).scalar_one()
-            current_max_run += 1
+            if current_max_run is None:
+                current_max_run = 1000
+            else:
+                current_max_run += 1
             run = RunNumber(rn=current_max_run)
             db.session.add(run)
             db.session.commit()
