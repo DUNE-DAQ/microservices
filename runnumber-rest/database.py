@@ -6,12 +6,6 @@ __all__ = ["RunNumber"]
 
 
 class RunNumber(db.Model):
-    """
-    The run number object in the database
-
-    TODO: how to specify start value for auto increment of run number
-    """
-
     rn = db.Column(
         "rn", db.Integer, primary_key=True, autoincrement=True, nullable=False
     )

@@ -2,11 +2,12 @@ from datetime import datetime
 
 from api import db
 
+
 __all__ = ["RunRegistryConfig", "RunRegistryMeta"]
 
 class RunRegistryConfig(db.Model):
     rn = db.Column(
-        "rn", db.Integer, db.ForeignKey('RunNumber.rn'), primary_key=True, nullable=False
+        "rn", db.Integer, primary_key=True, autoincrement=True, nullable=False
         )
     configuration = db.Column(
         "configuration", db.LargeBinary, nullable=False
@@ -14,7 +15,7 @@ class RunRegistryConfig(db.Model):
 
 class RunRegistryMeta(db.Model):
     rn = db.Column(
-        "rn", db.Integer, db.ForeignKey('RunNumber.rn'), primary_key=True, autoincrement=True, nullable=False
+        "rn", db.Integer, primary_key=True, autoincrement=True, nullable=False
         )
     start_time = db.Column(
         "start_time", db.TIMESTAMP(6), nullable=False, default=datetime.now
