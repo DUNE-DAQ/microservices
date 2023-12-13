@@ -4,9 +4,9 @@ from datetime import datetime
 import flask
 from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import func
 
 from authentication import auth
+from sqlalchemy import func
 
 __all__ = ["app", "api", "db"]
 

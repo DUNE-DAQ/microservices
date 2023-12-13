@@ -15,7 +15,7 @@ from database import RunNumber
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
 with app.app_context():
-    initial_run = RunNumber(rn='1000', flag='True', start_time='datetime.now', stop_time='')
+    initial_run = RunNumber(rn='1000', flag='True', start_time='datetime.now', stop_time='None')
     db.session.add(initial_run)
     db.session.commit()
     db.create_all()

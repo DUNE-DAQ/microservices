@@ -24,3 +24,8 @@ class RunNumber(db.Model):
     stop_time = db.Column(
         "stop_time", db.TIMESTAMP(6), nullable=True
         )
+
+initial_run = RunNumber(rn=1000, flag=True, start_time=datetime.now, stop_time=None)
+db.session.add(initial_run)
+db.session.commit()
+db.session.close()
