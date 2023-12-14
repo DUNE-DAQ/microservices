@@ -64,7 +64,7 @@ class getNewtRunNumber(Resource):
                 db.select(func.max(RunNumber.rn))
             ).scalar_one()
             if current_max_run is None:
-                current_max_run = 1000
+                current_max_run = current_max_run = int(os.getenv("RUN_START", "1000"))
             else:
                 current_max_run += 1
             run = RunNumber(rn=current_max_run)
