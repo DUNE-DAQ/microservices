@@ -54,9 +54,7 @@ class getRunMeta(Resource):
         rowRes = []
         try:
             rowRes.append(
-                db.session.execute(
-                    db.select(func.max(RunRegistryMeta.rn))
-                ).scalar_one()
+                db.session.execute(db.select(func.max(RunRegistryMeta.rn))).scalar_one()
             )
         except Exception as e:
             (err_obj,) = e.args
@@ -82,7 +80,9 @@ class getRunMetaLast(Resource):
         rowRes = []
         try:
             rowRes.append(
-                db.session.query(RunRegistryMeta.rn).order_by(desc(RunRegistryMeta.rn)).limit(amount)
+                db.session.query(RunRegistryMeta.rn)
+                .order_by(desc(RunRegistryMeta.rn))
+                .limit(amount)
             )
         except Exception as e:
             (err_obj,) = e.args
@@ -102,12 +102,21 @@ class getRunBlob(Resource):
     returns the nanorc configuration of the run number specified
     should return the configuration in a json format
     """
+
     @auth.login_required
     @cache.cached(timeout=0, key_prefix=cache_key, query_string=True)
     def get(self, runNum):
         rowRes = []
         try:
-            rowRes.append(db.session.execute(db.select(RunRegistryMeta.filename, RunRegistryConfig.configuration).join(RunRegistryConfig, RunRegistryConfig.rn == RunRegistryMeta.rn)))
+            rowRes.append(
+                db.session.execute(
+                    db.select(
+                        RunRegistryMeta.filename, RunRegistryConfig.configuration
+                    ).join(
+                        RunRegistryConfig, RunRegistryConfig.rn == RunRegistryMeta.rn
+                    )
+                )
+            )
         except Exception as e:
             (err_obj,) = e.args
             print("Exception:", err_obj.message)
@@ -133,6 +142,7 @@ class insertRun(Resource):
     adds a run with the specified data given in the curl command
     should return the XYZ in format: [1000, "foo", "bar", "dunedaq-vX.Y.Z", "@sspconf.tar.gz"]
     """
+
     @auth.login_required
     def post(self):
         filename = ""
@@ -167,7 +177,13 @@ class insertRun(Resource):
 
             # Perform insert
             run_config = RunRegistryConfig(rn=rn, configuration=data.getvalue())
-            run_meta = RunRegistryMeta(rn=rn, detector_id=det_id, run_type=run_type, filename=filename, software_version=software_version)
+            run_meta = RunRegistryMeta(
+                rn=rn,
+                detector_id=det_id,
+                run_type=run_type,
+                filename=filename,
+                software_version=software_version,
+            )
             db.session.add(run_config)
             db.session.add(run_meta)
             db.session.commit()
@@ -178,6 +194,7 @@ class insertRun(Resource):
         except Exception as e:
             print("Exception:", e)
             return flask.make_response(str(e), 400)
+
 
 # $ -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/updatestop/<int:runNum>
 @api.resource("/runregistry/updateStopTime/<int:runNum>")

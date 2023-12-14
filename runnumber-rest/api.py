@@ -19,6 +19,7 @@ api = Api(app)
 from database import RunNumber
 from authentication import auth
 
+
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30016//runnumber/get
 @api.resource("/runnumber/get")
 class getRunNumber(Resource):
@@ -26,7 +27,7 @@ class getRunNumber(Resource):
     returns the run number of the previous run
     if no previous run number, returns in format: Null
     otherwise returns the last run number in format: [1000]
-    
+
     """
 
     @auth.login_required
@@ -44,6 +45,7 @@ class getRunNumber(Resource):
         print(f"getRunNumber: result {rowRes}")
         resp = flask.make_response(flask.jsonify(rowRes))
         return resp
+
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30016//runnumber/getnew
 @api.resource("/runnumber/getnew")
@@ -79,6 +81,7 @@ class getNewtRunNumber(Resource):
         print(f"getNewtRunNumber: result {rowRes}")
         resp = flask.make_response(flask.jsonify(rowRes))
         return resp
+
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30016/runnumber/updatestop/<int:runNum>
 @api.resource("/runnumber/updatestop/<int:runNum>")
