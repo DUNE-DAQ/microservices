@@ -5,6 +5,7 @@ Main app
 To control set the following environment variables:
 DATABASE_URI - URI for sqlalchemy to use
 DEBUG - set to TRUE for flask debugging
+RUN_START - set to your starting run number, does not need to be changed after first launching as run number will be iterated from this initial value
 """
 import os
 
