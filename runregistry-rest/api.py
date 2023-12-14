@@ -1,6 +1,5 @@
 import os, io
 import flask
-from flask import Flask, request
 from flask_restful import Api, Resource
 from flask_caching import Cache
 from flask_sqlalchemy import SQLAlchemy
@@ -8,7 +7,7 @@ from sqlalchemy import desc, func
 
 __all__ = ["app", "api", "db"]
 
-app = Flask(__name__)
+app = flask.Flask(__name__)
 
 app.config["MAX_CONTENT_LENGTH"] = 32 * 1000 * 1000
 app.config["UPLOAD_EXTENSIONS"] = [".gz", ".tgz"]
@@ -148,12 +147,12 @@ class insertRun(Resource):
         filename = ""
         try:
             # Ensure form fields
-            rn = request.form["rn"]
+            rn = flask.request.form["rn"]
             stop_time = None
-            det_id = request.form["det_id"]
-            run_type = request.form["run_type"]
-            software_version = request.form["software_version"]
-            uploaded_file = request.files["file"]
+            det_id = flask.request.form["det_id"]
+            run_type = flask.request.form["run_type"]
+            software_version = flask.request.form["software_version"]
+            uploaded_file = flask.request.files["file"]
             filename = uploaded_file.filename
 
             # Save uploaded file temporarily
