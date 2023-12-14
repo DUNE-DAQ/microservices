@@ -64,7 +64,7 @@ class getNewtRunNumber(Resource):
             # the primary key sequence may not match
             current_max_run = db.session.execute(
                 db.select(func.max(RunNumber.rn))
-            ).scalar_one()
+            ).scalar()
             if current_max_run is None:
                 current_max_run = current_max_run = int(os.getenv("RUN_START", "1000"))
             else:

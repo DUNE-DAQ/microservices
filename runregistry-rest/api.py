@@ -140,7 +140,7 @@ class getRunBlob(Resource):
 class insertRun(Resource):
     """
     adds a run with the specified data given in the curl command
-    should return the XYZ in format: [1000, "foo", "bar", "dunedaq-vX.Y.Z", "@sspconf.tar.gz"]
+    should return the inserted meta data in the format: [1000, "foo", "bar", "dunedaq-vX.Y.Z", "@sspconf.tar.gz"]
     """
 
     @auth.login_required
@@ -196,7 +196,7 @@ class insertRun(Resource):
             return flask.make_response(str(e), 400)
 
 
-# $ -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/updatestop/<int:runNum>
+# $ curl -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/updatestop/<int:runNum>
 @api.resource("/runregistry/updateStopTime/<int:runNum>")
 class updateStopTimestamp(Resource):
     """
