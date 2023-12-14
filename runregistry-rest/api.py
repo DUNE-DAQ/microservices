@@ -41,12 +41,12 @@ def add_schema_as_element(rowres):
     rowres.insert(0, queries.schema)
 
 
-# $ curl -u fooUsr:barPass -X GET np04-srv-021:5005/runregistry/getRunMeta/2
+# $ curl -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/getRunMeta/2
 @api.resource("/runregistry/getRunMeta/<int:runNum>")
 class getRunMeta(Resource):
     """
-    Get XYZ
-    should return the RunMeta in format: XXXXXX
+    returns the meta data for the specified runumber
+    should return the RunMeta in format: [1000, "Thu, 14 Dec 2023 15:12:03 GMT", "Thu, 14 Dec 2023 15:12:32 GMT", 1, "Don't know what goes here", "config.json", dunedaq-v4.2.0]
     """
 
     @auth.login_required
@@ -69,12 +69,12 @@ class getRunMeta(Resource):
         return resp
 
 
-# $ curl -u fooUsr:barPass -X GET np04-srv-021:5005/runregistry/getRunMetaLast/100
+# $ curl -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/getRunMetaLast/100
 @api.resource("/runregistry/getRunMetaLast/<int:amount>")
 class getRunMetaLast(Resource):
     """
-    Get XYZ
-    should return the RunMeta in format: XXXXXX
+    returns the meta data for the number of runs specific to the number chosen in the curl
+    should return the RunMeta in format: [[1000, "Thu, 14 Dec 2023 15:12:03 GMT", "Thu, 14 Dec 2023 15:12:32 GMT", 1, "Don't know what goes here", "config.json", dunedaq-v4.2.0],[1001, "Thu, 14 Dec 2023 15:12:03 GMT", "Thu, 14 Dec 2023 15:12:32 GMT", 5, "Don't know what goes here", "config2.json", dunedaq-v4.2.0]]
     """
 
     @auth.login_required
@@ -95,12 +95,12 @@ class getRunMetaLast(Resource):
         return resp
 
 
-# $ curl -u fooUsr:barPass -X GET -O -J np04-srv-021:5005/runregistry/getRunBlob/2
+# $ curl -u fooUsr:barPass -X GET -O -J np04-srv-021:30015/runregistry/getRunBlob/2
 @api.resource("/runregistry/getRunBlob/<int:runNum>")
 class getRunBlob(Resource):
     """
-    Get XYZ
-    should return the ZYX in format: XXXXXX
+    returns the nanorc configuration of the run number specified
+    should return the configuration in a json format
     """
     @auth.login_required
     @cache.cached(timeout=0, key_prefix=cache_key, query_string=True)
@@ -126,12 +126,12 @@ class getRunBlob(Resource):
         return resp
 
 
-# $ curl -u fooUsr:barPass -F "file=@sspconf.tar.gz" -F "rn=4" -F "det_id=foo" -F "run_type=bar" -F "software_version=dunedaq-vX.Y.Z" -X POST http://localhost:5005/runregistry/insertRun/
+# $ curl -u fooUsr:barPass -F "file=@sspconf.tar.gz" -F "rn=1000" -F "det_id=foo" -F "run_type=bar" -F "software_version=dunedaq-vX.Y.Z" -X POST np04-srv-021:30015/runregistry/insertRun/
 @api.resource("/runregistry/insertRun/")
 class insertRun(Resource):
     """
-    Get XYZ
-    should return the XYZ in format: XXXXXX
+    adds a run with the specified data given in the curl command
+    should return the XYZ in format: [1000, "foo", "bar", "dunedaq-vX.Y.Z", "@sspconf.tar.gz"]
     """
     @auth.login_required
     def post(self):
@@ -179,12 +179,12 @@ class insertRun(Resource):
             print("Exception:", e)
             return flask.make_response(str(e), 400)
 
-
+# $ -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/updatestop/<int:runNum>
 @api.resource("/runregistry/updateStopTime/<int:runNum>")
 class updateStopTimestamp(Resource):
     """
-    Get XYZ
-    should return the times in format: XXXXXX
+    set and record the stop time for the run into the database
+    should return the start and stop times in format: ["Thu, 14 Dec 2023 15:12:03 GMT","Thu, 14 Dec 2023 15:12:32 GMT"]
     """
 
     @auth.login_required

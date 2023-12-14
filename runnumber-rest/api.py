@@ -19,7 +19,7 @@ api = Api(app)
 from database import RunNumber
 from authentication import auth
 
-# $ curl -u fooUsr:barPass -X GET np04-srv-021:5000//runnumber/get
+# $ curl -u fooUsr:barPass -X GET np04-srv-021:30016//runnumber/get
 @api.resource("/runnumber/get")
 class getRunNumber(Resource):
     """
@@ -45,7 +45,7 @@ class getRunNumber(Resource):
         resp = flask.make_response(flask.jsonify(rowRes))
         return resp
 
-# $ curl -u fooUsr:barPass -X GET np04-srv-021:5000//runnumber/getnew
+# $ curl -u fooUsr:barPass -X GET np04-srv-021:30016//runnumber/getnew
 @api.resource("/runnumber/getnew")
 class getNewtRunNumber(Resource):
     """
@@ -80,7 +80,7 @@ class getNewtRunNumber(Resource):
         resp = flask.make_response(flask.jsonify(rowRes))
         return resp
 
-# $ curl -u fooUsr:barPass -X GET np04-srv-021:5000//runnumber/updatestop/<int:runNum>
+# $ curl -u fooUsr:barPass -X GET np04-srv-021:30016/runnumber/updatestop/<int:runNum>
 @api.resource("/runnumber/updatestop/<int:runNum>")
 class updateStopTimestamp(Resource):
     """
