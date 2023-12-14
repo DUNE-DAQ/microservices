@@ -23,7 +23,10 @@ from authentication import auth
 @api.resource("/runnumber/get")
 class getRunNumber(Resource):
     """
-    should return the run number in format: XXXXXXX
+    returns the run number of the previous run
+    if no previous run number, returns in format: Null
+    otherwise returns the last run number in format: [1000]
+    
     """
 
     @auth.login_required
@@ -46,8 +49,9 @@ class getRunNumber(Resource):
 @api.resource("/runnumber/getnew")
 class getNewtRunNumber(Resource):
     """
-    create a new run in the database
-    should return the run number in format: XXXXXXX
+    create a new run in the database with a new run number which is previous run number +1
+    if no previous run number, returns: [1000]
+    otherwise return the run number in format: [1001]
     """
 
     @auth.login_required
@@ -80,8 +84,8 @@ class getNewtRunNumber(Resource):
 @api.resource("/runnumber/updatestop/<int:runNum>")
 class updateStopTimestamp(Resource):
     """
-    set the stop time for the run
-    should return the times in format: XXXXXXX
+    set and record the stop time for the run into the database
+    should return the start and stop times in format: ["Thu, 14 Dec 2023 15:12:03 GMT","Thu, 14 Dec 2023 15:12:32 GMT"]
     """
 
     @auth.login_required
