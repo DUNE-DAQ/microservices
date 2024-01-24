@@ -5,29 +5,29 @@ __version__ = "0.0.8"
 __maintainers__ = ["Roland Sipos", "Pierre Lasorak", "Tiago Alves", "Pat Riehecky"]
 __emails__ = ["roland.sipos@cern.ch", "plasorak@cern.ch", "tiago.alves20@imperial.ac.uk", "riehecky@fnal.gov"]
 
-# import os, io, gzip, tarfile
+import os, io, gzip, tarfile
 import flask
-# import sys
+import sys
 
 from flask import Flask, render_template, request, redirect, url_for, send_file
 
 from flask_restful import Api, Resource
 from flask_httpauth import HTTPBasicAuth
-# from flask_redis import FlaskRedis
+from flask_redis import FlaskRedis
 from flask_caching import Cache
 
 from authentication import auth
 
-# postgres = False
+postgres = False
 
-# if "-p" in sys.argv or os.environ.get("RGDB", None):
-#     import backends.pg_queries as queries
-#     import backends.pg_backend as db
+if "-p" in sys.argv or os.environ.get("RGDB", None):
+    import backends.pg_queries as queries
+    import backends.pg_backend as db
 
-#     postgres = True
-# else:
-#     import backends.ora_queries as queries
-#     import backends.ora_backend as db
+    postgres = True
+else:
+    import backends.ora_queries as queries
+    import backends.ora_backend as db
 
 """
 Specs
