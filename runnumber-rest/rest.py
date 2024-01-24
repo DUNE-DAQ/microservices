@@ -13,7 +13,7 @@ from flask_restful import Api, Resource
 from flask_httpauth import HTTPBasicAuth
 
 import queries
-# import backend as db
+import backend as db
 from authentication import auth
 
 '''
