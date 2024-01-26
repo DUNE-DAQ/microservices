@@ -2,8 +2,8 @@ __title__ = "NP04 run registry"
 __author__ = "Roland Sipos"
 __credits__ = [""]
 __version__ = "0.0.8"
-__maintainers__ = ["Roland Sipos", "Pierre Lasorak", "Tiago Alves", "Pat Riehecky"]
-__emails__ = ["roland.sipos@cern.ch", "plasorak@cern.ch", "tiago.alves20@imperial.ac.uk", "riehecky@fnal.gov"]
+__maintainers__ = ["Roland Sipos", "Pierre Lasorak", "Tiago Alves"]
+__emails__ = ["roland.sipos@cern.ch", "plasorak@cern.ch", "tiago.alves20@imperial.ac.uk"]
 
 import os, io, gzip, tarfile
 import flask
@@ -18,16 +18,16 @@ from flask_caching import Cache
 
 from authentication import auth
 
-postgres = False
+# postgres = False
 
-if "-p" in sys.argv or os.environ.get("RGDB", None):
-    import backends.pg_queries as queries
-    import backends.pg_backend as db
+# if "-p" in sys.argv or os.environ.get("RGDB", None):
+#     import backends.pg_queries as queries
+#     import backends.pg_backend as db
 
-    postgres = True
-else:
-    import backends.ora_queries as queries
-    import backends.ora_backend as db
+#     postgres = True
+# else:
+#     import backends.ora_queries as queries
+#     import backends.ora_backend as db
 
 """
 Specs
