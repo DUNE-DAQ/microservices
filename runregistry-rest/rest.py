@@ -1,26 +1,10 @@
 #!/usr/bin/env python3
-
-import os, io, gzip, tarfile
-import flask
-import sys
-
-from flask import Flask, render_template, request, redirect, url_for, send_file
-
-from flask_restful import Api, Resource
-from flask_httpauth import HTTPBasicAuth
-from flask_redis import FlaskRedis
-from flask_caching import Cache
-
-from authentication import auth
-
-
 '''
 Main app
 
 To control set the following environment variables:
 DATABASE_URI - URI for sqlalchemy to use
 DEBUG - set to TRUE for flask debugging
-
 '''
 import os
 

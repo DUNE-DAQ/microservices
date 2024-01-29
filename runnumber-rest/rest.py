@@ -1,12 +1,4 @@
 #!/usr/bin/env python3
-
-import flask
-from flask import Flask
-
-from flask_restful import Api, Resource
-from flask_httpauth import HTTPBasicAuth
-
-
 """
 Main app
 
