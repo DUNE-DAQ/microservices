@@ -6,13 +6,12 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func
 
 __all__ = ["app", "api", "db"]
-
 __title__ = "NP04 run number"
 __author__ = "Roland Sipos"
 __credits__ = [""]
 __version__ = "0.0.1"
-__maintainers__ = ["Roland Sipos", "Pierre Lasorak", "Tiago Alves", "Pat Riehecky"]
-__emails__ = ["roland.sipos@cern.ch", "plasorak@cern.ch", "tiago.alves20@imperial.ac.uk", "riehecky@fnal.gov"]
+__maintainers__ = ["Roland Sipos", "Pierre Lasorak", "Tiago Alves"]
+__emails__ = ["roland.sipos@cern.ch", "plasorak@cern.ch", "tiago.alves20@imperial.ac.uk"]
 
 app = flask.Flask(__name__)
 
