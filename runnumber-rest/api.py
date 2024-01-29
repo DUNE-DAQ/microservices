@@ -7,6 +7,13 @@ from sqlalchemy import func
 
 __all__ = ["app", "api", "db"]
 
+__title__ = "NP04 run number"
+__author__ = "Roland Sipos"
+__credits__ = [""]
+__version__ = "0.0.1"
+__maintainers__ = ["Roland Sipos", "Pierre Lasorak", "Tiago Alves", "Pat Riehecky"]
+__emails__ = ["roland.sipos@cern.ch", "plasorak@cern.ch", "tiago.alves20@imperial.ac.uk", "riehecky@fnal.gov"]
+
 app = flask.Flask(__name__)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
@@ -114,5 +121,46 @@ class updateStopTimestamp(Resource):
 
 @app.route("/")
 def index():
-    """basic self test"""
-    return "It works"
+    root_text =f'''
+    <!DOCTYPE html>
+    <html>
+    <body>
+    <h1>{__title__}</h1>
+
+    <ul>
+        <li>author: {__author__}</li>
+        <li>credits: {__credits__}</li>
+        <li>version: {__version__}</li>
+        <li>maintainers: {__maintainers__}</li>
+        <li>emails: {__emails__}</li>
+    </ul>
+
+    <h2>Endpoints</h2>
+    <div style="border: 1px solid black">
+    <h3>GET /runnumber/get</h3>
+    <p>Gets the current or last run number.</p>
+    <p>Example:</p>
+    <p style="font-family:courier;">$ curl -u user:password -X GET http://host:port/runnumber/get</p>
+    </div>
+    <p></p>
+
+    <div style="border: 1px solid black">
+    <h3>GET /runnumber/getnew</h3>
+    <p>Get a new unique run number.</p>
+    <p>Example:</p>
+    <p style="font-family:courier;">$ curl -u user:password -X GET http://host:port/runnumber/getnew</p>
+    </div>
+    <p></p>
+
+    <div style="border: 1px solid black">
+    <h3>GET /runnumber/updatestop/<run_num></h3>
+    <p>Update the stop time of the specified run number (replace <run_num> with the run number you want).</p>
+    <p>Example:</p>
+    <p style="font-family:courier;">$ curl -u user:password -X GET http://host:port//runnumber/updatestop/2</p>
+    </div>
+    <p></p>
+
+    </body>
+    </html>
+    '''
+    return root_text
