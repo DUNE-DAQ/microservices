@@ -1,4 +1,25 @@
+<<<<<<< HEAD
 #!/usr/bin/env python3
+=======
+__title__ = "NP04 run number"
+__author__ = "Roland Sipos"
+__credits__ = [""]
+__version__ = "0.0.1"
+__maintainers__ = ["Roland Sipos", "Pierre Lasorak", "Tiago Alves"]
+__emails__ = ["roland.sipos@cern.ch", "plasorak@cern.ch", "tiago.alves20@imperial.ac.uk"]
+
+
+import flask
+from flask import Flask
+
+from flask_restful import Api, Resource
+from flask_httpauth import HTTPBasicAuth
+
+import queries
+import backend as db
+from authentication import auth
+
+>>>>>>> develop
 '''
 Main app
 
