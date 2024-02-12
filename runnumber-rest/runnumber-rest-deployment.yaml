@@ -69,7 +69,7 @@ spec:
           seccompProfile:
             type: RuntimeDefault
         volumeMounts:
-        - mountPath: /uploads
+        - mountPath: /microservices/runregistry-rest/uploads
           name: uploads-volume
       volumes: # added in prep for merge to single run service
       - name: uploads-volume
