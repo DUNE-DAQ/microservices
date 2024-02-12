@@ -20,7 +20,7 @@ metadata:
     app.kubernetes.io/app: runnumber-rest
     app.kubernetes.io/component: runnumber-rest
   name: runnumber-rest
-  namespace: {{ DUNE_runservices.namespace }}
+  namespace: runservices
 spec:
   minReadySeconds: 5
   selector:
@@ -68,5 +68,12 @@ spec:
             - ALL
           seccompProfile:
             type: RuntimeDefault
+        volumeMounts:
+        - mountPath: /microservices/runregistry-rest/uploads
+          name: uploads-volume
+      volumes: # added in prep for merge to single run service
+      - name: uploads-volume
+        emptyDir:
+          sizeLimit: 20Gi
       securityContext:
         fsGroup: 11000
