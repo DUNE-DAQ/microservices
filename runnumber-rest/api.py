@@ -16,6 +16,7 @@ app.config["DEPLOYMENT_ENV"] = os.environ.get(
     "DEPLOYMENT_ENV", "DEV"
     )
 
+uri = app.config["SQLALCHEMY_DATABASE_URI"]
 db = SQLAlchemy(app)
 api = Api(app)
 

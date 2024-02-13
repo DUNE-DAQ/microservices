@@ -2,7 +2,7 @@ import os, io
 import flask
 from flask_restful import Api, Resource
 from flask_caching import Cache
-from flask_sqlalchemy import SQLAlchemy, inspect
+from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import desc, func
 
 __all__ = ["app", "api", "db"]
