@@ -2,7 +2,7 @@ import os, io
 import flask
 from flask_restful import Api, Resource
 from flask_caching import Cache
-from flask_sqlalchemy import SQLAlchemy
+from flask_sqlalchemy import SQLAlchemy, inspect
 from sqlalchemy import desc, func
 
 __all__ = ["app", "api", "db"]
@@ -22,13 +22,15 @@ app.config["DATABASE_TYPE"] = os.environ.get(
 app.config["DEPLOYMENT_ENV"] = os.environ.get(
     "DEPLOYMENT_ENV", "DEV"
     )
+db_type = app.config["DATABASE_TYPE"]
 cache = Cache(app)
 db = SQLAlchemy(app)
 api = Api(app)
 
 from authentication import auth
 from database import RunRegistryMeta, RunRegistryConfig
-
+import datetime
+import urllib
 
 def cache_key():
     args = flask.request.args
@@ -41,9 +43,15 @@ def cache_key():
     )
     return key
 
+def get_schema(table):
+    inspector = inspect(table)
+    attributes = {}
+    for column in inspector.columns:
+        attributes[column.name] = str(column.type)
+    return attributes
 
 def add_schema_as_element(rowres):
-    rowres.insert(0, queries.schema)
+    rowres.insert(0, get_schema(RunRegistryMeta))
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/getRunMeta/2
@@ -132,7 +140,7 @@ class getRunBlob(Resource):
         blob = rowRes[0][0][1]
         resp = (
             flask.make_response(bytes(blob))
-            if postgres
+            if db_type=="postgresql"
             else flask.make_response(blob.read())
         )
         resp.headers["Content-Type"] = "application/octet-stream"
@@ -150,6 +158,7 @@ class insertRun(Resource):
 
     @auth.login_required
     def post(self):
+        rowRes = []
         filename = ""
         try:
             # Ensure form fields
