@@ -76,7 +76,7 @@ spec:
           seccompProfile:
             type: RuntimeDefault
         volumeMounts:
-        - mountPath: /uploads
+        - mountPath: /microservices/runregistry-rest/uploads
           name: uploads-volume
       volumes: # persistance is not required at this time
       - name: uploads-volume
