@@ -16,13 +16,10 @@ app.config["CACHE_TYPE"] = "simple"
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
     "DATABASE_URI", "sqlite:////tmp/test.sqlite"
 )
-app.config["DATABASE_TYPE"] = os.environ.get(
-    "DATABASE_TYPE", "postgresql"
-    )
 app.config["DEPLOYMENT_ENV"] = os.environ.get(
     "DEPLOYMENT_ENV", "DEV"
     )
-db_type = app.config["DATABASE_TYPE"]
+uri = app.config["SQLALCHEMY_DATABASE_URI"]
 cache = Cache(app)
 db = SQLAlchemy(app)
 api = Api(app)
@@ -31,6 +28,11 @@ from authentication import auth
 from database import RunRegistryMeta, RunRegistryConfig
 import datetime
 import urllib
+from urllib.parse import urlparse
+
+parsed_uri = urlparse(uri)
+db_type = parsed_uri.scheme
+print(db_type)
 
 def cache_key():
     args = flask.request.args
@@ -42,17 +44,6 @@ def cache_key():
         )
     )
     return key
-
-def get_schema(table):
-    inspector = inspect(table)
-    attributes = {}
-    for column in inspector.columns:
-        attributes[column.name] = str(column.type)
-    return attributes
-
-def add_schema_as_element(rowres):
-    rowres.insert(0, get_schema(RunRegistryMeta))
-
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/getRunMeta/2
 @api.resource("/runregistry/getRunMeta/<int:runNum>")
@@ -75,7 +66,6 @@ class getRunMeta(Resource):
             resp = flask.make_response(flask.jsonify({"Exception": err_obj.message}))
             return resp
         # print(rowRes)
-        add_schema_as_element(rowRes)
         resp = flask.make_response(flask.jsonify(rowRes))
         return resp
 
@@ -103,7 +93,6 @@ class getRunMetaLast(Resource):
             resp = flask.make_response(flask.jsonify({"Exception": err_obj.message}))
             return resp
         # print(rowRes)
-        add_schema_as_element(rowRes)
         resp = flask.make_response(flask.jsonify(rowRes))
         return resp
 
@@ -234,7 +223,7 @@ class updateStopTimestamp(Resource):
             print("Exception:", str(e))
             resp = flask.make_response(flask.jsonify({"Exception": err_obj.message}))
             return resp
-        print(rowRes)
+        # print(rowRes)
         resp = flask.make_response(flask.jsonify(rowRes))
         return resp
 

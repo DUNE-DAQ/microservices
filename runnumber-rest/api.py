@@ -12,9 +12,6 @@ app = flask.Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
     "DATABASE_URI", "sqlite:////tmp/test.sqlite"
 )
-app.config["DATABASE_TYPE"] = os.environ.get(
-    "DATABASE_TYPE", "postgresql"
-    )
 app.config["DEPLOYMENT_ENV"] = os.environ.get(
     "DEPLOYMENT_ENV", "DEV"
     )
@@ -24,7 +21,11 @@ api = Api(app)
 
 from database import RunNumber
 from authentication import auth
+from urllib.parse import urlparse
 
+parsed_uri = urlparse(uri)
+db_type = parsed_uri.scheme
+print(db_type)
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30016//runnumber/get
 @api.resource("/runnumber/get")
