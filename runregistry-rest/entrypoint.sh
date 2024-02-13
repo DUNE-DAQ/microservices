@@ -3,7 +3,7 @@
 cd $(dirname $0)
 source ../entrypoint_functions.sh
 
-ensure_required_variables "DATABASE_URI"
+ensure_required_variables "DATABASE_URI", "DATABASE_TYPE", "DEPLOYMENT_ENVIRONMENT"
 
 if [[ ! -d /uploads ]]; then
     mkdir --mode=1777 /uploads
