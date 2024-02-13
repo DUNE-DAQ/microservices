@@ -3,7 +3,11 @@
 cd $(dirname $0)
 source ../entrypoint_functions.sh
 
-ensure_required_variables "DATABASE_URI", "DATABASE_TYPE", "DEPLOYMENT_ENVIRONMENT"
+ensure_required_variables "DATABASE_URI", "DATABASE_TYPE"
+
+if [[ "$DATABASE_TYPE" == "Oracle" ]]; then
+    ensure_required_variables "DEPLOYMENT_ENVIRONMENT"
+fi
 
 if [[ ! -d /uploads ]]; then
     mkdir --mode=1777 /uploads

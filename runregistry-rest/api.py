@@ -16,6 +16,12 @@ app.config["CACHE_TYPE"] = "simple"
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
     "DATABASE_URI", "sqlite:////tmp/test.sqlite"
 )
+app.config["DATABASE_TYPE"] = os.environ.get(
+    "DATABASE_TYPE", "postgresql"
+    )
+app.config["DEPLOYMENT_ENV"] = os.environ.get(
+    "DEPLOYMENT_ENV", "DEV"
+    )
 cache = Cache(app)
 db = SQLAlchemy(app)
 api = Api(app)
