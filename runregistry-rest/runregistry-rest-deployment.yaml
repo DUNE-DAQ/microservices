@@ -92,7 +92,7 @@ metadata:
     app.kubernetes.io/app: runregistry-rest
     app.kubernetes.io/component: runregistry-rest
   name: runregistry-rest
-  name: {{ DUNE_runservices.namespace }}
+  namespace: {{DUNE_runservices.namespace}}
 spec:
   ports:
   - name: http
