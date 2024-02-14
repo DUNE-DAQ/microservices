@@ -11,7 +11,7 @@ metadata:
     pod-security.kubernetes.io/enforce-version: latest
     pod-security.kubernetes.io/warn: baseline
     pod-security.kubernetes.io/warn-version: latest
-  name: {{ DUNE_runservices.namespace }}
+  name: runservices
 ---
 # You must still deploy postgresql with its manifests from upstream
 # and create a secret called runservices-postgresql-svcbind-custom-user with the required keys.
@@ -36,12 +36,12 @@ spec:
         app.kubernetes.io/component: runnumber-rest
     spec:
       affinity:
-       nodeAffinity:
-         requiredDuringSchedulingIgnoredDuringExecution:
-           nodeSelectorTerms:
-           - matchExpressions:
-             - key: {{ kubernetes_label.worker }}
-               operator: Exists
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/worker
+                operator: Exists
       containers:
       - image: ghcr.io/dune-daq/microservices:latest
         imagePullPolicy: Always
@@ -89,7 +89,7 @@ metadata:
     app.kubernetes.io/app: runnumber-rest
     app.kubernetes.io/component: runnumber-rest
   name: runnumber-rest
-  namespace: {{ DUNE_runservices.namespace }}
+  namespace: runservices
 spec:
   ports:
   - name: http

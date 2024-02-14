@@ -11,7 +11,7 @@ metadata:
     pod-security.kubernetes.io/enforce-version: latest
     pod-security.kubernetes.io/warn: baseline
     pod-security.kubernetes.io/warn-version: latest
-  name: {{ DUNE_runservices.namespace }}
+  name: runservices
 ---
 # You must still deploy postgresql with its manifests from upstream
 # and create a secret called runservices-postgresql-svcbind-custom-user with the required keys.
@@ -23,7 +23,7 @@ metadata:
     app.kubernetes.io/app: runregistry-rest
     app.kubernetes.io/component: runregistry-rest
   name: runregistry-rest
-  namespace: {{ DUNE_runservices.namespace }}
+  namespace: runservices
 spec:
   selector:
     matchLabels:
@@ -36,12 +36,12 @@ spec:
         app.kubernetes.io/component: runregistry-rest
     spec:
       affinity:
-       nodeAffinity:
-         requiredDuringSchedulingIgnoredDuringExecution:
-           nodeSelectorTerms:
-           - matchExpressions:
-             - key: {{ kubernetes_label.worker }}
-               operator: Exists
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/worker
+                operator: Exists
       containers:
       - image: ghcr.io/dune-daq/microservices:latest
         imagePullPolicy: Always
@@ -56,23 +56,20 @@ spec:
               name: runservices-postgresql-svcbind-custom-user
         ports:
         - containerPort: 5005
-          name: http
           protocol: TCP
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
         resources:
           limits:
             memory: 1Gi
           requests:
             memory: 8Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
             - ALL
           runAsGroup: 11000
-          runAsNonRoot: true
-          runAsUser: 11000
           seccompProfile:
             type: RuntimeDefault
         volumeMounts:
@@ -92,7 +89,7 @@ metadata:
     app.kubernetes.io/app: runregistry-rest
     app.kubernetes.io/component: runregistry-rest
   name: runregistry-rest
-  namespace: {{DUNE_runservices.namespace}}
+  namespace: runservices
 spec:
   ports:
   - name: http
