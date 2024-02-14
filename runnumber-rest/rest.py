@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-'''
+"""
 Main app
 
 To control set the following environment variables:
@@ -8,7 +8,7 @@ DEBUG - set to TRUE for flask debugging
 RUN_START - set to your starting run number, does not need to be changed after first launching as run number will be iterated from this initial value
 DATABASE_TYPE - set to the type of database you want to use, default is postgresql
 DEPLOYMENT_ENV - set to the environment you are deploying to, default is DEV
-'''
+"""
 import os
 
 from api import app, db

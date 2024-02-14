@@ -1,7 +1,9 @@
-import os, io
+import io
+import os
+
 import flask
-from flask_restful import Api, Resource
 from flask_caching import Cache
+from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import desc, func
 
@@ -16,23 +18,23 @@ app.config["CACHE_TYPE"] = "simple"
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
     "DATABASE_URI", "sqlite:////tmp/test.sqlite"
 )
-app.config["DEPLOYMENT_ENV"] = os.environ.get(
-    "DEPLOYMENT_ENV", "DEV"
-    )
+app.config["DEPLOYMENT_ENV"] = os.environ.get("DEPLOYMENT_ENV", "DEV")
 uri = app.config["SQLALCHEMY_DATABASE_URI"]
 cache = Cache(app)
 db = SQLAlchemy(app)
 api = Api(app)
 
-from authentication import auth
-from database import RunRegistryMeta, RunRegistryConfig
 import datetime
 import urllib
 from urllib.parse import urlparse
 
+from authentication import auth
+from database import RunRegistryConfig, RunRegistryMeta
+
 parsed_uri = urlparse(uri)
 db_type = parsed_uri.scheme
 print(db_type)
+
 
 def cache_key():
     args = flask.request.args
@@ -44,6 +46,7 @@ def cache_key():
         )
     )
     return key
+
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/getRunMeta/2
 @api.resource("/runregistry/getRunMeta/<int:runNum>")
@@ -129,7 +132,7 @@ class getRunBlob(Resource):
         blob = rowRes[0][0][1]
         resp = (
             flask.make_response(bytes(blob))
-            if db_type=="postgresql"
+            if db_type == "postgresql"
             else flask.make_response(blob.read())
         )
         resp.headers["Content-Type"] = "application/octet-stream"
@@ -227,19 +230,25 @@ class updateStopTimestamp(Resource):
         resp = flask.make_response(flask.jsonify(rowRes))
         return resp
 
-'''
+
+"""
 Variables for Webpage
-'''
+"""
 __title__ = "NP04 run registry"
 __author__ = "Roland Sipos"
 __credits__ = [""]
 __version__ = "0.0.8"
 __maintainers__ = ["Roland Sipos", "Pierre Lasorak", "Tiago Alves"]
-__emails__ = ["roland.sipos@cern.ch", "plasorak@cern.ch", "tiago.alves20@imperial.ac.uk"]
+__emails__ = [
+    "roland.sipos@cern.ch",
+    "plasorak@cern.ch",
+    "tiago.alves20@imperial.ac.uk",
+]
+
 
 @app.route("/")
 def index():
-    root_text =f'''
+    root_text = f"""
     <!DOCTYPE html>
     <html>
     <body>
@@ -303,6 +312,6 @@ def index():
 
     </body>
     </html>
-    '''
+    """
 
     return root_text

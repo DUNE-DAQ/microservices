@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+
 import flask
 from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
@@ -12,21 +13,21 @@ app = flask.Flask(__name__)
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
     "DATABASE_URI", "sqlite:////tmp/test.sqlite"
 )
-app.config["DEPLOYMENT_ENV"] = os.environ.get(
-    "DEPLOYMENT_ENV", "DEV"
-    )
+app.config["DEPLOYMENT_ENV"] = os.environ.get("DEPLOYMENT_ENV", "DEV")
 
 uri = app.config["SQLALCHEMY_DATABASE_URI"]
 db = SQLAlchemy(app)
 api = Api(app)
 
-from database import RunNumber
-from authentication import auth
 from urllib.parse import urlparse
+
+from authentication import auth
+from database import RunNumber
 
 parsed_uri = urlparse(uri)
 db_type = parsed_uri.scheme
 print(db_type)
+
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30016//runnumber/get
 @api.resource("/runnumber/get")
@@ -119,19 +120,25 @@ class updateStopTimestamp(Resource):
         resp = flask.make_response(flask.jsonify(rowRes))
         return resp
 
-'''
+
+"""
 Variables for Webpage
-'''
+"""
 __title__ = "NP04 run number"
 __author__ = "Roland Sipos"
 __credits__ = [""]
 __version__ = "0.0.1"
 __maintainers__ = ["Roland Sipos", "Pierre Lasorak", "Tiago Alves"]
-__emails__ = ["roland.sipos@cern.ch", "plasorak@cern.ch", "tiago.alves20@imperial.ac.uk"]
+__emails__ = [
+    "roland.sipos@cern.ch",
+    "plasorak@cern.ch",
+    "tiago.alves20@imperial.ac.uk",
+]
+
 
 @app.route("/")
 def index():
-    root_text =f'''
+    root_text = f"""
     <!DOCTYPE html>
     <html>
     <body>
@@ -172,7 +179,5 @@ def index():
 
     </body>
     </html>
-    '''
+    """
     return root_text
-
-
