@@ -10,9 +10,6 @@ RUN yum clean all \
   && yum -y install gcc make git unzip libaio libnsl libpq-devel libffi-devel python3-pip python3-wheel \
   && yum clean all
 
-RUN curl -O https://download.oracle.com/otn_software/linux/instantclient/1919000/oracle-instantclient19.19-basic-19.19.0.0.0-1.el9.x86_64.rpm \
-  && rpm -iv oracle-instantclient19.19-basic-19.19.0.0.0-1.el9.x86_64.rpm
-
 COPY requirements.txt /
 RUN python3 -m pip install --upgrade setuptools && \
   python3 -m pip install -r requirements.txt && \
@@ -20,8 +17,6 @@ RUN python3 -m pip install --upgrade setuptools && \
 
 # elisa_client_api needed by the logbook microservice
 RUN git clone https://github.com/DUNE-DAQ/elisa_client_api.git && python3 -m pip install --upgrade setuptools && python3 -m pip install ./elisa_client_api 
-
-
 
 # protoc-24.3-linux-x86_64.zip is the latest zipfile available as of Sep-15-2023
 # See also https://grpc.io/docs/protoc-installation/#install-pre-compiled-binaries-any-os
