@@ -52,7 +52,7 @@ def cli(subscriber_bootstrap, subscriber_group, subscriber_timeout,
         exit()
         
     global table_name
-    table_name = '"' + db_table + '"'
+    table_name = '\"' + db_table + '\"'
 
     cur = con.cursor()
 
@@ -160,7 +160,8 @@ def process_issue( issue, session, cursor ) :
     add_entry("message", issue.message, fields, values)
     add_entry("params", issue.parameters, fields, values)
 
-    command = f'INSERT INTO {table_name} ({",".join(fields)}) VALUES ({("%s, " * len(values))[:-2]});'
+    command = f"INSERT INTO {table_name} ({','.join(fields)}) VALUES ({('%s, ' * len(values))[:-2]});"
+   
     logging.debug(command)
     cursor.execute(command, values)
 
@@ -171,10 +172,10 @@ def add_entry(field, value, fields, values):
 
 
 def clean_database(cursor, connection):
-    command = "DROP TABLE %s "
+    command = "DROP TABLE {table_name} ;"
 
     logging.debug(command)
-    cursor.execute(command, table_name)
+    cursor.execute(command)
     connection.commit()
 
 def check_tables(cursor, connection) :
@@ -188,7 +189,7 @@ def check_tables(cursor, connection) :
     return tables
 
 def create_database(cursor, connection):
-    command = "CREATE TABLE %s ("
+    command = "CREATE TABLE {table_name} ("
     command += '''
                 session             TEXT, 
                 issue_name          TEXT,
@@ -211,7 +212,7 @@ def create_database(cursor, connection):
                ); ''' 
 
     logging.debug(command)
-    cursor.execute(command, table_name)
+    cursor.execute(command)
     connection.commit()
 
 
