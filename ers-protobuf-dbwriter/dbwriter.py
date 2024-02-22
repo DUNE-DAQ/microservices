@@ -46,7 +46,8 @@ def cli(subscriber_bootstrap, subscriber_group, subscriber_timeout,
                               user=db_user,
                               password=db_password,
                               dbname=db_name)
-    except:
+    except Exception as e:
+        logging.error(e)
         logging.fatal('Connection to the database failed, aborting...')
         exit()
         
@@ -157,33 +158,23 @@ def process_issue( issue, session, cursor ) :
     # heavy information
     add_entry("inheritance", '/'.join(issue.inheritance), fields, values)
     add_entry("message", issue.message, fields, values)
-    add_entry("params", convert_params(issue.parameters), fields, values)
-    
+    add_entry("params", issue.parameters, fields, values)
 
-    command = "INSERT INTO " + table_name;
-    command += " (" + ", ".join(fields) + ')'
-    command += " VALUES " + repr(tuple(values)) + ';'
-
+    command = f'INSERT INTO {table_name} ({",".join(fields)}) VALUES ({("%s, " * len(values))[:-2]});'
     logging.debug(command)
-    cursor.execute(command)
+    cursor.execute(command, values)
 
 
-def convert_params( params ) -> str :
-    s = str(params)
-    return s.replace("'", '"')
-    
 def add_entry(field, value, fields, values):
     fields.append(field)
-    values.append(value)
+    values.append(str(value))
 
 
 def clean_database(cursor, connection):
-    command = "DROP TABLE "
-    command += table_name
-    command += ";"
+    command = "DROP TABLE %s "
 
     logging.debug(command)
-    cursor.execute(command)
+    cursor.execute(command, table_name)
     connection.commit()
 
 def check_tables(cursor, connection) :
@@ -197,7 +188,7 @@ def check_tables(cursor, connection) :
     return tables
 
 def create_database(cursor, connection):
-    command = "CREATE TABLE " + table_name + " ("
+    command = "CREATE TABLE %s ("
     command += '''
                 session             TEXT, 
                 issue_name          TEXT,
@@ -220,7 +211,7 @@ def create_database(cursor, connection):
                ); ''' 
 
     logging.debug(command)
-    cursor.execute(command)
+    cursor.execute(command, table_name)
     connection.commit()
 
 
