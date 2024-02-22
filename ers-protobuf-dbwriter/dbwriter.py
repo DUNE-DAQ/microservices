@@ -6,6 +6,7 @@
 
 import erskafka.ERSSubscriber as erssub
 import ers.issue_pb2 as ersissue
+import google.protobuf.json_format as pb_json
 from functools import partial
 import psycopg2
 import json
@@ -121,6 +122,12 @@ def process_chain( chain, cursor, connection ) :
         else:
             success=True
             logging.debug(f"Entry sent after {counter} attempts")
+
+        if (counter > 2) :
+            if not success :
+                logging.error("Issue failed to be delivered")
+                logging.error(pb_json.MessageToJson(chain))
+            break
         
 
 def process_issue( issue, session, cursor ) :
