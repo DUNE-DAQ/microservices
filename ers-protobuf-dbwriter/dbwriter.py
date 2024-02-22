@@ -172,7 +172,7 @@ def add_entry(field, value, fields, values):
 
 
 def clean_database(cursor, connection):
-    command = "DROP TABLE {table_name} ;"
+    command = f"DROP TABLE {table_name} ;"
 
     logging.debug(command)
     cursor.execute(command)
@@ -189,7 +189,7 @@ def check_tables(cursor, connection) :
     return tables
 
 def create_database(cursor, connection):
-    command = "CREATE TABLE {table_name} ("
+    command = f"CREATE TABLE {table_name} ("
     command += '''
                 session             TEXT, 
                 issue_name          TEXT,
