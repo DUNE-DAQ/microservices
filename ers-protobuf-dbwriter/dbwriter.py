@@ -52,7 +52,7 @@ def cli(subscriber_bootstrap, subscriber_group, subscriber_timeout,
         exit()
         
     global table_name
-    table_name = '\"' + db_table + '\"'
+    table_name = '"' + db_table + '"'
 
     cur = con.cursor()
 
