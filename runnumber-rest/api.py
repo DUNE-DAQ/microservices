@@ -47,8 +47,8 @@ class getRunNumber(Resource):
                 db.session.execute(db.select(func.max(RunNumber.rn))).scalar_one()
             )
         except Exception as err_obj:
-            print("Exception:", err_obj.message)
-            resp = flask.make_response(flask.jsonify({"Exception": err_obj.message}))
+            print(f"Exception:{err_obj}")
+            resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
             return resp
         print(f"getRunNumber: result {rowRes}")
         resp = flask.make_response(flask.jsonify(rowRes))
@@ -82,8 +82,8 @@ class getNewtRunNumber(Resource):
             db.session.commit()
             rowRes.append(current_max_run)
         except Exception as err_obj:
-            print("Exception:", err_obj.message)
-            resp = flask.make_response(flask.jsonify({"Exception": err_obj.message}))
+            print(f"Exception:{err_obj}")
+            resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
             return resp
         print(f"getNewtRunNumber: result {rowRes}")
         resp = flask.make_response(flask.jsonify(rowRes))
@@ -110,8 +110,8 @@ class updateStopTimestamp(Resource):
             db.session.commit()
             rowRes.extend((run.start_time, run.stop_time))
         except Exception as err_obj:
-            print("Exception:", err_obj.message)
-            resp = flask.make_response(flask.jsonify({"Exception": err_obj.message}))
+            print(f"Exception:{err_obj}")
+            resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
             return resp
         print(f"updateStopTimestamp: result {rowRes}")
         resp = flask.make_response(flask.jsonify(rowRes))

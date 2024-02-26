@@ -64,8 +64,8 @@ class getRunMeta(Resource):
                 db.session.execute(db.select(func.max(RunRegistryMeta.rn))).scalar_one()
             )
         except Exception as err_obj:
-            print("Exception:", err_obj.message)
-            resp = flask.make_response(flask.jsonify({"Exception": err_obj.message}))
+            print("Exception:{err_obj}")
+            resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
             return resp
         # print(rowRes)
         resp = flask.make_response(flask.jsonify(rowRes))
@@ -90,8 +90,8 @@ class getRunMetaLast(Resource):
                 .limit(amount)
             )
         except Exception as err_obj:
-            print("Exception:", err_obj.message)
-            resp = flask.make_response(flask.jsonify({"Exception": err_obj.message}))
+            print("Exception:{err_obj}")
+            resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
             return resp
         # print(rowRes)
         resp = flask.make_response(flask.jsonify(rowRes))
@@ -121,8 +121,8 @@ class getRunBlob(Resource):
                 )
             )
         except Exception as err_obj:
-            print("Exception:", err_obj.message)
-            resp = flask.make_response(flask.jsonify({"Exception": err_obj.message}))
+            print("Exception:{err_obj}")
+            resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
             return resp
         filename = rowRes[0][0][0]
         print("returning " + filename)
@@ -219,8 +219,8 @@ class updateStopTimestamp(Resource):
                 .update({RunRegistryMeta.stop_time: datetime.now()})
             )
         except Exception as err_obj:
-            print("Exception:", str(e))
-            resp = flask.make_response(flask.jsonify({"Exception": err_obj.message}))
+            print("Exception:{err_obj}")
+            resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
             return resp
         # print(rowRes)
         resp = flask.make_response(flask.jsonify(rowRes))
