@@ -63,8 +63,7 @@ class getRunMeta(Resource):
             rowRes.append(
                 db.session.execute(db.select(func.max(RunRegistryMeta.rn))).scalar_one()
             )
-        except Exception as e:
-            (err_obj,) = e.args
+        except Exception as err_obj:
             print("Exception:", err_obj.message)
             resp = flask.make_response(flask.jsonify({"Exception": err_obj.message}))
             return resp
@@ -90,8 +89,7 @@ class getRunMetaLast(Resource):
                 .order_by(desc(RunRegistryMeta.rn))
                 .limit(amount)
             )
-        except Exception as e:
-            (err_obj,) = e.args
+        except Exception as err_obj:
             print("Exception:", err_obj.message)
             resp = flask.make_response(flask.jsonify({"Exception": err_obj.message}))
             return resp
@@ -122,8 +120,7 @@ class getRunBlob(Resource):
                     )
                 )
             )
-        except Exception as e:
-            (err_obj,) = e.args
+        except Exception as err_obj:
             print("Exception:", err_obj.message)
             resp = flask.make_response(flask.jsonify({"Exception": err_obj.message}))
             return resp
@@ -197,9 +194,9 @@ class insertRun(Resource):
             # remove uploaded temp file
             os.remove(local_file_name)
             return resp
-        except Exception as e:
-            print("Exception:", e)
-            return flask.make_response(str(e), 400)
+        except Exception as err_obj:
+            print("Exception:", err_obj)
+            return flask.make_response(str(err_obj), 400)
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/updatestop/<int:runNum>
@@ -221,8 +218,7 @@ class updateStopTimestamp(Resource):
                 )
                 .update({RunRegistryMeta.stop_time: datetime.now()})
             )
-        except Exception as e:
-            (err_obj,) = e.args
+        except Exception as err_obj:
             print("Exception:", str(e))
             resp = flask.make_response(flask.jsonify({"Exception": err_obj.message}))
             return resp
