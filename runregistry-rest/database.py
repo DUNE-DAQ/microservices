@@ -6,16 +6,16 @@ __all__ = ['RunRegistryConfig', 'RunRegistryMeta']
 
 
 class RunRegistryConfig(db.Model):
-    rn = db.Column(
-        'rn', db.Integer, primary_key=True, autoincrement=True, nullable=False
+    run_number = db.Column(
+        'run_number', db.Integer, primary_key=True, autoincrement=True, nullable=False
     )
     configuration = db.Column(
         'configuration', db.LargeBinary, nullable=False
     )
 
 class RunRegistryMeta(db.Model):
-    rn = db.Column(
-        'rn', db.Integer, primary_key=True, autoincrement=True, nullable=False
+    run_number = db.Column(
+        'run_number', db.Integer, primary_key=True, autoincrement=True, nullable=False
     )
     start_time = db.Column(
         'start_time', db.TIMESTAMP(6), nullable=False, default=datetime.now

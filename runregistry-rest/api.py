@@ -61,7 +61,7 @@ class getRunMeta(Resource):
         rowRes = []
         try:
             rowRes.append(
-                db.session.execute(db.select(func.max(RunRegistryMeta.rn))).scalar_one()
+                db.session.execute(db.select(func.max(RunRegistryMeta.run_number))).scalar_one()
             )
         except Exception as err_obj:
             print("Exception:{err_obj}")
@@ -85,8 +85,8 @@ class getRunMetaLast(Resource):
         rowRes = []
         try:
             rowRes.append(
-                db.session.query(RunRegistryMeta.rn)
-                .order_by(desc(RunRegistryMeta.rn))
+                db.session.query(RunRegistryMeta.run_number)
+                .order_by(desc(RunRegistryMeta.run_number))
                 .limit(amount)
             )
         except Exception as err_obj:
@@ -116,7 +116,7 @@ class getRunBlob(Resource):
                     db.select(
                         RunRegistryMeta.filename, RunRegistryConfig.configuration
                     ).join(
-                        RunRegistryConfig, RunRegistryConfig.rn == RunRegistryMeta.rn
+                        RunRegistryConfig, RunRegistryConfig.run_number == RunRegistryMeta.run_number
                     )
                 )
             )
@@ -137,7 +137,7 @@ class getRunBlob(Resource):
         return resp
 
 
-# $ curl -u fooUsr:barPass -F "file=@sspconf.tar.gz" -F "rn=1000" -F "det_id=foo" -F "run_type=bar" -F "software_version=dunedaq-vX.Y.Z" -X POST np04-srv-021:30015/runregistry/insertRun/
+# $ curl -u fooUsr:barPass -F "file=@sspconf.tar.gz" -F "run_number=1000" -F "det_id=foo" -F "run_type=bar" -F "software_version=dunedaq-vX.Y.Z" -X POST np04-srv-021:30015/runregistry/insertRun/
 @api.resource("/runregistry/insertRun/")
 class insertRun(Resource):
     """
@@ -151,7 +151,7 @@ class insertRun(Resource):
         filename = ""
         try:
             # Ensure form fields
-            rn = flask.request.form["rn"]
+            run_number = flask.request.form["run_number"]
             stop_time = None
             det_id = flask.request.form["det_id"]
             run_type = flask.request.form["run_type"]
@@ -179,9 +179,9 @@ class insertRun(Resource):
                 data = io.BytesIO(fin.read())
 
             # Perform insert
-            run_config = RunRegistryConfig(rn=rn, configuration=data.getvalue())
+            run_config = RunRegistryConfig(run_number=run_number, configuration=data.getvalue())
             run_meta = RunRegistryMeta(
-                rn=rn,
+                run_number=run_number,
                 detector_id=det_id,
                 run_type=run_type,
                 filename=filename,
@@ -214,7 +214,7 @@ class updateStopTimestamp(Resource):
             rowRes.append(
                 db.session.query(RunRegistryMeta)
                 .filter(
-                    RunRegistryMeta.rn == runNum, RunRegistryMeta.stop_time.is_(None)
+                    RunRegistryMeta.run_number == runNum, RunRegistryMeta.stop_time.is_(None)
                 )
                 .update({RunRegistryMeta.stop_time: datetime.now()})
             )
