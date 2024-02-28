@@ -7,7 +7,7 @@ from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import desc, func
 
-__all__ = ["app", "api", "db"]
+__all__ = ["app", "api", "db", "cache"]
 
 app = flask.Flask(__name__)
 
@@ -24,16 +24,20 @@ cache = Cache(app)
 db = SQLAlchemy(app)
 api = Api(app)
 
-import datetime
 import urllib
+from datetime import datetime
 from urllib.parse import urlparse
 
 from authentication import auth
-from database import RunRegistryConfig, RunRegistryMeta
+from database import RunNumber, RunRegistryConfig, RunRegistryMeta
 
-parsed_uri = urlparse(uri)
-db_type = parsed_uri.scheme
-print(db_type)
+PARSED_URI = urlparse(uri)
+print(f" * Detected database connection type->{PARSED_URI.scheme}")
+print(f" * Detected hostname for database->{PARSED_URI.hostname}")
+
+app.config["SQLALCHEMY_ECHO"] = False
+
+DB_TYPE = PARSED_URI.scheme  ### IS THIS NEEDED?
 
 
 def cache_key():
@@ -46,6 +50,90 @@ def cache_key():
         )
     )
     return key
+
+
+# $ curl -u fooUsr:barPass -X GET np04-srv-021:30015//runregistry/get
+@api.resource("/runregistry/get")
+class getRunNumber(Resource):
+    """
+    returns the run number of the previous run
+    if no previous run number, returns in format: Null
+    otherwise returns the last run number in format: [[[1000]]]
+    """
+
+    @auth.login_required
+    def get(self):
+        rowRes = []
+        try:
+            rowRes.append(db.session.query(func.max(RunNumber.run_number)).scalar())
+        except Exception as err_obj:
+            print(f"Exception:{err_obj}")
+            resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
+            return resp
+        print(f"getRunNumber: result {rowRes}")
+        resp = flask.make_response(
+            flask.jsonify([[rowRes]])
+        )  # maybe find consumers to see if we can drop the extra nesting
+        return resp
+
+
+# $ curl -u fooUsr:barPass -X GET np04-srv-021:30015//runregistry/getnew
+@api.resource("/runregistry/getnew")
+class getNewRunNumber(Resource):
+    """
+    create a new run in the database with a new run number which is previous run number +1
+    if no previous run number, returns: [1000]
+    otherwise return the run number in format: [1001]
+    """
+
+    @auth.login_required
+    def get(self):
+        rowRes = []
+        try:
+            # if we start at a higher number
+            # the primary key sequence may not match
+            current_max_run = db.session.query(func.max(RunNumber.run_number)).scalar()
+            if current_max_run is None:
+                current_max_run = current_max_run = int(os.getenv("RUN_START", "1000"))
+            else:
+                current_max_run += 1
+            run = RunNumber(run_number=current_max_run)
+            db.session.add(run)
+            db.session.commit()
+            rowRes.append(current_max_run)
+        except Exception as err_obj:
+            print(f"Exception:{err_obj}")
+            resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
+            return resp
+        print(f"getNewtRunNumber: result {rowRes}")
+        resp = flask.make_response(flask.jsonify(rowRes))
+        return resp
+
+
+# $ curl -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/updatestop/<int:runNum>
+@api.resource("/runregistry/updatestop/<int:runNum>")
+class updateStopTimestamp(Resource):
+    """
+    set and record the stop time for the run into the database
+    should return the start and stop times in format: ["Thu, 14 Dec 2023 15:12:03 GMT","Thu, 14 Dec 2023 15:12:32 GMT"]
+    """
+
+    @auth.login_required
+    def get(self, runNum):
+        rowRes = []
+        print(f"updateStopTimestamp: arg {runNum}")
+        try:
+            run = db.session.query(RunNumber).filter_by(run_number=runNum).one()
+            run.stop_time = datetime.now()
+            db.session.commit()
+            rowRes.extend((run.start_time, run.stop_time))
+        except Exception as err_obj:
+            print(f"Exception:{err_obj}")
+            resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
+            return resp
+        print(f"updateStopTimestamp: result {rowRes}")
+        resp = flask.make_response(flask.jsonify(rowRes))
+        return resp
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/getRunMeta/2
@@ -61,18 +149,18 @@ class getRunMeta(Resource):
         rowRes = []
         try:
             rowRes.append(
-                db.session.execute(
-                    db.select(
-                        RunRegistryMeta.run_number,
-                        RunRegistryMeta.start_time,
-                        RunRegistryMeta.stop_time,
-                        RunRegistryMeta.detector_id,
-                        RunRegistryMeta.run_type,
-                        RunRegistryMeta.filename,
-                        RunRegistryMeta.software_version,
-                    ).where(runNum == RunRegistryMeta.run_number)
+                db.session.query(
+                    RunNumber.run_number,
+                    RunNumber.start_time,
+                    RunNumber.stop_time,
+                    RunRegistryMeta.detector_id,
+                    RunRegistryMeta.run_type,
+                    RunRegistryMeta.filename,
+                    RunRegistryMeta.software_version,
                 )
-                .scalar_one()
+                .filter(RunNumber.run_number == RunRegistryMeta.run_number)
+                .filter(RunNumber.run_number == runNum)
+                .one()
             )
         except Exception as err_obj:
             resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
@@ -94,19 +182,19 @@ class getRunMetaLast(Resource):
         rowRes = []
         try:
             rowRes.append(
-                db.session.execute(
-                    db.select(
-                        RunRegistryMeta.run_number,
-                        RunRegistryMeta.start_time,
-                        RunRegistryMeta.stop_time,
-                        RunRegistryMeta.detector_id,
-                        RunRegistryMeta.run_type,
-                        RunRegistryMeta.filename,
-                        RunRegistryMeta.software_version,
-                    )
+                db.session.query(
+                    RunNumber.run_number,
+                    RunNumber.start_time,
+                    RunNumber.stop_time,
+                    RunRegistryMeta.detector_id,
+                    RunRegistryMeta.run_type,
+                    RunRegistryMeta.filename,
+                    RunRegistryMeta.software_version,
                 )
-                .order_by(desc(RunRegistryMeta.run_number))
+                .filter(RunNumber.run_number == RunRegistryMeta.run_number)
+                .order_by(desc(RunNumber.run_number))
                 .limit(amount)
+                .scalar()
             )
         except Exception as err_obj:
             resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
@@ -129,13 +217,9 @@ class getRunBlob(Resource):
         rowRes = []
         try:
             rowRes.append(
-                db.session.execute(
-                    db.select(RunRegistryMeta.filename, RunRegistryConfig.configuration)
-                    .where(runNum == RunRegistryMeta.run_number)
-                    .where(
-                        RunRegistryConfig.run_number == RunRegistryMeta.run_number
-                    )
-                )
+                db.session.query(RunRegistryConfig)
+                .where(RunRegistryConfig.run_number == runNum)
+                .one()
             )
         except Exception as err_obj:
             resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
@@ -145,7 +229,8 @@ class getRunBlob(Resource):
         blob = rowRes[0][0][1]
         resp = (
             flask.make_response(bytes(blob))
-            if db_type == "postgresql"
+            ### FIXME
+            if DB_TYPE == "postgresql"
             else flask.make_response(blob.read())
         )
         resp.headers["Content-Type"] = "application/octet-stream"
@@ -217,34 +302,6 @@ class insertRun(Resource):
             return flask.make_response(str(err_obj), 400)
 
 
-# $ curl -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/updatestop/<int:runNum>
-@api.resource("/runregistry/updatestop/<int:runNum>")
-class updateStopTimestamp(Resource):
-    """
-    set and record the stop time for the run into the database
-    should return the start and stop times in format: ["Thu, 14 Dec 2023 15:12:03 GMT","Thu, 14 Dec 2023 15:12:32 GMT"]
-    """
-
-    @auth.login_required
-    def get(self, runNum):
-        rowRes = []
-        print(f"updateStopTimestamp: arg {runNum}")
-        try:
-            run = db.session.execute(
-                db.select(RunRegistryMeta).filter_by(run_number=runNum)
-            ).scalar_one()
-            run.stop_time = datetime.now()
-            db.session.commit()
-            rowRes.extend((run.start_time, run.stop_time))
-        except Exception as err_obj:
-            print(f"Exception:{err_obj}")
-            resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
-            return resp
-        print(f"updateStopTimestamp: result {rowRes}")
-        resp = flask.make_response(flask.jsonify(rowRes))
-        return resp
-
-
 """
 Variables for Webpage
 """
@@ -278,23 +335,47 @@ def index():
 
     <h2>Endpoints</h2>
     <div style="border: 1px solid black">
-    <h3>GET /runregistry/getRunMeta/<run_num></h3>
-    <p>Gets the run metadata for the specified run number (replace <run_num> with the run number you want).</p>
+    <h3>GET <a href="/runregistry/get">/runregistry/get</a></h3>
+    <p>Gets the current or last run number.</p>
+    <p>Example:</p>
+    <p style="font-family:courier;">$ curl -u user:password -X GET http://host:port/runregistry/get</p>
+    </div>
+    <p></p>
+
+    <div style="border: 1px solid black">
+    <h3>GET <a href="/runregistry/getnew">/runregistry/getnew</a></h3>
+    <p>Get a new unique run number.</p>
+    <p>Example:</p>
+    <p style="font-family:courier;">$ curl -u user:password -X GET http://host:port/runregistry/getnew</p>
+    </div>
+    <p></p>
+
+    <div style="border: 1px solid black">
+    <h3>GET <a href="/runregistry/updatestop/">/runregistry/updatestop/</a>&lt;run_num&gt;</h3>
+    <p>Update the stop time of the specified run number (replace &lt;run_num&gt; with the run number you want).</p>
+    <p>Example:</p>
+    <p style="font-family:courier;">$ curl -u user:password -X GET http://host:port//runregistry/updatestop/2</p>
+    </div>
+    <p></p>
+
+    <div style="border: 1px solid black">
+    <h3>GET <a href="/runregistry/getRunMeta/">/runregistry/getRunMeta/</a>&lt;run_num&gt;</h3>
+    <p>Gets the run metadata for the specified run number (replace &lt;run_num&gt; with the run number you want).</p>
     <p>Example:</p>
     <p style="font-family:courier;">$ curl -u user:password -X GET http://host:port/runregistry/getRunMeta/2</p>
     </div>
     <p></p>
 
     <div style="border: 1px solid black">
-    <h3>GET /runregistry/getRunMetaLast/<how_many_runs></h3>
-    <p>Get the run metadata for the last runs (replace <how_many_runs> by the number of runs you want to go in the past).</p>
+    <h3>GET <a href="/runregistry/getRunMetaLast/">/runregistry/getRunMetaLast/</a>&lt;how_many_runs&gt;</h3>
+    <p>Get the run metadata for the last runs (replace &lt;how_many_runs&gt; by the number of runs you want to go in the past).</p>
     <p>Example:</p>
     <p style="font-family:courier;">$ curl -u user:password -X GET http://host:port/runregistry/getRunMetaLast/100</p>
     </div>
     <p></p>
 
     <div style="border: 1px solid black">
-    <h3>GET /runregistry/getRunBlob/<run_num></h3>
+    <h3>GET <a href="/runregistry/getRunBlob/">/runregistry/getRunBlob</a>/&lt;run_num&gt;</h3>
     <p>Get the run configuration blob (tar.gz of some folders structure containing json) for the specified run number (replace <run_num> by the run number you want).</p>
     <p>Example:</p>
     <p style="font-family:courier;">$ curl -u user:password -X GET -O -J http://host:port/runregistry/getRunBlob/2</p>
@@ -313,14 +394,6 @@ def index():
     </ul>
     <p>Example:</p>
     <p style="font-family:courier;">$ curl -u user:password -F "file=@sspconf.tar.gz" -F "run_num=4" -F "det_id=foo" -F "run_type=bar" -F "software_version=dunedaq-vX.Y.Z" -X POST http://host:port/runregistry/insertRun/</p>
-    </div>
-    <p></p>
-
-    <div style="border: 1px solid black">
-    <h3>GET /runregistry/updateStopTime/<run_num></h3>
-    <p>Update the stop time of the specified run number (replace <run_num> with the run number you want).</p>
-    <p>Example:</p>
-    <p style="font-family:courier;">$ curl -u user:password -X GET http://host:port/runregistry/updateStopTime/2</p>
     </div>
     <p></p>
 
