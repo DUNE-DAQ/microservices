@@ -77,7 +77,7 @@ class getRunMeta(Resource):
         except Exception as err_obj:
             resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
             return resp
-        resp = flask.make_response(flask.jsonify(rowRes))
+        resp = flask.make_response(flask.jsonify([[rowRes.keys()],[[rowRes]]]))
         return resp
 
 

@@ -60,8 +60,8 @@ class getRunNumber(Resource):
 class getNewtRunNumber(Resource):
     """
     create a new run in the database with a new run number which is previous run number +1
-    if no previous run number, returns: [1000]
-    otherwise return the run number in format: [1001]
+    if no previous run number, returns: [[[1000]]]
+    otherwise return the run number in format: [[[1001]]]
     """
 
     @auth.login_required
@@ -86,7 +86,7 @@ class getNewtRunNumber(Resource):
             resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
             return resp
         print(f"getNewtRunNumber: result {rowRes}")
-        resp = flask.make_response(flask.jsonify(rowRes))
+        resp = flask.make_response(flask.jsonify([[rowRes]]))
         return resp
 
 
@@ -114,7 +114,7 @@ class updateStopTimestamp(Resource):
             resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
             return resp
         print(f"updateStopTimestamp: result {rowRes}")
-        resp = flask.make_response(flask.jsonify(rowRes))
+        resp = flask.make_response(flask.jsonify([[rowRes]]))
         return resp
 
 
