@@ -61,13 +61,11 @@ class getRunMeta(Resource):
         rowRes = []
         try:
             rowRes.append(
-                db.session.execute(db.select(func.max(RunRegistryMeta.run_number))).scalar_one()
+                db.session.execute(db.select(RunRegistryMeta.run_number, RunRegistryMeta.start_time, RunRegistryMeta.stop_time, RunRegistryMeta.detector_id, RunRegistryMeta.run_type, RunRegistryMeta.filename, RunRegistryMeta.software_version)).where(runNum==RunRegistryMeta.run_number).scalar_one()
             )
         except Exception as err_obj:
-            print("Exception:{err_obj}")
             resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
             return resp
-        # print(rowRes)
         resp = flask.make_response(flask.jsonify(rowRes))
         return resp
 
@@ -85,15 +83,13 @@ class getRunMetaLast(Resource):
         rowRes = []
         try:
             rowRes.append(
-                db.session.query(RunRegistryMeta.run_number)
+                db.session.query(RunRegistryMeta.run_number, RunRegistryMeta.start_time, RunRegistryMeta.stop_time, RunRegistryMeta.detector_id, RunRegistryMeta.run_type, RunRegistryMeta.filename, RunRegistryMeta.software_version)
                 .order_by(desc(RunRegistryMeta.run_number))
                 .limit(amount)
             )
         except Exception as err_obj:
-            print("Exception:{err_obj}")
             resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
             return resp
-        # print(rowRes)
         resp = flask.make_response(flask.jsonify(rowRes))
         return resp
 
@@ -116,12 +112,11 @@ class getRunBlob(Resource):
                     db.select(
                         RunRegistryMeta.filename, RunRegistryConfig.configuration
                     ).join(
-                        RunRegistryConfig, RunRegistryConfig.run_number == RunRegistryMeta.run_number
+                        RunRegistryConfig, RunRegistryConfig.run_number==RunRegistryMeta.run_number
                     )
                 )
             )
         except Exception as err_obj:
-            print("Exception:{err_obj}")
             resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
             return resp
         filename = rowRes[0][0][0]
@@ -200,7 +195,7 @@ class insertRun(Resource):
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/updatestop/<int:runNum>
-@api.resource("/runregistry/updateStopTime/<int:runNum>")
+@api.resource("/runregistry/updatestop/<int:runNum>")
 class updateStopTimestamp(Resource):
     """
     set and record the stop time for the run into the database
@@ -210,19 +205,19 @@ class updateStopTimestamp(Resource):
     @auth.login_required
     def get(self, runNum):
         rowRes = []
+        print(f"updateStopTimestamp: arg {runNum}")
         try:
-            rowRes.append(
-                db.session.query(RunRegistryMeta)
-                .filter(
-                    RunRegistryMeta.run_number == runNum, RunRegistryMeta.stop_time.is_(None)
-                )
-                .update({RunRegistryMeta.stop_time: datetime.now()})
-            )
+            run = db.session.execute(
+                db.select(RunRegistryMeta).filter_by(run_number=runNum)
+            ).scalar_one()
+            run.stop_time = datetime.now()
+            db.session.commit()
+            rowRes.extend((run.start_time, run.stop_time))
         except Exception as err_obj:
-            print("Exception:{err_obj}")
+            print(f"Exception:{err_obj}")
             resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
             return resp
-        # print(rowRes)
+        print(f"updateStopTimestamp: result {rowRes}")
         resp = flask.make_response(flask.jsonify(rowRes))
         return resp
 
