@@ -61,7 +61,7 @@ class getRunMeta(Resource):
         rowRes = []
         try:
             rowRes.append(
-                db.session.execute(db.select(RunRegistryMeta.run_number, RunRegistryMeta.start_time, RunRegistryMeta.stop_time, RunRegistryMeta.detector_id, RunRegistryMeta.run_type, RunRegistryMeta.filename, RunRegistryMeta.software_version)).where(runNum==RunRegistryMeta.run_number).scalar_one()
+                db.session.execute(db.select(RunRegistryMeta.run_number, RunRegistryMeta.start_time, RunRegistryMeta.stop_time, RunRegistryMeta.detector_id, RunRegistryMeta.run_type, RunRegistryMeta.filename, RunRegistryMeta.software_version)).db.where(runNum==RunRegistryMeta.run_number).scalar_one()
             )
         except Exception as err_obj:
             resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
@@ -83,7 +83,7 @@ class getRunMetaLast(Resource):
         rowRes = []
         try:
             rowRes.append(
-                db.session.query(RunRegistryMeta.run_number, RunRegistryMeta.start_time, RunRegistryMeta.stop_time, RunRegistryMeta.detector_id, RunRegistryMeta.run_type, RunRegistryMeta.filename, RunRegistryMeta.software_version)
+                db.session.execute(db.select(RunRegistryMeta.run_number, RunRegistryMeta.start_time, RunRegistryMeta.stop_time, RunRegistryMeta.detector_id, RunRegistryMeta.run_type, RunRegistryMeta.filename, RunRegistryMeta.software_version))
                 .order_by(desc(RunRegistryMeta.run_number))
                 .limit(amount)
             )
@@ -111,8 +111,8 @@ class getRunBlob(Resource):
                 db.session.execute(
                     db.select(
                         RunRegistryMeta.filename, RunRegistryConfig.configuration
-                    ).join(
-                        RunRegistryConfig, RunRegistryConfig.run_number==RunRegistryMeta.run_number
+                    ).db.where(runNum==RunRegistryMeta.run_number).db.where(
+                        RunRegistryConfig.run_number==RunRegistryMeta.run_number
                     )
                 )
             )

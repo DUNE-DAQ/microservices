@@ -35,7 +35,7 @@ class getRunNumber(Resource):
     """
     returns the run number of the previous run
     if no previous run number, returns in format: Null
-    otherwise returns the last run number in format: [1000]
+    otherwise returns the last run number in format: [[[1000]]]
 
     """
 
@@ -51,7 +51,7 @@ class getRunNumber(Resource):
             resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
             return resp
         print(f"getRunNumber: result {rowRes}")
-        resp = flask.make_response([[flask.jsonify(rowRes)]])
+        resp = flask.make_response(flask.jsonify([[rowRes]]))
         return resp
 
 
