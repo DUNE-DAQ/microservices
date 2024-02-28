@@ -70,7 +70,7 @@ class getRunMeta(Resource):
                         RunRegistryMeta.run_type,
                         RunRegistryMeta.filename,
                         RunRegistryMeta.software_version,
-                    ).db.where(runNum == RunRegistryMeta.run_number)
+                    ).where(runNum == RunRegistryMeta.run_number)
                 )
                 .scalar_one()
             )
@@ -131,8 +131,8 @@ class getRunBlob(Resource):
             rowRes.append(
                 db.session.execute(
                     db.select(RunRegistryMeta.filename, RunRegistryConfig.configuration)
-                    .db.where(runNum == RunRegistryMeta.run_number)
-                    .db.where(
+                    .where(runNum == RunRegistryMeta.run_number)
+                    .where(
                         RunRegistryConfig.run_number == RunRegistryMeta.run_number
                     )
                 )
