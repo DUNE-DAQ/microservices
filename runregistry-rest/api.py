@@ -54,6 +54,7 @@ def cache_key():
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30015//runregistry/get
+@api.resource("/runnumber/get")
 @api.resource("/runregistry/get")
 class getRunNumber(Resource):
     """
@@ -79,6 +80,7 @@ class getRunNumber(Resource):
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30015//runregistry/getnew
+@api.resource("/runnumber/getnew")
 @api.resource("/runregistry/getnew")
 class getNewRunNumber(Resource):
     """

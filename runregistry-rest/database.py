@@ -7,7 +7,12 @@ __all__ = ["RunNumber", "RunRegistryConfig", "RunRegistryMeta"]
 
 class RunNumber(db.Model):
     run_number = db.Column(
-        "run_number", db.Integer, primary_key=True, autoincrement=True, nullable=False
+        "run_number",
+        db.Integer,
+        primary_key=True,
+        autoincrement=True,
+        nullable=False,
+        index=True,
     )
     flag = db.Column("flag", db.Boolean, nullable=False, default=False)
     start_time = db.Column(
@@ -24,6 +29,7 @@ class RunRegistryConfig(db.Model):
         primary_key=True,
         autoincrement=True,
         nullable=False,
+        index=True,
     )
     configuration = db.Column("configuration", db.LargeBinary, nullable=False)
 
@@ -36,6 +42,7 @@ class RunRegistryMeta(db.Model):
         primary_key=True,
         autoincrement=True,
         nullable=False,
+        index=True,
     )
     detector_id = db.Column("detector_id", db.String(40))
     run_type = db.Column("run_type", db.String(40))
