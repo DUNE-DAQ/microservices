@@ -34,6 +34,7 @@ from database import RunNumber, RunRegistryConfig, RunRegistryMeta
 PARSED_URI = urlparse(uri)
 print(f" * Detected database connection type->{PARSED_URI.scheme}")
 print(f" * Detected hostname for database->{PARSED_URI.hostname}")
+print(f" * Detected path for database->{PARSED_URI.path}")
 
 app.config["SQLALCHEMY_ECHO"] = False
 
