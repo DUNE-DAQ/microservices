@@ -1,11 +1,17 @@
 import io
 import os
+import urllib
+from datetime import datetime
+from urllib.parse import urlparse
 
 import flask
 from flask_caching import Cache
 from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import desc, func
+
+from authentication import auth
+from database import RunNumber, RunRegistryConfig, RunRegistryMeta
 
 __all__ = ["app", "api", "db", "cache"]
 
@@ -24,12 +30,6 @@ cache = Cache(app)
 db = SQLAlchemy(app)
 api = Api(app)
 
-import urllib
-from datetime import datetime
-from urllib.parse import urlparse
-
-from authentication import auth
-from database import RunNumber, RunRegistryConfig, RunRegistryMeta
 
 PARSED_URI = urlparse(uri)
 print(f" * Detected database connection type->{PARSED_URI.scheme}")
