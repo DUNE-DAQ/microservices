@@ -83,9 +83,8 @@ class getRunNumber(Resource):
         try:
             max_run_number = db.session.query(func.max(RunNumber.run_number)).scalar()
             # maybe find consumers to see if we can drop the extra nesting
-            result = [[max_run_number]] if max_run_number is not None else "Null"
-            print(f"getRunNumber: result {result}")
-            return flask.make_response(flask.jsonify(result))
+            print(f"getRunNumber: result {[[result]]}")
+            return flask.make_response(flask.jsonify([[max_run_number]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
