@@ -11,7 +11,6 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import desc, func
 
 from authentication import auth
-from database import RunNumber, RunRegistryConfig, RunRegistryMeta
 
 __all__ = ["app", "api", "db", "cache"]
 
@@ -33,6 +32,8 @@ uri = app.config["SQLALCHEMY_DATABASE_URI"]
 cache = Cache(app)
 db = SQLAlchemy(app)
 api = Api(app)
+
+from database import RunNumber, RunRegistryConfig, RunRegistryMeta
 
 PARSED_URI = urlparse(uri)
 print(f" * Detected database connection type->{PARSED_URI.scheme}")
