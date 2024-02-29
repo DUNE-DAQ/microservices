@@ -75,9 +75,9 @@ class getRunNumber(Resource):
             flask.jsonify([[rowRes]])
         )  # maybe find consumers to see if we can drop the extra nesting
         return resp
+
+
 api.add_resource(getRunNumber, *["/runregistry/get", "/runnumber/get"])
-
-
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30015//runregistry/getnew
@@ -140,7 +140,10 @@ class updateStopTimestamp(Resource):
         return resp
 
 
-api.add_resource(updateStopTimestamp, *["/runregistry/updatestop/<int:runNum>", "/runnumber/updatestop/<int:runNum>"])
+api.add_resource(
+    updateStopTimestamp,
+    *["/runregistry/updatestop/<int:runNum>", "/runnumber/updatestop/<int:runNum>"],
+)
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/getRunMeta/2
