@@ -319,6 +319,21 @@ class insertRun(Resource):
 
 @app.route("/")
 def index():
+    def generate_endpoint_html(
+        method, link, url, description, example_curl, notes=None
+    ):
+        result = f"""
+        <div style="border: 1px solid black">
+            <h3>{method} <a href="{link}">{url}</a></h3>
+            <p>{description}<br /><br />
+            <strong>Example:</strong><br />
+            <code style="font-size: 1.5em;">{example_curl}</code></p>
+        """
+        if notes:
+            result += f"<h4>Notes:</h4>\n{notes}"
+        result += "</div>\n<hr />"
+        return result
+
     root_text = f"""
     <!DOCTYPE html>
     <html>
@@ -333,70 +348,14 @@ def index():
         <li>emails: {__emails__}</li>
     </ul>
 
-    <h2>Endpoints</h2>
-    <div style="border: 1px solid black">
-    <h3>GET <a href="/runregistry/get">/runregistry/get</a></h3>
-    <p>Gets the current or last run number.</p>
-    <p>Example:</p>
-    <p style="font-family:courier;">$ curl -u user:password -X GET http://host:port/runregistry/get</p>
-    </div>
-    <p></p>
-
-    <div style="border: 1px solid black">
-    <h3>GET <a href="/runregistry/getnew">/runregistry/getnew</a></h3>
-    <p>Get a new unique run number.</p>
-    <p>Example:</p>
-    <p style="font-family:courier;">$ curl -u user:password -X GET http://host:port/runregistry/getnew</p>
-    </div>
-    <p></p>
-
-    <div style="border: 1px solid black">
-    <h3>GET <a href="/runregistry/updatestop/">/runregistry/updatestop/</a>&lt;run_num&gt;</h3>
-    <p>Update the stop time of the specified run number (replace &lt;run_num&gt; with the run number you want).</p>
-    <p>Example:</p>
-    <p style="font-family:courier;">$ curl -u user:password -X GET http://host:port//runregistry/updatestop/2</p>
-    </div>
-    <p></p>
-
-    <div style="border: 1px solid black">
-    <h3>GET <a href="/runregistry/getRunMeta/">/runregistry/getRunMeta/</a>&lt;run_num&gt;</h3>
-    <p>Gets the run metadata for the specified run number (replace &lt;run_num&gt; with the run number you want).</p>
-    <p>Example:</p>
-    <p style="font-family:courier;">$ curl -u user:password -X GET http://host:port/runregistry/getRunMeta/2</p>
-    </div>
-    <p></p>
-
-    <div style="border: 1px solid black">
-    <h3>GET <a href="/runregistry/getRunMetaLast/">/runregistry/getRunMetaLast/</a>&lt;how_many_runs&gt;</h3>
-    <p>Get the run metadata for the last runs (replace &lt;how_many_runs&gt; by the number of runs you want to go in the past).</p>
-    <p>Example:</p>
-    <p style="font-family:courier;">$ curl -u user:password -X GET http://host:port/runregistry/getRunMetaLast/100</p>
-    </div>
-    <p></p>
-
-    <div style="border: 1px solid black">
-    <h3>GET <a href="/runregistry/getRunBlob/">/runregistry/getRunBlob</a>/&lt;run_num&gt;</h3>
-    <p>Get the run configuration blob (tar.gz of some folders structure containing json) for the specified run number (replace <run_num> by the run number you want).</p>
-    <p>Example:</p>
-    <p style="font-family:courier;">$ curl -u user:password -X GET -O -J http://host:port/runregistry/getRunBlob/2</p>
-    </div>
-    <p></p>
-
-    <div style="border: 1px solid black">
-    <h3>POST /runregistry/insertRun/</h3>
-    <p>Insert a new run in the database. The post request should have the fields:</p>
-    <ul>
-        <li> "file": a file containing the configuration to save
-        <li> "run_num": the run number
-        <li> "det_id": the id of the detector
-        <li> "run_type": the type of run (either PROD of TEST)
-        <li> 'software_version": the version of dunedaq.
-    </ul>
-    <p>Example:</p>
-    <p style="font-family:courier;">$ curl -u user:password -F "file=@sspconf.tar.gz" -F "run_num=4" -F "det_id=foo" -F "run_type=bar" -F "software_version=dunedaq-vX.Y.Z" -X POST http://host:port/runregistry/insertRun/</p>
-    </div>
-    <p></p>
-
+    <h2>Endpoints:</h2>
+    {generate_endpoint_html("GET", "/runregistry/get", "/runregistry/get", "Gets the current or last run number.", "$ curl -u user:password -X GET http://host:port/runregistry/get")}
+    {generate_endpoint_html("GET", "/runregistry/getnew", "/runregistry/getnew", "Get a new unique run number.", "$ curl -u user:password -X GET http://host:port/runregistry/getnew")}
+    {generate_endpoint_html("GET", "/runregistry/updatestop/", "/runregistry/updatestop/&lt;run_num&gt;", "Update the stop time of the specified run number (replace <run_num> with the run number you want).", "$ curl -u user:password -X GET http://host:port/runregistry/updatestop/2")}
+    {generate_endpoint_html("GET", "/runregistry/getRunMeta/", "/runregistry/getRunMeta/&lt;run_num&gt;", "Gets the run metadata for the specified run number (replace <run_num> with the run number you want).", "$ curl -u user:password -X GET http://host:port/runregistry/getRunMeta/2")}
+    {generate_endpoint_html("GET", "/runregistry/getRunMetaLast/", "/runregistry/getRunMetaLast/&lt;how_many_runs&gt;", "Get the run metadata for the last runs (replace <how_many_runs> by the number of runs you want to go in the past).", "$ curl -u user:password -X GET http://host:port/runregistry/getRunMetaLast/100")}
+    {generate_endpoint_html("GET", "/runregistry/getRunBlob/", "/runregistry/getRunBlob/&lt;run_num&gt;", "Get the run configuration blob (tar.gz of some folders structure containing json) for the specified run number (replace <run_num> by the run number you want).", "$ curl -u user:password -X GET -O -J http://host:port/runregistry/getRunBlob/2")}
+    {generate_endpoint_html("POST", "/runregistry/insertRun/", "/runregistry/insertRun/", "Insert a new run in the database. The post request should have the fields:", "$ curl -u user:password -F 'file=@sspconf.tar.gz' -F 'run_num=4' -F 'det_id=foo' -F 'run_type=bar' -F 'software_version=dunedaq-vX.Y.Z' -X POST http://host:port/runregistry/insertRun/", "<p>To insert a new run into the database. The post request should have the fields:</p>\n<ul>\n<li>'file': a file containing the configuration to save</li>\n<li>'run_num': the run number</li>\n<li>'det_id': the id of the detector</li><li>'run_type': the type of run (either PROD of TEST)</li>\n<li>'software_version': the version of dunedaq.</li>\n</ul>")}
     </body>
     </html>
     """
