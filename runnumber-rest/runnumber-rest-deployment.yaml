@@ -62,8 +62,6 @@ spec:
             memory: 1Gi
           requests:
             memory: 8Mi
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
