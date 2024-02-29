@@ -25,6 +25,7 @@ app.config.update(
         "DATABASE_URI", "sqlite:////tmp/test.sqlite"
     ),
     DEPLOYMENT_ENV=os.environ.get("DEPLOYMENT_ENV", "DEV"),
+    RUN_START=int(os.getenv("RUN_START", "1000")),
     SQLALCHEMY_ECHO=False,
 )
 
@@ -109,7 +110,7 @@ class getNewRunNumber(Resource):
             # the primary key sequence may not match
             current_max_run = (
                 db.session.query(func.max(RunNumber.run_number)).scalar()
-                or int(os.getenv("RUN_START", "1000"))
+                or app.config["RUN_START"]
             ) + 1
             run = RunNumber(run_number=current_max_run)
             db.session.add(run)

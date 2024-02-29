@@ -1,13 +1,18 @@
 from datetime import datetime
 
-from api import db
+from api import db, app
 
 __all__ = ["RunNumber", "RunRegistryConfig", "RunRegistryMeta"]
 
 
 class RunNumber(db.Model):
     run_number = db.Column(
-        db.Integer, primary_key=True, autoincrement=True, nullable=False, index=True
+        db.Integer,
+        db.Sequence("run_number_sequence", start=app.config["RUN_START"]),
+        primary_key=True,
+        autoincrement=True,
+        nullable=False,
+        index=True,
     )
     flag = db.Column(db.Boolean, nullable=False, default=False)
     start_time = db.Column(db.TIMESTAMP(6), nullable=False, default=datetime.now)
