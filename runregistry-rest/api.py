@@ -25,11 +25,11 @@ app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
     "DATABASE_URI", "sqlite:////tmp/test.sqlite"
 )
 app.config["DEPLOYMENT_ENV"] = os.environ.get("DEPLOYMENT_ENV", "DEV")
+
 uri = app.config["SQLALCHEMY_DATABASE_URI"]
 cache = Cache(app)
 db = SQLAlchemy(app)
 api = Api(app)
-
 
 PARSED_URI = urlparse(uri)
 print(f" * Detected database connection type->{PARSED_URI.scheme}")
