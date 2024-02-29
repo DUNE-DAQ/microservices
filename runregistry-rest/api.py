@@ -96,7 +96,7 @@ class getNewRunNumber(Resource):
             # the primary key sequence may not match
             current_max_run = db.session.query(func.max(RunNumber.run_number)).scalar()
             if current_max_run is None:
-                current_max_run = current_max_run = int(os.getenv("RUN_START", "1000"))
+                current_max_run = int(os.getenv("RUN_START", "1000"))
             else:
                 current_max_run += 1
             run = RunNumber(run_number=current_max_run)
@@ -263,7 +263,6 @@ class insertRun(Resource):
         try:
             # Ensure form fields
             run_number = flask.request.form["run_number"]
-            stop_time = None
             det_id = flask.request.form["det_id"]
             run_type = flask.request.form["run_type"]
             software_version = flask.request.form["software_version"]
