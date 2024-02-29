@@ -54,8 +54,6 @@ def cache_key():
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30015//runregistry/get
-@api.resource("/runnumber/get")
-@api.resource("/runregistry/get")
 class getRunNumber(Resource):
     """
     returns the run number of the previous run
@@ -77,11 +75,12 @@ class getRunNumber(Resource):
             flask.jsonify([[rowRes]])
         )  # maybe find consumers to see if we can drop the extra nesting
         return resp
+api.add_resource(getRunNumber, *["/runregistry/get", "/runnumber/get"])
+
+
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30015//runregistry/getnew
-@api.resource("/runnumber/getnew")
-@api.resource("/runregistry/getnew")
 class getNewRunNumber(Resource):
     """
     create a new run in the database with a new run number which is previous run number +1
@@ -113,8 +112,10 @@ class getNewRunNumber(Resource):
         return resp
 
 
+api.add_resource(getNewRunNumber, *["/runregistry/getnew", "/runnumber/getnew"])
+
+
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/updatestop/<int:runNum>
-@api.resource("/runregistry/updatestop/<int:runNum>")
 class updateStopTimestamp(Resource):
     """
     set and record the stop time for the run into the database
@@ -137,6 +138,9 @@ class updateStopTimestamp(Resource):
         print(f"updateStopTimestamp: result {rowRes}")
         resp = flask.make_response(flask.jsonify(rowRes))
         return resp
+
+
+api.add_resource(updateStopTimestamp, *["/runregistry/updatestop/<int:runNum>", "/runnumber/updatestop/<int:runNum>"])
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/getRunMeta/2
@@ -168,7 +172,7 @@ class getRunMeta(Resource):
         except Exception as err_obj:
             resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
             return resp
-        resp = flask.make_response(flask.jsonify([[rowRes.keys()],[[rowRes]]]))
+        resp = flask.make_response(flask.jsonify([[rowRes.keys()], [[rowRes]]]))
         return resp
 
 
