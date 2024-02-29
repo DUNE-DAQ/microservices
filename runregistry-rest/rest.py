@@ -6,6 +6,9 @@ To control set the following environment variables:
 DATABASE_URI - URI for sqlalchemy to use
 DEBUG - set to TRUE for flask debugging
 DEPLOYMENT_ENV - set to the environment you are deploying to, default is DEV
+
+Optional Variables:
+RUN_START - will set the base Run Number:
 """
 import os
 
