@@ -157,7 +157,7 @@ api.add_resource(
 class getRunMeta(Resource):
     """
     returns the meta data for the specified runumber
-    should return the RunMeta in format: [1000, "Thu, 14 Dec 2023 15:12:03 GMT", "Thu, 14 Dec 2023 15:12:32 GMT", 1, "Don't know what goes here", "config.json", dunedaq-v4.2.0]
+    should return the RunMeta in format: [["RUN_NUMBER", "START_TIME", "STOP_TIME", "DETECTOR_ID", "RUN_TYPE", "SOFTWARE_VERSION"],[[1000, "Thu, 14 Dec 2023 15:12:03 GMT", "Thu, 14 Dec 2023 15:12:32 GMT", 1, "Don't know what goes here", "config.json", dunedaq-v4.2.0]]]
     """
 
     @auth.login_required
@@ -190,7 +190,7 @@ class getRunMeta(Resource):
 class getRunMetaLast(Resource):
     """
     returns the meta data for the number of runs specific to the number chosen in the curl
-    should return the RunMeta in format: [[1000, "Thu, 14 Dec 2023 15:12:03 GMT", "Thu, 14 Dec 2023 15:12:32 GMT", 1, "Don't know what goes here", "config.json", dunedaq-v4.2.0],[1001, "Thu, 14 Dec 2023 15:12:03 GMT", "Thu, 14 Dec 2023 15:12:32 GMT", 5, "Don't know what goes here", "config2.json", dunedaq-v4.2.0]]
+    should return the RunMeta in format: [["RUN_NUMBER", "START_TIME", "STOP_TIME", "DETECTOR_ID", "RUN_TYPE", "SOFTWARE_VERSION"],[[1000, "Thu, 14 Dec 2023 15:12:03 GMT", "Thu, 14 Dec 2023 15:12:32 GMT", 1, "Don't know what goes here", "config.json", dunedaq-v4.2.0],[1001, "Thu, 14 Dec 2023 15:12:03 GMT", "Thu, 14 Dec 2023 15:12:32 GMT", 5, "Don't know what goes here", "config2.json", dunedaq-v4.2.0],...]]
     """
 
     @auth.login_required
@@ -213,7 +213,7 @@ class getRunMetaLast(Resource):
                 .scalar()
             )
             print(f"getRunMetaLast: result {result}")
-            return flask.make_response(flask.jsonify(result))
+            return flask.make_response(flask.jsonify([[result.keys()], [[result]]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
@@ -258,7 +258,7 @@ class getRunBlob(Resource):
 class insertRun(Resource):
     """
     adds a run with the specified data given in the curl command
-    should return the inserted meta data in the format: [1000, "foo", "bar", "dunedaq-vX.Y.Z", "@sspconf.tar.gz"]
+    should return the inserted meta data in the format: [[[1000, "foo", "bar", "dunedaq-vX.Y.Z", "@sspconf.tar.gz"]]]
     """
 
     @auth.login_required
@@ -308,7 +308,7 @@ class insertRun(Resource):
             db.session.commit()
 
             resp_data = [run_number, det_id, run_type, software_version, filename]
-            return flask.make_response(flask.jsonify(resp_data))
+            return flask.make_response(flask.jsonify([[[resp_data]]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(str(err_obj), 400)
