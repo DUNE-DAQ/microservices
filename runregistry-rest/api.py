@@ -240,7 +240,7 @@ class getRunBlob(Resource):
             filename, blob = run_config[0][0], run_config[0][1]
             print("returning " + filename)
             resp = (
-                make_response(bytes(blob))
+                flask.make_response(bytes(blob))
                 ### FIXME
                 if DB_TYPE == "postgresql"
                 else flask.make_response(blob.read())
