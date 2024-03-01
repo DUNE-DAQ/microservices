@@ -85,7 +85,7 @@ class getRunNumber(Resource):
             max_run_number = db.session.query(func.max(RunNumber.run_number)).scalar()
             # maybe find consumers to see if we can drop the extra nesting
             print(f"getRunNumber: result {[[[max_run_number]]]}")
-            return flask.make_response(flask.jsonify([[[max_run_number]]]))
+            return flask.make_response(flask.jsonify([[max_run_number]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
@@ -129,7 +129,7 @@ api.add_resource(getNewRunNumber, *["/runregistry/getnew", "/runnumber/getnew"])
 class updateStopTimestamp(Resource):
     """
     set and record the stop time for the run into the database
-    should return the start and stop times in format: ["Thu, 14 Dec 2023 15:12:03 GMT","Thu, 14 Dec 2023 15:12:32 GMT"]
+    should return the start and stop times in format: [[["Thu, 14 Dec 2023 15:12:03 GMT","Thu, 14 Dec 2023 15:12:32 GMT"]]]
     """
 
     @auth.login_required
@@ -140,7 +140,7 @@ class updateStopTimestamp(Resource):
             run.stop_time = datetime.now()
             db.session.commit()
             print(f"updateStopTimestamp: result {[run.start_time, run.stop_time]}")
-            return flask.make_response(flask.jsonify([run.start_time, run.stop_time]))
+            return flask.make_response(flask.jsonify([[run.start_time, run.stop_time]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
@@ -179,7 +179,7 @@ class getRunMeta(Resource):
                 .one()
             )
             print(f"getRunMeta: result {result}")
-            return flask.make_response(flask.jsonify([[result.keys()], [[result]]]))
+            return flask.make_response(flask.jsonify([result.keys()], [[result]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
@@ -213,7 +213,7 @@ class getRunMetaLast(Resource):
                 .scalar()
             )
             print(f"getRunMetaLast: result {result}")
-            return flask.make_response(flask.jsonify([[result.keys()], [[result]]]))
+            return flask.make_response(flask.jsonify([result.keys()], [[result]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
@@ -308,7 +308,7 @@ class insertRun(Resource):
             db.session.commit()
 
             resp_data = [run_number, det_id, run_type, software_version, filename]
-            return flask.make_response(flask.jsonify([[[resp_data]]]))
+            return flask.make_response(flask.jsonify([[resp_data]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(str(err_obj), 400)
