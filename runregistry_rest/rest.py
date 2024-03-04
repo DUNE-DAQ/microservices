@@ -8,11 +8,11 @@ DEBUG - set to TRUE for flask debugging
 DEPLOYMENT_ENV - set to the environment you are deploying to, default is DEV
 
 Optional Variables:
-RUN_START - will set the base Run Number:
+RUN_START - will set the base Run Number. Defaults to 1000 or highest value in database.
 """
 import os
 
-from runregistry_rest.api import app, db
+from api import app, db
 
 # setenv DEBUG=True to enable debug mode
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"

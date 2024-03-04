@@ -1,3 +1,18 @@
+"""
+Variables for Webpage
+"""
+
+__title__ = "NP04 run registry"
+__author__ = "Roland Sipos"
+__credits__ = [""]
+__version__ = "0.0.8"
+__maintainers__ = ["Roland Sipos", "Pierre Lasorak", "Tiago Alves"]
+__emails__ = [
+    "roland.sipos@cern.ch",
+    "plasorak@cern.ch",
+    "tiago.alves20@imperial.ac.uk",
+]
+
 import io
 import os
 import urllib
@@ -27,34 +42,20 @@ app.config.update(
     SQLALCHEMY_ECHO=False,
 )
 
-uri = app.config["SQLALCHEMY_DATABASE_URI"]
 cache = Cache(app)
 db = SQLAlchemy(app)
 api = Api(app)
 
-from runregistry_rest.database import RunNumber, RunRegistryConfig, RunRegistryMeta
-from runregistry_rest.authentication import auth
+# These imports must happen after the api/app init
+from database import RunNumber, RunRegistryConfig, RunRegistryMeta
+from authentication import auth
 
-PARSED_URI = urlparse(uri)
+PARSED_URI = urlparse(app.config["SQLALCHEMY_DATABASE_URI"])
 print(f" * Detected database connection type->{PARSED_URI.scheme}")
 print(f" * Detected hostname for database->{PARSED_URI.hostname}")
 print(f" * Detected path for database->{PARSED_URI.path}")
 
 DB_TYPE = PARSED_URI.scheme  ### IS THIS NEEDED?
-
-"""
-Variables for Webpage
-"""
-__title__ = "NP04 run registry"
-__author__ = "Roland Sipos"
-__credits__ = [""]
-__version__ = "0.0.8"
-__maintainers__ = ["Roland Sipos", "Pierre Lasorak", "Tiago Alves"]
-__emails__ = [
-    "roland.sipos@cern.ch",
-    "plasorak@cern.ch",
-    "tiago.alves20@imperial.ac.uk",
-]
 
 
 def cache_key():
@@ -90,7 +91,7 @@ class getRunNumber(Resource):
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
 
 
-api.add_resource(getRunNumber, *["/runregistry/get", "/runnumber/get"])
+api.add_resource(getRunNumber, "/runregistry/get", "/runnumber/get")
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30015//runregistry/getnew
@@ -107,13 +108,14 @@ class getNewRunNumber(Resource):
         try:
             # if we start at a higher number
             # the primary key sequence may not match
-            current_max_run = (
-                db.session.query(func.max(RunNumber.run_number)).scalar()
-                or app.config["RUN_START"]
-            ) + 1
-            run = RunNumber(run_number=current_max_run)
-            db.session.add(run)
-            db.session.commit()
+            current_max_run = None
+            with db.session.begin():
+                current_max_run = (
+                    db.session.query(func.max(RunNumber.run_number)).scalar()
+                    or app.config["RUN_START"]
+                ) + 1
+                run = RunNumber(run_number=current_max_run)
+                db.session.add(run)
             print(f"getNewtRunNumber: result {[current_max_run]}")
             return flask.make_response(flask.jsonify([current_max_run]))
         except Exception as err_obj:
@@ -121,10 +123,10 @@ class getNewRunNumber(Resource):
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
 
 
-api.add_resource(getNewRunNumber, *["/runregistry/getnew", "/runnumber/getnew"])
+api.add_resource(getNewRunNumber, "/runregistry/getnew", "/runnumber/getnew")
 
 
-# $ curl -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/updatestop/<int:runNum>
+# $ curl -u fooUsr:barPass -X GET np04-srv-021:30015//runregistry/updatestop/<int:runNum>
 class updateStopTimestamp(Resource):
     """
     set and record the stop time for the run into the database
@@ -135,9 +137,10 @@ class updateStopTimestamp(Resource):
     def get(self, runNum):
         print(f"updateStopTimestamp: arg {runNum}")
         try:
-            run = db.session.query(RunNumber).filter_by(run_number=runNum).one()
-            run.stop_time = datetime.now()
-            db.session.commit()
+            run = None
+            with db.session.begin():
+                run = db.session.query(RunNumber).filter_by(run_number=runNum).one()
+                run.stop_time = datetime.now()
             print(f"updateStopTimestamp: result {[run.start_time, run.stop_time]}")
             return flask.make_response(flask.jsonify([[run.start_time, run.stop_time]]))
         except Exception as err_obj:
@@ -147,11 +150,12 @@ class updateStopTimestamp(Resource):
 
 api.add_resource(
     updateStopTimestamp,
-    *["/runregistry/updatestop/<int:runNum>", "/runnumber/updatestop/<int:runNum>"],
+    "/runregistry/updatestop/<int:runNum>",
+    "/runnumber/updatestop/<int:runNum>",
 )
 
 
-# $ curl -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/getRunMeta/2
+# $ curl -u fooUsr:barPass -X GET np04-srv-021:30015//runregistry/getRunMeta/2
 @api.resource("/runregistry/getRunMeta/<int:runNum>")
 class getRunMeta(Resource):
     """
@@ -184,7 +188,7 @@ class getRunMeta(Resource):
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
 
 
-# $ curl -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/getRunMetaLast/100
+# $ curl -u fooUsr:barPass -X GET np04-srv-021:30015//runregistry/getRunMetaLast/100
 @api.resource("/runregistry/getRunMetaLast/<int:amount>")
 class getRunMetaLast(Resource):
     """
@@ -209,7 +213,7 @@ class getRunMetaLast(Resource):
                 .filter(RunNumber.run_number == RunRegistryMeta.run_number)
                 .order_by(desc(RunNumber.run_number))
                 .limit(amount)
-                .scalar()
+                .all()
             )
             print(f"getRunMetaLast: result {result}")
             return flask.make_response(flask.jsonify([result.keys()], [[result]]))
@@ -218,7 +222,7 @@ class getRunMetaLast(Resource):
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
 
 
-# $ curl -u fooUsr:barPass -X GET -O -J np04-srv-021:30015/runregistry/getRunBlob/2
+# $ curl -u fooUsr:barPass -O -J np04-srv-021:30015//runregistry/getRunBlob/2
 @api.resource("/runregistry/getRunBlob/<int:runNum>")
 class getRunBlob(Resource):
     """
@@ -238,21 +242,21 @@ class getRunBlob(Resource):
             )
             filename, blob = run_config[0][0], run_config[0][1]
             print("returning " + filename)
+            resp.headers["Content-Type"] = "application/octet-stream"
+            resp.headers["Content-Disposition"] = f"attachment; filename={filename}"
             resp = (
                 flask.make_response(bytes(blob))
                 ### FIXME
                 if DB_TYPE == "postgresql"
                 else flask.make_response(blob.read())
             )
-            resp.headers["Content-Type"] = "application/octet-stream"
-            resp.headers["Content-Disposition"] = f"attachment; filename={filename}"
             return resp
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
 
 
-# $ curl -u fooUsr:barPass -F "file=@sspconf.tar.gz" -F "run_number=1000" -F "det_id=foo" -F "run_type=bar" -F "software_version=dunedaq-vX.Y.Z" -X POST np04-srv-021:30015/runregistry/insertRun/
+# $ curl -u fooUsr:barPass -F "file=@sspconf.tar.gz" -F "run_number=1000" -F "det_id=foo" -F "run_type=bar" -F "software_version=dunedaq-vX.Y.Z" -X POST np04-srv-021:30015//runregistry/insertRun/
 @api.resource("/runregistry/insertRun/")
 class insertRun(Resource):
     """
@@ -288,23 +292,23 @@ class insertRun(Resource):
 
             uploaded_file.save(local_file_name)
 
-            with open(local_file_name, "rb") as fin:
-                data = io.BytesIO(fin.read())
+            with open(local_file_name, "rb") as file_in:
+                data = io.BytesIO(file_in.read())
 
-            run_config = RunRegistryConfig(
-                run_number=run_number, configuration=data.getvalue()
-            )
-            run_meta = RunRegistryMeta(
-                run_number=run_number,
-                detector_id=det_id,
-                run_type=run_type,
-                filename=filename,
-                software_version=software_version,
-            )
+            with db.session.begin():
+                run_config = RunRegistryConfig(
+                    run_number=run_number, configuration=data.getvalue()
+                )
+                run_meta = RunRegistryMeta(
+                    run_number=run_number,
+                    detector_id=det_id,
+                    run_type=run_type,
+                    filename=filename,
+                    software_version=software_version,
+                )
 
-            db.session.add(run_config)
-            db.session.add(run_meta)
-            db.session.commit()
+                db.session.add(run_config)
+                db.session.add(run_meta)
 
             resp_data = [run_number, det_id, run_type, software_version, filename]
             return flask.make_response(flask.jsonify([[resp_data]]))
@@ -377,7 +381,7 @@ def index():
     <h3>GET <a href="/runregistry/getRunBlob/">/runregistry/getRunBlob</a>/&lt;run_num&gt;</h3>
     <p>Get the run configuration blob (tar.gz of some folders structure containing json) for the specified run number (replace <run_num> by the run number you want).</p>
     <p>Example:</p>
-    <p style="font-family:courier;">$ curl -u user:password -X GET -O -J http://host:port/runregistry/getRunBlob/2</p>
+    <p style="font-family:courier;">$ curl -u user:password -O -J http://host:port/runregistry/getRunBlob/2</p>
     </div>
     <p></p>
 
