@@ -26,7 +26,7 @@ api = Api(app)
 from urllib.parse import urlparse
 
 PARSED_URI = urlparse(uri)
-db_type = parsed_uri.scheme
+db_type = PARSED_URI.scheme
 print(db_type)
 
 from runregistry_rest.authentication import auth

@@ -12,7 +12,7 @@ RUN_START - will set the base Run Number:
 """
 import os
 
-from api import app, db
+from runregistry_rest.api import app, db
 
 # setenv DEBUG=True to enable debug mode
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"

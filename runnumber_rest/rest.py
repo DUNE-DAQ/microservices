@@ -10,7 +10,7 @@ DEPLOYMENT_ENV - set to the environment you are deploying to, default is DEV
 """
 import os
 
-from api import app, db
+from runregistry_rest.api import app, db
 
 # setenv DEBUG=True to enable debug mode
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"

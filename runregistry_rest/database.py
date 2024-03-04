@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from api import db, app
+from runregistry_rest.api import db, app
 
 __all__ = ["RunNumber", "RunRegistryConfig", "RunRegistryMeta"]
 
