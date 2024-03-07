@@ -29,7 +29,7 @@ app = flask.Flask(__name__)
 app.config.update(
     MAX_CONTENT_LENGTH=32 * 1000 * 1000,
     UPLOAD_EXTENSIONS={".gz", ".tgz"},
-    UPLOAD_PATH="uploads",
+    UPLOAD_PATH="",
     CACHE_TYPE="simple",
     SQLALCHEMY_DATABASE_URI=os.environ.get(
         "DATABASE_URI", "sqlite:////tmp/test.sqlite"
@@ -163,7 +163,7 @@ class getRunBlob(Resource):
             print(f"Exception:{err_obj}")
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
 
-# $ curl -u fooUsr:barPass -F "file=@sspconf.tar.gz" -F "run_number=1000" -F "det_id=foo" -F "run_type=bar" -F "software_version=dunedaq-vX.Y.Z" -X POST np04-srv-021:30015/runregistry/insertRun/
+# $ curl -u fooUsr:barPass -F "run_number=1000" -F "det_id=foo" -F "run_type=bar" -F "software_version=dunedaq-vX.Y.Z" -F "file=@sspconf.tar.gz" -X POST np04-srv-021:30015/runregistry/insertRun/
 @api.resource("/runregistry/insertRun/")
 class insertRun(Resource):
     """
@@ -199,6 +199,9 @@ class insertRun(Resource):
                     "File with the same name is already being processed. Try again later.",
                     400,
                 )
+            
+            print(f"local_file_name: {local_file_name}")
+            print(f"uploaded_file: {uploaded_file}")
 
             uploaded_file.save(local_file_name)
 
