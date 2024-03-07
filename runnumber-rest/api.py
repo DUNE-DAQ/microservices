@@ -64,7 +64,7 @@ class getRunNumber(Resource):
             max_run_number = db.session.query(func.max(RunNumber.rn)).scalar()
             # maybe find consumers to see if we can drop the extra nesting
             print(f"getRunNumber: result {[[[max_run_number]]]}")
-            return flask.make_response(flask.jsonify([[max_run_number]]))
+            return flask.make_response(flask.jsonify([[[max_run_number]]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
@@ -94,7 +94,7 @@ class getNewtRunNumber(Resource):
                 run = RunNumber(rn=current_max_run)
                 db.session.add(run)
             print(f"getNewtRunNumber: result {[current_max_run]}")
-            return flask.make_response(flask.jsonify([current_max_run]))
+            return flask.make_response(flask.jsonify([[[current_max_run]]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
@@ -117,7 +117,7 @@ class updateStopTimestamp(Resource):
                 run = db.session.query(RunNumber).filter_by(rn=runNum).one()
                 run.stop_time = datetime.now()
             print(f"updateStopTimestamp: result {[run.start_time, run.stop_time]}")
-            return flask.make_response(flask.jsonify([[run.start_time, run.stop_time]]))
+            return flask.make_response(flask.jsonify([[[run.start_time, run.stop_time]]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))

@@ -175,6 +175,7 @@ class insertRun(Resource):
     def post(self):
         rowRes = []
         filename = ""
+        local_file_name = None
         try:
             # Ensure form fields
             run_number = flask.request.form.get("run_number")
