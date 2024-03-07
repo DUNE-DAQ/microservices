@@ -1,3 +1,18 @@
+"""
+Variables for Webpage
+"""
+
+__title__ = "NP04 run number"
+__author__ = "Roland Sipos"
+__credits__ = [""]
+__version__ = "0.0.1"
+__maintainers__ = ["Roland Sipos", "Pierre Lasorak", "Tiago Alves"]
+__emails__ = [
+    "roland.sipos@cern.ch",
+    "plasorak@cern.ch",
+    "tiago.alves20@imperial.ac.uk",
+]
+
 import os
 from datetime import datetime
 
@@ -10,10 +25,14 @@ __all__ = ["app", "api", "db"]
 
 app = flask.Flask(__name__)
 
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
-    "DATABASE_URI", "sqlite:////tmp/test.sqlite"
+app.config.update(
+    SQLALCHEMY_DATABASE_URI=os.environ.get(
+        "DATABASE_URI", "sqlite:////tmp/test.sqlite"
+    ),
+    DEPLOYMENT_ENV=os.environ.get("DEPLOYMENT_ENV", "DEV"),
+    RUN_START=int(os.getenv("RUN_START", "1000")),
+    SQLALCHEMY_ECHO=False,
 )
-app.config["DEPLOYMENT_ENV"] = os.environ.get("DEPLOYMENT_ENV", "DEV")
 
 uri = app.config["SQLALCHEMY_DATABASE_URI"]
 db = SQLAlchemy(app)
@@ -24,9 +43,8 @@ from urllib.parse import urlparse
 from authentication import auth
 from database import RunNumber
 
-parsed_uri = urlparse(uri)
-db_type = parsed_uri.scheme
-print(db_type)
+PARSED_URI = urlparse(app.config["SQLALCHEMY_DATABASE_URI"])
+DB_TYPE = PARSED_URI.scheme
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30016//runnumber/get
@@ -41,18 +59,15 @@ class getRunNumber(Resource):
 
     @auth.login_required
     def get(self):
-        rowRes = []
+        print("getNewRunNumber: no args")
         try:
-            rowRes.append(
-                db.session.execute(db.select(func.max(RunNumber.rn))).scalar_one()
-            )
+            max_run_number = db.session.query(func.max(RunNumber.run_number)).scalar()
+            # maybe find consumers to see if we can drop the extra nesting
+            print(f"getRunNumber: result {[[[max_run_number]]]}")
+            return flask.make_response(flask.jsonify([[max_run_number]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
-            resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
-            return resp
-        print(f"getRunNumber: result {rowRes}")
-        resp = flask.make_response(flask.jsonify([[rowRes]]))
-        return resp
+            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30016//runnumber/getnew
@@ -70,24 +85,19 @@ class getNewtRunNumber(Resource):
         try:
             # if we start at a higher number
             # the primary key sequence may not match
-            current_max_run = db.session.execute(
-                db.select(func.max(RunNumber.rn))
-            ).scalar()
-            if current_max_run is None:
-                current_max_run = current_max_run = int(os.getenv("RUN_START", "1000"))
-            else:
-                current_max_run += 1
-            run = RunNumber(rn=current_max_run)
-            db.session.add(run)
-            db.session.commit()
-            rowRes.append(current_max_run)
+            current_max_run = None
+            with db.session.begin():
+                current_max_run = (
+                    db.session.query(func.max(RunNumber.run_number)).scalar()
+                    or app.config["RUN_START"]
+                ) + 1
+                run = RunNumber(run_number=current_max_run)
+                db.session.add(run)
+            print(f"getNewtRunNumber: result {[current_max_run]}")
+            return flask.make_response(flask.jsonify([current_max_run]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
-            resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
-            return resp
-        print(f"getNewtRunNumber: result {rowRes}")
-        resp = flask.make_response(flask.jsonify([[rowRes]]))
-        return resp
+            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30016/runnumber/updatestop/<int:runNum>
@@ -95,42 +105,22 @@ class getNewtRunNumber(Resource):
 class updateStopTimestamp(Resource):
     """
     set and record the stop time for the run into the database
-    should return the start and stop times in format: ["Thu, 14 Dec 2023 15:12:03 GMT","Thu, 14 Dec 2023 15:12:32 GMT"]
+    should return the start and stop times in format: [[["Thu, 14 Dec 2023 15:12:03 GMT","Thu, 14 Dec 2023 15:12:32 GMT"]]]
     """
 
     @auth.login_required
     def get(self, runNum):
-        rowRes = []
         print(f"updateStopTimestamp: arg {runNum}")
         try:
-            run = db.session.execute(
-                db.select(RunNumber).filter_by(rn=runNum)
-            ).scalar_one()
-            run.stop_time = datetime.now()
-            db.session.commit()
-            rowRes.extend((run.start_time, run.stop_time))
+            run = None
+            with db.session.begin():
+                run = db.session.query(RunNumber).filter_by(run_number=runNum).one()
+                run.stop_time = datetime.now()
+            print(f"updateStopTimestamp: result {[run.start_time, run.stop_time]}")
+            return flask.make_response(flask.jsonify([[run.start_time, run.stop_time]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
-            resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
-            return resp
-        print(f"updateStopTimestamp: result {rowRes}")
-        resp = flask.make_response(flask.jsonify([[rowRes]]))
-        return resp
-
-
-"""
-Variables for Webpage
-"""
-__title__ = "NP04 run number"
-__author__ = "Roland Sipos"
-__credits__ = [""]
-__version__ = "0.0.1"
-__maintainers__ = ["Roland Sipos", "Pierre Lasorak", "Tiago Alves"]
-__emails__ = [
-    "roland.sipos@cern.ch",
-    "plasorak@cern.ch",
-    "tiago.alves20@imperial.ac.uk",
-]
+            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
 
 
 @app.route("/")

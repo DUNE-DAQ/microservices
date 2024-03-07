@@ -1,3 +1,18 @@
+"""
+Variables for Webpage
+"""
+
+__title__ = "NP04 run registry"
+__author__ = "Roland Sipos"
+__credits__ = [""]
+__version__ = "0.0.8"
+__maintainers__ = ["Roland Sipos", "Pierre Lasorak", "Tiago Alves"]
+__emails__ = [
+    "roland.sipos@cern.ch",
+    "plasorak@cern.ch",
+    "tiago.alves20@imperial.ac.uk",
+]
+
 import io
 import os
 
@@ -11,15 +26,19 @@ __all__ = ["app", "api", "db"]
 
 app = flask.Flask(__name__)
 
-app.config["MAX_CONTENT_LENGTH"] = 32 * 1000 * 1000
-app.config["UPLOAD_EXTENSIONS"] = [".gz", ".tgz"]
-app.config["UPLOAD_PATH"] = "uploads"
-app.config["CACHE_TYPE"] = "simple"
-app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get(
-    "DATABASE_URI", "sqlite:////tmp/test.sqlite"
+app.config.update(
+    MAX_CONTENT_LENGTH=32 * 1000 * 1000,
+    UPLOAD_EXTENSIONS={".gz", ".tgz"},
+    UPLOAD_PATH="uploads",
+    CACHE_TYPE="simple",
+    SQLALCHEMY_DATABASE_URI=os.environ.get(
+        "DATABASE_URI", "sqlite:////tmp/test.sqlite"
+    ),
+    DEPLOYMENT_ENV=os.environ.get("DEPLOYMENT_ENV", "DEV"),
+    RUN_START=int(os.getenv("RUN_START", "1000")),
+    SQLALCHEMY_ECHO=False,
 )
-app.config["DEPLOYMENT_ENV"] = os.environ.get("DEPLOYMENT_ENV", "DEV")
-uri = app.config["SQLALCHEMY_DATABASE_URI"]
+
 cache = Cache(app)
 db = SQLAlchemy(app)
 api = Api(app)
@@ -31,9 +50,8 @@ from urllib.parse import urlparse
 from authentication import auth
 from database import RunRegistryConfig, RunRegistryMeta
 
-parsed_uri = urlparse(uri)
-db_type = parsed_uri.scheme
-print(db_type)
+PARSED_URI = urlparse(app.config["SQLALCHEMY_DATABASE_URI"])
+DB_TYPE = PARSED_URI.scheme
 
 
 def cache_key():
@@ -53,32 +71,31 @@ def cache_key():
 class getRunMeta(Resource):
     """
     returns the meta data for the specified runumber
-    should return the RunMeta in format: [1000, "Thu, 14 Dec 2023 15:12:03 GMT", "Thu, 14 Dec 2023 15:12:32 GMT", 1, "Don't know what goes here", "config.json", dunedaq-v4.2.0]
+    should return the RunMeta in format: [["RUN_NUMBER", "START_TIME", "STOP_TIME", "DETECTOR_ID", "RUN_TYPE", "SOFTWARE_VERSION"],[[1000, "Thu, 14 Dec 2023 15:12:03 GMT", "Thu, 14 Dec 2023 15:12:32 GMT", 1, "Don't know what goes here", "config.json", dunedaq-v4.2.0]]]
     """
 
     @auth.login_required
     def get(self, runNum):
         rowRes = []
         try:
-            rowRes.append(
-                db.session.execute(
-                    db.select(
-                        RunRegistryMeta.run_number,
-                        RunRegistryMeta.start_time,
-                        RunRegistryMeta.stop_time,
-                        RunRegistryMeta.detector_id,
-                        RunRegistryMeta.run_type,
-                        RunRegistryMeta.filename,
-                        RunRegistryMeta.software_version,
-                    ).where(runNum == RunRegistryMeta.run_number)
+            result = (
+                db.session.query(
+                    RunRegistryMeta.run_number,
+                    RunRegistryMeta.start_time,
+                    RunRegistryMeta.stop_time,
+                    RunRegistryMeta.detector_id,
+                    RunRegistryMeta.run_type,
+                    RunRegistryMeta.filename,
+                    RunRegistryMeta.software_version,
                 )
-                .scalar_one()
+                .filter(RunRegistryMeta.run_number == runNum)
+                .one()
             )
+            print(f"getRunMeta: result {result}")
+            return flask.make_response(flask.jsonify([result.keys()], [[result]]))
         except Exception as err_obj:
-            resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
-            return resp
-        resp = flask.make_response(flask.jsonify([[rowRes.keys()],[[rowRes]]]))
-        return resp
+            print(f"Exception:{err_obj}")
+            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/getRunMetaLast/100
@@ -93,9 +110,8 @@ class getRunMetaLast(Resource):
     def get(self, amount):
         rowRes = []
         try:
-            rowRes.append(
-                db.session.execute(
-                    db.select(
+            result = (
+                db.session.query(
                         RunRegistryMeta.run_number,
                         RunRegistryMeta.start_time,
                         RunRegistryMeta.stop_time,
@@ -103,16 +119,15 @@ class getRunMetaLast(Resource):
                         RunRegistryMeta.run_type,
                         RunRegistryMeta.filename,
                         RunRegistryMeta.software_version,
-                    )
                 )
                 .order_by(desc(RunRegistryMeta.run_number))
                 .limit(amount)
+                .all()
             )
+            print(f"getRunMetaLast: result {result}")
+            return flask.make_response(flask.jsonify([result.keys()], [[result]]))
         except Exception as err_obj:
             resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
-            return resp
-        resp = flask.make_response(flask.jsonify(rowRes))
-        return resp
 
 
 # $ curl -u fooUsr:barPass -X GET -O -J np04-srv-021:30015/runregistry/getRunBlob/2
@@ -126,32 +141,27 @@ class getRunBlob(Resource):
     @auth.login_required
     @cache.cached(timeout=0, key_prefix=cache_key, query_string=True)
     def get(self, runNum):
-        rowRes = []
+        print(f"getRunBlob: arg {runNum}")
         try:
-            rowRes.append(
-                db.session.execute(
-                    db.select(RunRegistryMeta.filename, RunRegistryConfig.configuration)
-                    .where(runNum == RunRegistryMeta.run_number)
-                    .where(
-                        RunRegistryConfig.run_number == RunRegistryMeta.run_number
-                    )
-                )
+            run_config = (
+                db.session.query(RunRegistryConfig)
+                .where(RunRegistryConfig.run_number == runNum)
+                .one()
             )
-        except Exception as err_obj:
-            resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
+            filename, blob = run_config[0][0], run_config[0][1]
+            print("returning " + filename)
+            resp.headers["Content-Type"] = "application/octet-stream"
+            resp.headers["Content-Disposition"] = f"attachment; filename={filename}"
+            resp = (
+                flask.make_response(bytes(blob))
+                ### FIXME
+                if DB_TYPE == "postgresql"
+                else flask.make_response(blob.read())
+            )
             return resp
-        filename = rowRes[0][0][0]
-        print("returning " + filename)
-        blob = rowRes[0][0][1]
-        resp = (
-            flask.make_response(bytes(blob))
-            if db_type == "postgresql"
-            else flask.make_response(blob.read())
-        )
-        resp.headers["Content-Type"] = "application/octet-stream"
-        resp.headers["Content-Disposition"] = "attachment; filename=%s" % filename
-        return resp
-
+        except Exception as err_obj:
+            print(f"Exception:{err_obj}")
+            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
 
 # $ curl -u fooUsr:barPass -F "file=@sspconf.tar.gz" -F "run_number=1000" -F "det_id=foo" -F "run_type=bar" -F "software_version=dunedaq-vX.Y.Z" -X POST np04-srv-021:30015/runregistry/insertRun/
 @api.resource("/runregistry/insertRun/")
@@ -167,54 +177,56 @@ class insertRun(Resource):
         filename = ""
         try:
             # Ensure form fields
-            run_number = flask.request.form["run_number"]
-            stop_time = None
-            det_id = flask.request.form["det_id"]
-            run_type = flask.request.form["run_type"]
-            software_version = flask.request.form["software_version"]
-            uploaded_file = flask.request.files["file"]
+            run_number = flask.request.form.get("run_number")
+            det_id = flask.request.form.get("det_id")
+            run_type = flask.request.form.get("run_type")
+            software_version = flask.request.form.get("software_version")
+            uploaded_file = flask.request.files.get("file")
+            if not all([run_number, det_id, run_type, software_version, uploaded_file]):
+                return flask.make_response("Missing required form fields", 400)
+
             filename = uploaded_file.filename
+            if (
+                not filename
+                or os.path.splitext(filename)[1] not in app.config["UPLOAD_EXTENSIONS"]
+            ):
+                return flask.make_response("Invalid file or extension", 400)
 
-            # Save uploaded file temporarily
-            if filename != "":
-                file_ext = os.path.splitext(filename)[1]
-                if file_ext not in app.config["UPLOAD_EXTENSIONS"]:
-                    error = "Unknown file extension! File needs to be .tar.gz or .tgz file! \n"
-                    return flask.make_response(error, 400)
-                local_file_name = os.path.join(app.config["UPLOAD_PATH"], filename)
-                if os.path.isfile(local_file_name):
-                    error = "BLOB insert is ongoing with the same file name! Try again a bit later."
-                    return flask.make_response(error, 400)
-                uploaded_file.save(local_file_name)
-            else:
-                error = "Expected file (conf blob) name is missing in form! \n"
-                return flask.make_response(error, 400)
+            local_file_name = os.path.join(app.config["UPLOAD_PATH"], filename)
+            if os.path.isfile(local_file_name):
+                return flask.make_response(
+                    "File with the same name is already being processed. Try again later.",
+                    400,
+                )
 
-            # Read in file to memory
-            with open(local_file_name, "rb") as fin:
-                data = io.BytesIO(fin.read())
+            uploaded_file.save(local_file_name)
 
-            # Perform insert
-            run_config = RunRegistryConfig(
-                run_number=run_number, configuration=data.getvalue()
-            )
-            run_meta = RunRegistryMeta(
-                run_number=run_number,
-                detector_id=det_id,
-                run_type=run_type,
-                filename=filename,
-                software_version=software_version,
-            )
-            db.session.add(run_config)
-            db.session.add(run_meta)
-            db.session.commit()
-            resp = flask.make_response(flask.jsonify(rowRes))
-            # remove uploaded temp file
-            os.remove(local_file_name)
-            return resp
+            with open(local_file_name, "rb") as file_in:
+                data = io.BytesIO(file_in.read())
+
+            with db.session.begin():
+                run_config = RunRegistryConfig(
+                    run_number=run_number, configuration=data.getvalue()
+                )
+                run_meta = RunRegistryMeta(
+                    run_number=run_number,
+                    detector_id=det_id,
+                    run_type=run_type,
+                    filename=filename,
+                    software_version=software_version,
+                )
+
+                db.session.add(run_config)
+                db.session.add(run_meta)
+
+            resp_data = [run_number, det_id, run_type, software_version, filename]
+            return flask.make_response(flask.jsonify([[resp_data]]))
         except Exception as err_obj:
-            print("Exception:", err_obj)
+            print(f"Exception:{err_obj}")
             return flask.make_response(str(err_obj), 400)
+        finally:
+            if local_file_name and os.path.exists(local_file_name):
+                os.remove(local_file_name)
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/updatestop/<int:runNum>
@@ -243,21 +255,6 @@ class updateStopTimestamp(Resource):
         print(f"updateStopTimestamp: result {rowRes}")
         resp = flask.make_response(flask.jsonify(rowRes))
         return resp
-
-
-"""
-Variables for Webpage
-"""
-__title__ = "NP04 run registry"
-__author__ = "Roland Sipos"
-__credits__ = [""]
-__version__ = "0.0.8"
-__maintainers__ = ["Roland Sipos", "Pierre Lasorak", "Tiago Alves"]
-__emails__ = [
-    "roland.sipos@cern.ch",
-    "plasorak@cern.ch",
-    "tiago.alves20@imperial.ac.uk",
-]
 
 
 @app.route("/")
