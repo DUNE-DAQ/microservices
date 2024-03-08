@@ -143,12 +143,15 @@ class getRunBlob(Resource):
     def get(self, runNum):
         print(f"getRunBlob: arg {runNum}")
         try:
-            run_config = (
-                db.session.query(RunRegistryConfig)
+            blob = (
+                db.session.query(RunRegistryConfig.configuration)
                 .where(RunRegistryConfig.run_number == runNum)
                 .one()
             )
-            filename, blob = run_config[0][0], run_config[0][1]
+            filename = (
+                db.session.query(RunRegistryMeta.filename)
+                .where(RunRegistryMeta.run_number == runNum)
+            )
             print("returning " + filename)
             resp.headers["Content-Type"] = "application/octet-stream"
             resp.headers["Content-Disposition"] = f"attachment; filename={filename}"
@@ -168,7 +171,7 @@ class getRunBlob(Resource):
 class insertRun(Resource):
     """
     adds a run with the specified data given in the curl command
-    should return the inserted meta data in the format: [1000, "foo", "bar", "dunedaq-vX.Y.Z", "@sspconf.tar.gz"]
+    should return the inserted meta data in the format: [[[1000, "foo", "bar", "dunedaq-vX.Y.Z", "@sspconf.tar.gz"]]]
     """
 
     @auth.login_required
@@ -221,7 +224,7 @@ class insertRun(Resource):
                 db.session.add(run_config)
 
             resp_data = [run_number, det_id, run_type, software_version, filename]
-            return flask.make_response(flask.jsonify([[resp_data]]))
+            return flask.make_response(flask.jsonify([[[resp_data]]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(str(err_obj), 400)
@@ -235,28 +238,22 @@ class insertRun(Resource):
 class updateStopTimestamp(Resource):
     """
     set and record the stop time for the run into the database
-    should return the start and stop times in format: ["Thu, 14 Dec 2023 15:12:03 GMT","Thu, 14 Dec 2023 15:12:32 GMT"]
+    should return the start and stop times in format: [[["Thu, 14 Dec 2023 15:12:03 GMT","Thu, 14 Dec 2023 15:12:32 GMT"]]]
     """
 
     @auth.login_required
     def get(self, runNum):
-        rowRes = []
         print(f"updateStopTimestamp: arg {runNum}")
         try:
-            run = db.session.execute(
-                db.select(RunRegistryMeta).filter_by(run_number=runNum)
-            ).scalar_one()
-            run.stop_time = datetime.now()
-            db.session.commit()
-            rowRes.extend((run.start_time, run.stop_time))
+            run = None
+            with db.session.begin():
+                run = db.session.query(RunRegistryMeta).filter_by(run_number=runNum).one()
+                run.stop_time = datetime.now()
+            print(f"updateStopTimestamp: result {[run.start_time, run.stop_time]}")
+            return flask.make_response(flask.jsonify([[[run.start_time, run.stop_time]]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
-            resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
-            return resp
-        print(f"updateStopTimestamp: result {rowRes}")
-        resp = flask.make_response(flask.jsonify(rowRes))
-        return resp
-
+            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
 
 @app.route("/")
 def index():
