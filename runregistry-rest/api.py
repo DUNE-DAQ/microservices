@@ -29,7 +29,7 @@ app = flask.Flask(__name__)
 app.config.update(
     MAX_CONTENT_LENGTH=32 * 1000 * 1000,
     UPLOAD_EXTENSIONS={".gz", ".tgz"},
-    UPLOAD_PATH="",
+    UPLOAD_PATH="/microservices/runregistry-rest/uploads",
     CACHE_TYPE="simple",
     SQLALCHEMY_DATABASE_URI=os.environ.get(
         "DATABASE_URI", "sqlite:////tmp/test.sqlite"
@@ -199,9 +199,6 @@ class insertRun(Resource):
                     "File with the same name is already being processed. Try again later.",
                     400,
                 )
-            
-            print(f"local_file_name: {local_file_name}")
-            print(f"uploaded_file: {uploaded_file}")
 
             uploaded_file.save(local_file_name)
 
