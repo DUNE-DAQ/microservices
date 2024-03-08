@@ -30,7 +30,7 @@ class RunRegistryMeta(db.Model):
 
 class RunRegistryConfig(db.Model):
     run_number = db.Column(
-        'run_number', db.Integer, db.ForeignKey(RunRegistryMeta.run_number),  primary_key=True, autoincrement=True, nullable=False
+        'run_number', db.Integer,  primary_key=True, autoincrement=True, nullable=False
     )
     configuration = db.Column(
         'configuration', db.LargeBinary, nullable=False
