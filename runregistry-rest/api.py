@@ -84,7 +84,6 @@ class getRunMeta(Resource):
                     RunRegistryMeta.stop_time,
                     RunRegistryMeta.detector_id,
                     RunRegistryMeta.run_type,
-                    RunRegistryMeta.filename,
                     RunRegistryMeta.software_version,
                 )
                 .filter(RunRegistryMeta.run_number == runNum)
@@ -93,7 +92,7 @@ class getRunMeta(Resource):
             print(f"getRunMeta: result {result}")
             result = list(result)
             column_names = RunRegistryMeta.__table__.columns.keys()
-            return flask.make_response(flask.jsonify(column_names, [*result]))
+            return flask.make_response(flask.jsonify(column_names, [[*result]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
@@ -117,7 +116,6 @@ class getRunMetaLast(Resource):
                         RunRegistryMeta.stop_time,
                         RunRegistryMeta.detector_id,
                         RunRegistryMeta.run_type,
-                        RunRegistryMeta.filename,
                         RunRegistryMeta.software_version,
                 )
                 .limit(amount)
@@ -126,7 +124,7 @@ class getRunMetaLast(Resource):
             print(f"getRunMetaLast: result {result}")
             result = [list(row) for row in result]
             column_names = RunRegistryMeta.__table__.columns.keys()
-            return flask.make_response(flask.jsonify(column_names, [*result]))
+            return flask.make_response(flask.jsonify(column_names, [[*result]]))
         except Exception as err_obj:
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
 
