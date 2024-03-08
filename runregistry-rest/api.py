@@ -206,9 +206,6 @@ class insertRun(Resource):
                 data = io.BytesIO(file_in.read())
 
             with db.session.begin():
-                run_config = RunRegistryConfig(
-                    run_number=run_number, configuration=data.getvalue()
-                )
                 run_meta = RunRegistryMeta(
                     run_number=run_number,
                     detector_id=det_id,
@@ -216,9 +213,12 @@ class insertRun(Resource):
                     filename=filename,
                     software_version=software_version,
                 )
+                run_config = RunRegistryConfig(
+                    run_number=run_number, configuration=data.getvalue()
+                )
 
-                db.session.add(run_config)
                 db.session.add(run_meta)
+                db.session.add(run_config)
 
             resp_data = [run_number, det_id, run_type, software_version, filename]
             return flask.make_response(flask.jsonify([[resp_data]]))
