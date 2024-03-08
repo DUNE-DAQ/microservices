@@ -91,6 +91,7 @@ class getRunMeta(Resource):
                 .one()
             )
             print(f"getRunMeta: result {result}")
+            result = [row._asdict() for row in result]
             column_names = RunRegistryMeta.__table__.columns.keys()
             return flask.make_response(flask.jsonify([[column_names], [[result]]]))
         except Exception as err_obj:
@@ -123,10 +124,11 @@ class getRunMetaLast(Resource):
                 .all()
             )
             print(f"getRunMetaLast: result {result}")
+            result = [row._asdict() for row in result]
             column_names = RunRegistryMeta.__table__.columns.keys()
             return flask.make_response(flask.jsonify([[column_names], [[result]]]))
         except Exception as err_obj:
-            resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
+            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
 
 
 # $ curl -u fooUsr:barPass -X GET -O -J np04-srv-017:30015/runregistry/getRunBlob/2
