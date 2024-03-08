@@ -66,7 +66,7 @@ def cache_key():
     return key
 
 
-# $ curl -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/getRunMeta/2
+# $ curl -u fooUsr:barPass -X GET np04-srv-017:30015/runregistry/getRunMeta/2
 @api.resource("/runregistry/getRunMeta/<int:runNum>")
 class getRunMeta(Resource):
     """
@@ -76,7 +76,6 @@ class getRunMeta(Resource):
 
     @auth.login_required
     def get(self, runNum):
-        rowRes = []
         try:
             result = (
                 db.session.query(
@@ -92,18 +91,19 @@ class getRunMeta(Resource):
                 .one()
             )
             print(f"getRunMeta: result {result}")
-            return flask.make_response(flask.jsonify([result.keys()], [[result]]))
+            column_names = RunRegistryMeta.__table__.columns.keys()
+            return flask.make_response(flask.jsonify([[column_names], [[result]]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
 
 
-# $ curl -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/getRunMetaLast/100
+# $ curl -u fooUsr:barPass -X GET np04-srv-017:30015/runregistry/getRunMetaLast/100
 @api.resource("/runregistry/getRunMetaLast/<int:amount>")
 class getRunMetaLast(Resource):
     """
     returns the meta data for the number of runs specific to the number chosen in the curl
-    should return the RunMeta in format: [[1000, "Thu, 14 Dec 2023 15:12:03 GMT", "Thu, 14 Dec 2023 15:12:32 GMT", 1, "Don't know what goes here", "config.json", dunedaq-v4.2.0],[1001, "Thu, 14 Dec 2023 15:12:03 GMT", "Thu, 14 Dec 2023 15:12:32 GMT", 5, "Don't know what goes here", "config2.json", dunedaq-v4.2.0]]
+    should return the RunMeta in format: [["RUN_NUMBER", "START_TIME", "STOP_TIME", "DETECTOR_ID", "RUN_TYPE", "SOFTWARE_VERSION"],[[1000, "Thu, 14 Dec 2023 15:12:03 GMT", "Thu, 14 Dec 2023 15:12:32 GMT", 1, "Don't know what goes here", "config.json", dunedaq-v4.2.0],[1001, "Thu, 14 Dec 2023 15:12:03 GMT", "Thu, 14 Dec 2023 15:12:32 GMT", 5, "Don't know what goes here", "config2.json", dunedaq-v4.2.0]]]
     """
 
     @auth.login_required
@@ -119,18 +119,17 @@ class getRunMetaLast(Resource):
                         RunRegistryMeta.filename,
                         RunRegistryMeta.software_version,
                 )
-                .order_by(desc(RunRegistryMeta.run_number))
                 .limit(amount)
                 .all()
             )
             print(f"getRunMetaLast: result {result}")
             column_names = RunRegistryMeta.__table__.columns.keys()
-            return flask.make_response(flask.jsonify([column_names], [[result]]))
+            return flask.make_response(flask.jsonify([[column_names], [[result]]]))
         except Exception as err_obj:
             resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
 
 
-# $ curl -u fooUsr:barPass -X GET -O -J np04-srv-021:30015/runregistry/getRunBlob/2
+# $ curl -u fooUsr:barPass -X GET -O -J np04-srv-017:30015/runregistry/getRunBlob/2
 @api.resource("/runregistry/getRunBlob/<int:runNum>")
 class getRunBlob(Resource):
     """
@@ -154,20 +153,20 @@ class getRunBlob(Resource):
                 .scalar()
             )
             print("returning " + filename)
-            resp.headers["Content-Type"] = "application/octet-stream"
-            resp.headers["Content-Disposition"] = f"attachment; filename={filename}"
             resp = (
                 flask.make_response(bytes(blob))
                 ### FIXME
                 if DB_TYPE == "postgresql"
                 else flask.make_response(blob.read())
             )
+            resp.headers["Content-Type"] = "application/octet-stream"
+            resp.headers["Content-Disposition"] = f"attachment; filename={filename}"
             return resp
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
 
-# $ curl -u fooUsr:barPass -F "run_number=1000" -F "det_id=foo" -F "run_type=bar" -F "software_version=dunedaq-vX.Y.Z" -F "file=@sspconf.tar.gz" -X POST np04-srv-021:30015/runregistry/insertRun/
+# $ curl -u fooUsr:barPass -F "run_number=1000" -F "det_id=foo" -F "run_type=bar" -F "software_version=dunedaq-vX.Y.Z" -F "file=@sspconf.tar.gz" -X POST np04-srv-017:30015/runregistry/insertRun/
 @api.resource("/runregistry/insertRun/")
 class insertRun(Resource):
     """
@@ -234,7 +233,7 @@ class insertRun(Resource):
                 os.remove(local_file_name)
 
 
-# $ curl -u fooUsr:barPass -X GET np04-srv-021:30015/runregistry/updatestop/<int:runNum>
+# $ curl -u fooUsr:barPass -X GET np04-srv-017:30015/runregistry/updatestop/<int:runNum>
 @api.resource("/runregistry/updatestop/<int:runNum>")
 class updateStopTimestamp(Resource):
     """
