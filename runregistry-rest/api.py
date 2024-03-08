@@ -91,9 +91,9 @@ class getRunMeta(Resource):
                 .one()
             )
             print(f"getRunMeta: result {result}")
-            result = [row._asdict() for row in result]
+            result = [list(row) for row in result]
             column_names = RunRegistryMeta.__table__.columns.keys()
-            return flask.make_response(flask.jsonify([[column_names], [[result]]]))
+            return flask.make_response(flask.jsonify([column_names], [[*result]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
@@ -124,9 +124,9 @@ class getRunMetaLast(Resource):
                 .all()
             )
             print(f"getRunMetaLast: result {result}")
-            result = [row._asdict() for row in result]
+            result = [list(row) for row in result]
             column_names = RunRegistryMeta.__table__.columns.keys()
-            return flask.make_response(flask.jsonify([[column_names], [[result]]]))
+            return flask.make_response(flask.jsonify([[column_names], [[*result]]]))
         except Exception as err_obj:
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
 
