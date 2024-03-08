@@ -29,7 +29,7 @@ app = flask.Flask(__name__)
 app.config.update(
     MAX_CONTENT_LENGTH=32 * 1000 * 1000,
     UPLOAD_EXTENSIONS={".gz", ".tgz"},
-    UPLOAD_PATH="/microservices/runregistry-rest/uploads",
+    UPLOAD_PATH="uploads",
     CACHE_TYPE="simple",
     SQLALCHEMY_DATABASE_URI=os.environ.get(
         "DATABASE_URI", "sqlite:////tmp/test.sqlite"
