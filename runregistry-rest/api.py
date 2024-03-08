@@ -108,7 +108,6 @@ class getRunMetaLast(Resource):
 
     @auth.login_required
     def get(self, amount):
-        rowRes = []
         try:
             result = (
                 db.session.query(
@@ -125,7 +124,8 @@ class getRunMetaLast(Resource):
                 .all()
             )
             print(f"getRunMetaLast: result {result}")
-            return flask.make_response(flask.jsonify([result.keys()], [[result]]))
+            column_names = RunRegistryMeta.__table__.columns.keys()
+            return flask.make_response(flask.jsonify([column_names], [[result]]))
         except Exception as err_obj:
             resp = flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
 
@@ -145,12 +145,13 @@ class getRunBlob(Resource):
         try:
             blob = (
                 db.session.query(RunRegistryConfig.configuration)
-                .where(RunRegistryConfig.run_number == runNum)
-                .one()
+                .filter(RunRegistryConfig.run_number == runNum)
+                .scalar()
             )
             filename = (
                 db.session.query(RunRegistryMeta.filename)
-                .where(RunRegistryMeta.run_number == runNum)
+                .filter(RunRegistryMeta.run_number == runNum)
+                .scalar()
             )
             print("returning " + filename)
             resp.headers["Content-Type"] = "application/octet-stream"
