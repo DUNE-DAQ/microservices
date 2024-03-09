@@ -156,12 +156,10 @@ class getRunBlob(Resource):
                 .scalar()
             )
             print("returning " + filename)
-            resp = (
-                flask.make_response(bytes(blob))
-                ### FIXME
-                if DB_TYPE == "postgresql"
-                else flask.make_response(blob.read())
-            )
+            if DB_TYPE == "postgresql":
+                resp = (flask.make_response(bytes(blob)))
+            else:
+                resp = (flask.make_response(blob.read()))
             resp.headers["Content-Type"] = "application/octet-stream"
             resp.headers["Content-Disposition"] = f"attachment; filename={filename}"
             return resp
