@@ -119,8 +119,8 @@ class getRunMetaLast(Resource):
                         RunRegistryMeta.run_type,
                         RunRegistryMeta.software_version,
                 )
-                .limit(amount)
                 .order_by(desc(RunRegistryMeta.run_number))
+                .limit(amount)
                 .all()
             )
             print(f"getRunMetaLast: result {result}")
@@ -179,7 +179,6 @@ class insertRun(Resource):
 
     @auth.login_required
     def post(self):
-        rowRes = []
         filename = ""
         local_file_name = None
         try:
