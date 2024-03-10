@@ -28,7 +28,7 @@ class RunRegistryMeta(db.Model):
         'software_version', db.String(40)
     )
 
-class RunRegistryConfig(db.Model):
+class RunRegistryConfigs(db.Model):
     run_number = db.Column(
         'run_number', db.Integer,  primary_key=True, autoincrement=True, nullable=False
     )
