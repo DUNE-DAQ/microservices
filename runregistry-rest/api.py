@@ -159,13 +159,13 @@ class getRunBlob(Resource):
             if DB_TYPE == "postgresql":
                 resp = (flask.make_response(bytes(blob)))
             else:
-                resp = (flask.make_response(blob.read(blob.size())))
+                resp = (flask.make_response(blob))
             resp.headers["Content-Type"] = "application/octet-stream"
             resp.headers["Content-Disposition"] = f"attachment; filename={filename}"
             return resp
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
-            return flask.make_response(flask.jsonify({"Exception": f"{err_obj} and " f"{RunRegistryConfigs.__table__.columns.keys()}"})) 
+            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"})) 
 
 # $ curl -u fooUsr:barPass -F "run_number=1000" -F "det_id=foo" -F "run_type=bar" -F "software_version=dunedaq-vX.Y.Z" -F "file=@sspconf.tar.gz" -X POST np04-srv-017:30015/runregistry/insertRun/
 @api.resource("/runregistry/insertRun/")
