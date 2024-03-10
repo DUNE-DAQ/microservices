@@ -19,18 +19,6 @@ class RunNumber(db.Model):
     stop_time = db.Column(db.TIMESTAMP(6), nullable=True)
 
 
-class RunRegistryConfig(db.Model):
-    run_number = db.Column(
-        db.Integer,
-        db.ForeignKey(RunNumber.run_number),
-        primary_key=True,
-        autoincrement=True,
-        nullable=False,
-        index=True,
-    )
-    configuration = db.Column(db.LargeBinary, nullable=False)
-
-
 class RunRegistryMeta(db.Model):
     run_number = db.Column(
         db.Integer,
@@ -44,3 +32,14 @@ class RunRegistryMeta(db.Model):
     run_type = db.Column(db.String(40))
     filename = db.Column(db.String(100))
     software_version = db.Column(db.String(40))
+
+class RunRegistryConfigs(db.Model):
+    run_number = db.Column(
+        db.Integer,
+        db.ForeignKey(RunNumber.run_number),
+        primary_key=True,
+        autoincrement=True,
+        nullable=False,
+        index=True,
+    )
+    configuration = db.Column(db.LargeBinary, nullable=False)
