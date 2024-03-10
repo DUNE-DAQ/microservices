@@ -81,7 +81,6 @@ class getNewtRunNumber(Resource):
 
     @auth.login_required
     def get(self):
-        rowRes = []
         try:
             # if we start at a higher number
             # the primary key sequence may not match
