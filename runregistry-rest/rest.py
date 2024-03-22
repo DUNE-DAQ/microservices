@@ -15,9 +15,7 @@ from api import app, db
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
 with app.app_context():
-    db.session.commit()
-    db.RunRegistryMeta.__table__.create(db.engine)
-    db.RunRegistryConfigs.__table__.create(db.engine)
+    db.create_all()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5005, debug=DEBUG)

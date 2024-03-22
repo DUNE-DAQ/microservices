@@ -27,6 +27,8 @@ class RunRegistryMeta(db.Model):
     software_version = db.Column(
         'software_version', db.String(40)
     )
+    configs = db.relationship('RunRegistryConfigs', backref='meta')
+
 
 class RunRegistryConfigs(db.Model):
     run_number = db.Column(
