@@ -167,7 +167,7 @@ class getRunBlob(Resource):
             print(f"Exception:{err_obj}")
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"})) 
 
-# $ curl -u fooUsr:barPass -F "run_number=1000" -F "det_id=foo" -F "run_type=bar" -F "software_version=dunedaq-vX.Y.Z" -F "file=@sspconf.tar.gz" -X POST np04-srv-017:30015/runregistry/insertRun/
+# $ curl -u fooUsr:barPass -F "run_num=1000" -F "det_id=foo" -F "run_type=bar" -F "software_version=dunedaq-vX.Y.Z" -F "file=@sspconf.tar.gz" -X POST np04-srv-017:30015/runregistry/insertRun/
 @api.resource("/runregistry/insertRun/")
 class insertRun(Resource):
     """
@@ -181,7 +181,7 @@ class insertRun(Resource):
         local_file_name = None
         try:
             # Ensure form fields
-            run_number = flask.request.form.get("run_number")
+            run_number = flask.request.form.get("run_num")
             det_id = flask.request.form.get("det_id")
             run_type = flask.request.form.get("run_type")
             software_version = flask.request.form.get("software_version")
