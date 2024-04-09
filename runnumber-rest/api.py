@@ -19,7 +19,8 @@ from datetime import datetime
 import flask
 from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import func
+from sqlalchemy import func, event
+import re
 
 __all__ = ["app", "api", "db"]
 
@@ -32,6 +33,7 @@ app.config.update(
     DEPLOYMENT_ENV=os.environ.get("DEPLOYMENT_ENV", "DEV"),
     RUN_START=int(os.getenv("RUN_START", "1000")),
     SQLALCHEMY_ECHO=False,
+        SQLALCHEMY_ENGINE_OPTIONS={"pool_pre_ping": True, "pool_recycle": 3600},
 )
 
 uri = app.config["SQLALCHEMY_DATABASE_URI"]
@@ -46,6 +48,14 @@ from database import RunNumber
 PARSED_URI = urlparse(app.config["SQLALCHEMY_DATABASE_URI"])
 DB_TYPE = PARSED_URI.scheme
 
+@app.before_first_request
+def register_event_handlers():
+    @event.listens_for(db.engine, "handle_error")
+    def handle_exception(context):
+        if not context.is_disconnect and re.match(
+            r"^(?:DPI-1001|DPI-4011)", str(context.original_exception)
+        ):
+            context.is_disconnect = True
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30016//runnumber/get
 @api.resource("/runnumber/get")
@@ -93,7 +103,8 @@ class getNewtRunNumber(Resource):
                 run = RunNumber(rn=current_max_run)
                 db.session.add(run)
             print(f"getNewtRunNumber: result {[current_max_run]}")
-            return flask.make_response(flask.jsonify([[[current_max_run]]]))
+            cnu = [name.upper() for name in column_names]
+            return flask.make_response(flask.jsonify(cnu, [[*result]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))

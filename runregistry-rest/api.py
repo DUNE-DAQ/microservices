@@ -20,7 +20,8 @@ import flask
 from flask_caching import Cache
 from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import desc, func
+from sqlalchemy import func, event
+import re
 
 __all__ = ["app", "api", "db"]
 
@@ -37,6 +38,7 @@ app.config.update(
     DEPLOYMENT_ENV=os.environ.get("DEPLOYMENT_ENV", "DEV"),
     RUN_START=int(os.getenv("RUN_START", "1000")),
     SQLALCHEMY_ECHO=False,
+        SQLALCHEMY_ENGINE_OPTIONS={"pool_pre_ping": True, "pool_recycle": 3600},
 )
 
 cache = Cache(app)
@@ -53,6 +55,14 @@ from database import RunRegistryConfigs, RunRegistryMeta
 PARSED_URI = urlparse(app.config["SQLALCHEMY_DATABASE_URI"])
 DB_TYPE = PARSED_URI.scheme
 
+@app.before_first_request
+def register_event_handlers():
+    @event.listens_for(db.engine, "handle_error")
+    def handle_exception(context):
+        if not context.is_disconnect and re.match(
+            r"^(?:DPI-1001|DPI-4011)", str(context.original_exception)
+        ):
+            context.is_disconnect = True
 
 def cache_key():
     args = flask.request.args
@@ -93,7 +103,8 @@ class getRunMeta(Resource):
             result = list(result)
             column_names = RunRegistryMeta.__table__.columns.keys()
             column_names.remove('filename') #Don't like this but only way to stay consistent with Oracle
-            return flask.make_response(flask.jsonify(column_names, [[*result]]))
+            cnu = [name.upper() for name in column_names]
+            return flask.make_response(flask.jsonify(cnu, [[*result]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
