@@ -20,7 +20,7 @@ import flask
 from flask_caching import Cache
 from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import func, event
+from sqlalchemy import desc, event
 import re
 
 __all__ = ["app", "api", "db"]
