@@ -103,8 +103,7 @@ class getNewtRunNumber(Resource):
                 run = RunNumber(rn=current_max_run)
                 db.session.add(run)
             print(f"getNewtRunNumber: result {[current_max_run]}")
-            cnu = [name.upper() for name in column_names]
-            return flask.make_response(flask.jsonify(cnu, [[*result]]))
+            return flask.make_response(flask.jsonify([[[current_max_run]]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
