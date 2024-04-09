@@ -45,7 +45,7 @@ cache = Cache(app)
 db = SQLAlchemy(app)
 api = Api(app)
 
-import datetime
+from datetime import datetime
 import urllib
 from urllib.parse import urlparse
 
