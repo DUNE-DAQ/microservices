@@ -245,8 +245,8 @@ class insertRun(Resource):
                 os.remove(local_file_name)
 
 
-# $ curl -u fooUsr:barPass -X GET np04-srv-017:30015/runregistry/updatestop/<int:runNum>
-@api.resource("/runregistry/updatestop/<int:runNum>")
+# $ curl -u fooUsr:barPass -X GET np04-srv-017:30015/runregistry/updateStopTime/<int:runNum>
+@api.resource("/runregistry/updateStopTime/<int:runNum>")
 class updateStopTimestamp(Resource):
     """
     set and record the stop time for the run into the database
