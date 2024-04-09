@@ -104,7 +104,7 @@ class getRunMeta(Resource):
             column_names = RunRegistryMeta.__table__.columns.keys()
             column_names.remove('filename') #Don't like this but only way to stay consistent with Oracle
             cnu = [name.upper() for name in column_names]
-            return flask.make_response(flask.jsonify(cnu, [*result]))
+            return flask.make_response(flask.jsonify(cnu, [[*result]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
@@ -139,7 +139,7 @@ class getRunMetaLast(Resource):
             column_names = RunRegistryMeta.__table__.columns.keys()
             column_names.remove('filename') #Don't like this but only way to stay consistent with Oracle
             cnu = [name.upper() for name in column_names]
-            return flask.make_response(flask.jsonify(cnu, [[*result]]))
+            return flask.make_response(flask.jsonify(cnu, [*result]))
         except Exception as err_obj:
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
 
