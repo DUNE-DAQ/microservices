@@ -260,7 +260,7 @@ class updateStopTimestamp(Resource):
             run = None
             with db.session.begin():
                 run = db.session.query(RunRegistryMeta).filter_by(run_number=runNum).one()
-                run.stop_time = dt.datetime.utcnow
+                run.stop_time = dt.datetime.utcnow()
             print(f"updateStopTimestamp: result {[run.start_time, run.stop_time]}")
             return flask.make_response(flask.jsonify([[[run.start_time, run.stop_time]]]))
         except Exception as err_obj:
