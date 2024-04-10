@@ -45,7 +45,7 @@ cache = Cache(app)
 db = SQLAlchemy(app)
 api = Api(app)
 
-from datetime import datetime
+import datetime as dt
 import urllib
 from urllib.parse import urlparse
 
@@ -260,7 +260,7 @@ class updateStopTimestamp(Resource):
             run = None
             with db.session.begin():
                 run = db.session.query(RunRegistryMeta).filter_by(run_number=runNum).one()
-                run.stop_time = datetime.now()
+                run.stop_time = dt.datetime.now(dt.UTC).replace(tzinfo=None)
             print(f"updateStopTimestamp: result {[run.start_time, run.stop_time]}")
             return flask.make_response(flask.jsonify([[[run.start_time, run.stop_time]]]))
         except Exception as err_obj:
