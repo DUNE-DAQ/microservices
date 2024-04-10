@@ -13,6 +13,6 @@ class RunNumber(db.Model):
         'flag', db.Boolean, nullable=False, default=False
         )
     start_time = db.Column(
-        'start_time', db.TIMESTAMP(6), nullable=False, default=datetime.now
+        'start_time', db.TIMESTAMP(6), nullable=False, default=datetime.utcnow
     )
     stop_time = db.Column('stop_time', db.TIMESTAMP(6), nullable=True)
