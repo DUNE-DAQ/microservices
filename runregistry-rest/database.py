@@ -1,5 +1,3 @@
-import datetime as dt
-
 from api import db
 
 __all__ = ['RunRegistryConfig', 'RunRegistryMeta']
@@ -10,7 +8,7 @@ class RunRegistryMeta(db.Model):
         'run_number', db.Integer, primary_key=True, autoincrement=True, nullable=False
     )
     start_time = db.Column(
-        'start_time', db.TIMESTAMP(6), nullable=False, default=dt.datetime.utcnow
+        'start_time', db.TIMESTAMP(6), nullable=False, default=db.func.now
     )
     stop_time = db.Column(
         'stop_time', db.TIMESTAMP(6), nullable=True

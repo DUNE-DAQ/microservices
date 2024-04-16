@@ -20,7 +20,7 @@ import flask
 from flask_caching import Cache
 from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import desc, event
+from sqlalchemy import desc, event, func
 import re
 
 __all__ = ["app", "api", "db"]
@@ -260,7 +260,7 @@ class updateStopTimestamp(Resource):
             run = None
             with db.session.begin():
                 run = db.session.query(RunRegistryMeta).filter_by(run_number=runNum).one()
-                run.stop_time = dt.datetime.utcnow()
+                run.stop_time = func.now()
             print(f"updateStopTimestamp: result {[run.start_time, run.stop_time]}")
             return flask.make_response(flask.jsonify([[[run.start_time, run.stop_time]]]))
         except Exception as err_obj:
