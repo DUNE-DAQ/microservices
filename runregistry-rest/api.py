@@ -20,7 +20,8 @@ import flask
 from flask_caching import Cache
 from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import desc, func
+from sqlalchemy import desc, event
+import re
 
 __all__ = ["app", "api", "db"]
 
@@ -37,13 +38,14 @@ app.config.update(
     DEPLOYMENT_ENV=os.environ.get("DEPLOYMENT_ENV", "DEV"),
     RUN_START=int(os.getenv("RUN_START", "1000")),
     SQLALCHEMY_ECHO=False,
+        SQLALCHEMY_ENGINE_OPTIONS={"pool_pre_ping": True, "pool_recycle": 3600},
 )
 
 cache = Cache(app)
 db = SQLAlchemy(app)
 api = Api(app)
 
-import datetime
+import datetime as dt
 import urllib
 from urllib.parse import urlparse
 
@@ -53,6 +55,14 @@ from database import RunRegistryConfigs, RunRegistryMeta
 PARSED_URI = urlparse(app.config["SQLALCHEMY_DATABASE_URI"])
 DB_TYPE = PARSED_URI.scheme
 
+@app.before_first_request
+def register_event_handlers():
+    @event.listens_for(db.engine, "handle_error")
+    def handle_exception(context):
+        if not context.is_disconnect and re.match(
+            r"^(?:DPI-1001|DPI-4011)", str(context.original_exception)
+        ):
+            context.is_disconnect = True
 
 def cache_key():
     args = flask.request.args
@@ -93,7 +103,8 @@ class getRunMeta(Resource):
             result = list(result)
             column_names = RunRegistryMeta.__table__.columns.keys()
             column_names.remove('filename') #Don't like this but only way to stay consistent with Oracle
-            return flask.make_response(flask.jsonify(column_names, [[*result]]))
+            cnu = [name.upper() for name in column_names]
+            return flask.make_response(flask.jsonify(cnu, [[*result]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
@@ -127,7 +138,8 @@ class getRunMetaLast(Resource):
             result = [list(row) for row in result]
             column_names = RunRegistryMeta.__table__.columns.keys()
             column_names.remove('filename') #Don't like this but only way to stay consistent with Oracle
-            return flask.make_response(flask.jsonify(column_names, [*result]))
+            cnu = [name.upper() for name in column_names]
+            return flask.make_response(flask.jsonify(cnu, [*result]))
         except Exception as err_obj:
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
 
@@ -167,7 +179,7 @@ class getRunBlob(Resource):
             print(f"Exception:{err_obj}")
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"})) 
 
-# $ curl -u fooUsr:barPass -F "run_number=1000" -F "det_id=foo" -F "run_type=bar" -F "software_version=dunedaq-vX.Y.Z" -F "file=@sspconf.tar.gz" -X POST np04-srv-017:30015/runregistry/insertRun/
+# $ curl -u fooUsr:barPass -F "run_num=1000" -F "det_id=foo" -F "run_type=bar" -F "software_version=dunedaq-vX.Y.Z" -F "file=@sspconf.tar.gz" -X POST np04-srv-017:30015/runregistry/insertRun/
 @api.resource("/runregistry/insertRun/")
 class insertRun(Resource):
     """
@@ -181,7 +193,7 @@ class insertRun(Resource):
         local_file_name = None
         try:
             # Ensure form fields
-            run_number = flask.request.form.get("run_number")
+            run_number = flask.request.form.get("run_num")
             det_id = flask.request.form.get("det_id")
             run_type = flask.request.form.get("run_type")
             software_version = flask.request.form.get("software_version")
@@ -233,8 +245,8 @@ class insertRun(Resource):
                 os.remove(local_file_name)
 
 
-# $ curl -u fooUsr:barPass -X GET np04-srv-017:30015/runregistry/updatestop/<int:runNum>
-@api.resource("/runregistry/updatestop/<int:runNum>")
+# $ curl -u fooUsr:barPass -X GET np04-srv-017:30015/runregistry/updateStopTime/<int:runNum>
+@api.resource("/runregistry/updateStopTime/<int:runNum>")
 class updateStopTimestamp(Resource):
     """
     set and record the stop time for the run into the database
@@ -248,7 +260,7 @@ class updateStopTimestamp(Resource):
             run = None
             with db.session.begin():
                 run = db.session.query(RunRegistryMeta).filter_by(run_number=runNum).one()
-                run.stop_time = datetime.now()
+                run.stop_time = dt.datetime.utcnow()
             print(f"updateStopTimestamp: result {[run.start_time, run.stop_time]}")
             return flask.make_response(flask.jsonify([[[run.start_time, run.stop_time]]]))
         except Exception as err_obj:
