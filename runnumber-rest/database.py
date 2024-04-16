@@ -11,6 +11,6 @@ class RunNumber(db.Model):
         'flag', db.Boolean, nullable=False, default=False
         )
     start_time = db.Column(
-        'start_time', db.TIMESTAMP(6), nullable=False, default=db.func.now
+        'start_time', db.TIMESTAMP(6), nullable=False, default=db.func.now()
     )
     stop_time = db.Column('stop_time', db.TIMESTAMP(6), nullable=True)
