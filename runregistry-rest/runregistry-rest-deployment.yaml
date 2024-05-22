@@ -78,7 +78,7 @@ spec:
       volumes: # persistance is not required at this time
       - name: uploads-volume
         emptyDir:
-          sizeLimit: 20Gi
+          sizeLimit: 10Gi
       securityContext:
         fsGroup: 11000
 ---
