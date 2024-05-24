@@ -28,7 +28,7 @@ __all__ = ["app", "api", "db"]
 app = flask.Flask(__name__)
 
 app.config.update(
-    MAX_CONTENT_LENGTH= 8 * 1024 * 1024 * 1024, 
+    MAX_CONTENT_LENGTH= 100 * 1024 * 1024, 
     UPLOAD_EXTENSIONS={".gz", ".tgz"},
     UPLOAD_PATH="",
     CACHE_TYPE="simple",
