@@ -28,7 +28,7 @@ __all__ = ["app", "api", "db"]
 app = flask.Flask(__name__)
 
 app.config.update(
-    MAX_CONTENT_LENGTH=32 * 1000 * 1000,
+    MAX_CONTENT_LENGTH= 8 * 1024 * 1024 * 1024, 
     UPLOAD_EXTENSIONS={".gz", ".tgz"},
     UPLOAD_PATH="",
     CACHE_TYPE="simple",
@@ -38,7 +38,7 @@ app.config.update(
     DEPLOYMENT_ENV=os.environ.get("DEPLOYMENT_ENV", "DEV"),
     RUN_START=int(os.getenv("RUN_START", "1000")),
     SQLALCHEMY_ECHO=False,
-        SQLALCHEMY_ENGINE_OPTIONS={"pool_pre_ping": True, "pool_recycle": 3600},
+    SQLALCHEMY_ENGINE_OPTIONS={"pool_pre_ping": True, "pool_recycle": 3600},
 )
 
 cache = Cache(app)
