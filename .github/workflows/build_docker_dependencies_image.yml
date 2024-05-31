@@ -33,7 +33,7 @@ jobs:
         uses: docker/metadata-action@v4
         with:
           images: |
-            ghcr.io/DUNE-DAQ/microservices
+            ghcr.io/DUNE-DAQ/microservices_dependencies
           tags: |
             type=raw,value=latest
             type=ref,event=$(echo "${{ github.event.pull_request.head.sha }}" | cut -c 1-4)
