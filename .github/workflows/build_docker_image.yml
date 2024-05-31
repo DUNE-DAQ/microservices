@@ -5,7 +5,7 @@ on:
     branches:
       - develop
     paths:
-      - Dockerfile.microservices
+      - Dockerfile
 
 jobs:
   build:
