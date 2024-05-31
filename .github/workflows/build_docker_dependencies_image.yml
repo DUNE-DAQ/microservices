@@ -7,7 +7,7 @@ on:
     tags:
       - 'v*'
     paths:
-      - dockerfiles/Dockerfile
+      - dockerfiles/microservices-dependencies.dockerfile
 
   workflow_dispatch:
 
@@ -36,7 +36,7 @@ jobs:
             ghcr.io/DUNE-DAQ/microservices_dependencies
           tags: |
             type=raw,value=latest
-            type=ref,event=$(echo "${{ github.event.pull_request.head.sha }}" | cut -c 1-4)
+            type=ref,event=branch
             type=ref,event=tag
         
       - name: Build and push Docker images
