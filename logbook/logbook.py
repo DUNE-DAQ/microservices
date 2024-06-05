@@ -120,28 +120,31 @@ def Fmessage_on_stop():
 
 
 #The second (preferred) type of logging is elisaLogbook, which sends the logs off to an external database.
+#Systems effected should be passed as a space separated list
 
-# $ curl --user fooUsr:barPass -d "author=jsmith&title=foo&body=bar&command=start" -X POST http://localhost:5005/v1/elisaLogbook/new_message/
+# $ curl --user fooUsr:barPass -d "author=jsmith&title=foo&body=bar&command=start&systems=DAQ CRP" -X POST http://localhost:5005/v1/elisaLogbook/new_message/
 @app.route('/v1/elisaLogbook/new_message/', methods=["POST"])
 @auth.login_required
 def new_message():
     if request.form['body'] == "":
          return {'success': False, 'response': "Message cannot be empty!", 'thread_id': -1}, 400
     try:
-        thread_id = logbook.start_new_thread(subject=request.form['title'], body=request.form['body'], command=request.form['command'], author=request.form['author'])
+        sys_list = request.form['systems'].split()
+        thread_id = logbook.start_new_thread(subject=request.form['title'], body=request.form['body'], command=request.form['command'], author=request.form['author'], systems=sys_list)
     except Exception as e:
         return {'success': False, 'response': str(e), 'thread_id': -1}, 500
 
     return {'success': True, 'response': "Message thread started successfully", 'thread_id': thread_id}, 201
 
-# $ curl --user fooUsr:barPass -d "author=jsmith&body=bar&command=start&id=999" -X PUT http://localhost:5005/v1/elisaLogbook/reply_to_message/
+# $ curl --user fooUsr:barPass -d "author=jsmith&body=bar&command=start&systems=DAQ CRP&id=999" -X PUT http://localhost:5005/v1/elisaLogbook/reply_to_message/
 @app.route('/v1/elisaLogbook/reply_to_message/', methods=["PUT"])
 @auth.login_required
 def reply_to_message():
     if request.form['body'] == "":
          return {'success': False, 'response': "Message cannot be empty!", 'thread_id': -1}, 400
     try:
-        thread_id = logbook.reply(body=request.form['body'], command=request.form['command'], author=request.form['author'], id=request.form['id'])
+        sys_list = request.form['systems'].split()
+        thread_id = logbook.reply(body=request.form['body'], command=request.form['command'], author=request.form['author'], systems=sys_list, id=request.form['id'])
     except Exception as e:
         return {'success': False, 'response': str(e), 'thread_id': -1}, 500
 

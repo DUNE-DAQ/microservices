@@ -21,7 +21,7 @@ class ElisaLogbook:
         self.log.info(f'ELisA logbook connection: {configuration["website"]} (API: {configuration["connection"]})')
         self.session_handler = handler
 
-    def start_new_thread(self, subject:str, body:str, command:str, author:str):
+    def start_new_thread(self, subject:str, body:str, command:str, author:str, systems:[str]):
         elisa_arg = copy.deepcopy(self.elisa_arguments)
         elisa_user = credentials.get_login('elisa')
 
@@ -38,7 +38,7 @@ class ElisaLogbook:
                 for attr_name, attr_data in self.message_attributes[command].items():
                     if attr_data['set_on_new_thread']:
                         setattr(message, attr_name, attr_data['value'])
-                message.systemsAffected = ["DAQ"]
+                message.systemsAffected = systems
                 message.body = body
                 answer = elisa_inst.insertMessage(message)
 
@@ -50,7 +50,7 @@ class ElisaLogbook:
             self.log.info(f"ELisA logbook: Sent message (ID{answer.id})")
             return answer.id
 
-    def reply(self, body:str, command:str, author:str, id:int):
+    def reply(self, body:str, command:str, author:str, systems:[str], id:int):
         elisa_arg = copy.deepcopy(self.elisa_arguments)
         elisa_user = credentials.get_login('elisa')
 
@@ -63,7 +63,7 @@ class ElisaLogbook:
                 self.log.info(f"ELisA logbook: Answering to message ID{id}")
                 message = MessageReply(id)
                 message.author = author
-                message.systemsAffected = ["DAQ"]
+                message.systemsAffected = systems
                 for attr_name, attr_data in self.message_attributes[command].items():
                     if attr_data['set_on_reply']:
                         setattr(message, attr_name, attr_data['value'])
