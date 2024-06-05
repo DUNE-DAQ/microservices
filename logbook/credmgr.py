@@ -5,22 +5,164 @@ import subprocess
 import logging
 import tempfile
 
-class Authentication():
-    def __init__(self, service:str, user:str, password:str):
+def which(program):
+    # https://stackoverflow.com/a/377028
+    def is_exe(fpath):
+        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+    fpath, fname = os.path.split(program)
+    if fpath:
+        if is_exe(program):
+            return program
+    else:
+        for path in os.environ.get("PATH", "").split(os.pathsep):
+            exe_file = os.path.join(path, program)
+            if is_exe(exe_file):
+                return exe_file
+
+    return None
+
+def env_for_kerberos(ticket_dir):
+    ticket_dir = os.path.expanduser(ticket_dir)
+    env = {'KRB5CCNAME': f'DIR:{ticket_dir}'}
+    return env
+
+def new_kerberos_ticket(user:str, realm:str, password:str=None, ticket_dir:str="~/"):
+    env = env_for_kerberos(ticket_dir)
+    success = False
+    password_provided = password is not None
+
+    while not success:
+        import subprocess
+
+        p = subprocess.Popen(
+            ['kinit', f'{user}@{realm}'],
+            stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE,
+            env=env
+        )
+
+        if p.poll() is not None and p.returncode!=0:
+          raise RuntimeError(f'Could not execute kinit {user}@{realm}\n{stdout_data[-1].decode()}')
+
+        if password is None:
+            print(f'Password for {user}@{realm}:')
+            try:
+                from getpass import getpass
+                password = getpass()
+
+            except KeyboardInterrupt:
+                print()
+                return False
+
+        stdout_data = p.communicate(password.encode())
+        print(stdout_data[-1].decode())
+
+        if not password_provided:
+            password = None
+
+        success = p.returncode==0
+
+        if not success and password_provided:
+            raise RuntimeError(f'Authentication error for {user}@{realm}. The password provided (likely in configuration file) is incorrect')
+
+    return True
+
+def get_kerberos_user(silent=False, ticket_dir:str="~/"):
+    import logging
+    log = logging.getLogger('get_kerberos_user')
+
+    env = env_for_kerberos(ticket_dir)
+    args=['klist'] # on my mac, I can specify --json and that gives everything nicely in json format... but...
+    import subprocess
+
+    proc = subprocess.run(args, capture_output=True, text=True, env=env)
+    raw_kerb_info = proc.stdout.split('\n')
+
+
+    if not silent:
+        log.info(proc.stdout)
+
+    kerb_user = None
+    for line in raw_kerb_info:
+        split_line = line.split(' ')
+        split_line =  [x for x in split_line if x!='']
+        find_princ = line.find('Default principal')
+        if find_princ!=-1:
+            kerb_user = split_line[2]
+            kerb_user = kerb_user.split('@')[0]
+
+        if kerb_user:
+            return kerb_user
+    return None
+
+def check_kerberos_credentials(against_user:str, silent=False, ticket_dir:str="~/"):
+    import logging
+    log = logging.getLogger('check_kerberos_credentials')
+
+    env = env_for_kerberos(ticket_dir)
+
+    kerb_user = get_kerberos_user(
+        silent=silent,
+        ticket_dir=ticket_dir
+    )
+
+    if not silent:
+        if kerb_user:
+            log.info(f'Detected kerberos ticket for user: \'{kerb_user}\'')
+        else:
+            log.info(f'No kerberos ticket found')
+
+    if not kerb_user:
+        if not silent: log.info('No kerberos ticket')
+        return False
+    elif kerb_user != against_user: # we enforce the user is the same
+        if not silent: log.info('Another user is logged in')
+        return False
+    else:
+        import subprocess
+        ticket_is_valid = subprocess.call(['klist', '-s'], env=env) == 0
+        if not silent and not ticket_is_valid:
+            log.info('Kerberos ticket is expired')
+        return ticket_is_valid
+
+class ServiceAccountWithKerberos():
+    def __init__(self, service:str, username:str, password:str, realm:str):
         self.service = service
-        self.user = user
+        self.username = username
         self.password = password
-        self.log = logging.getLogger(self.__class__.__name__)
+        self.realm = realm
+
+    def generate_cern_sso_cookie(self, website, kerberos_directory, output_directory):
+        args = []
+        env = {'KRB5CCNAME': f'DIR:{kerberos_directory}'}
+
+        import sh
+
+        if which('cern-get-sso-cookie'):
+            executable = sh.Command("cern-get-sso-cookie")
+            args = ["--krb", "-r", "-u", website, "-o", output_directory]
+        elif which('auth-get-sso-cookie'):
+            executable = sh.Command('auth-get-sso-cookie')
+            args = ['-u', website, '-o', output_directory]
+        else:
+            raise RuntimeError("Couldn't get SSO cookie, there is no 'cern-get-sso-cookie' or 'auth-get-user-token' on your system!")
+
+        proc = executable(*args, _env=env, _new_session=True)
+        if proc.exit_code != 0:
+            self.log.error("Couldn't get SSO cookie!")
+            self.log.error("You need to 'kinit' or 'change_user' and try again!")
+            self.log.error(f'{executable} stdout: {proc.stdout}')
+            self.log.error(f'{executable} stderr: {proc.stderr}')
+            raise RuntimeError("Couldn't get SSO cookie!")
+        return output_directory
 
 class CredentialManager:
     def __init__(self):
         self.log = logging.getLogger(self.__class__.__name__)
         self.authentications = []
-        self.user = None
-        self.console = None
 
-    def add_login(self, service:str, user:str, password:str):
-        self.authentications.append(Authentication(service, user, password))
+    def add_login(self, service:str, user:str, password:str, realm:str):
+        self.authentications.append(ServiceAccountWithKerberos(service, user, password, realm))
 
     def add_login_from_file(self, service:str, file:str):
         if not os.path.isfile(os.getcwd()+"/"+file+".py"):
@@ -50,54 +192,8 @@ class CredentialManager:
                 self.authentications.remove(auth)
                 return
 
-    def change_user(self, user):
-        if user == self.user:
-            return True
-
-        previous = self.user
-        self.user = user
-
-        if self.check_kerberos_credentials(silent=True):
-            return True
-
-        new_ticket = self.new_kerberos_ticket()
-        if not new_ticket:
-            self.user = previous
-            return False
-
-        return True
-
-    def check_kerberos_credentials(self, silent=False):
-        while True:
-            args=["klist"] # on my mac, we can specify --json and that gives everything nicely in json format... but...
-            proc = subprocess.run(args, capture_output=True, text=True)
-            raw_kerb_info = proc.stdout.split('\n')
-            kerb_user = None
-            valid_until = None
-            for line in raw_kerb_info:
-                split_line = line.split(' ')
-                split_line =  [x for x in split_line if x!='']
-                find_princ = line.find('Default principal')
-                if find_princ!=-1:
-                    kerb_user = split_line[2]
-                    kerb_user = kerb_user.split('@')[0]
-
-                if kerb_user:
-                    break
-
-            if not kerb_user:
-                if not silent: self.log.error('CredentialManager: No kerberos ticket!')
-                return False
-            elif kerb_user != self.user: # we enforce the user is thec
-                return False
-            else:
-                return True if subprocess.call(['klist', '-s']) == 0 else False
-
-
-
     def new_kerberos_ticket(self):
         success = False
-        
         for a in self.authentications:
             if a.user == self.user:
                 password = a.password
@@ -108,18 +204,102 @@ class CredentialManager:
         stdout_data = p.communicate(password.encode())
         print(stdout_data[-1].decode())
         success = p.returncode==0
-        
         return True
 
-    def generate_new_sso_cookie(self, website):
-        SSO_COOKIE_PATH=tempfile.NamedTemporaryFile(mode='w', prefix="ssocookie", delete=False).name
-        max_tries = 3
-        it_try = 0
-        args=["cern-get-sso-cookie", "--krb", "-r", "-u", website, "-o", f"{SSO_COOKIE_PATH}"]
-        proc = subprocess.run(args)
-        if proc.returncode != 0:
-            self.log.error("CredentialManager: Couldn't get SSO cookie!")
-            raise RuntimeError("CredentialManager: Couldn't get SSO cookie!")
-        return SSO_COOKIE_PATH
-
 credentials = CredentialManager()
+
+class CERNSessionHandler:
+    def __init__(self, username:str):
+        import logging
+        self.log = logging.getLogger(self.__class__.__name__)
+        self.elisa_username = username
+
+        self.start_session()
+
+        if not self.elisa_user_is_authenticated():
+            self.authenticate_elisa_user()
+
+
+    @staticmethod
+    def __get_session_kerberos_cache_path():
+        import os
+        from pathlib import Path
+
+        return Path(
+            os.path.expanduser(f'~/.elisa_userkerbcache')
+        )
+
+    @staticmethod
+    def __get_elisa_kerberos_cache_path():
+        import os
+        from pathlib import Path
+
+        return Path(
+            os.path.expanduser(f'~/.nanorc_elisakerbcache')
+        )
+
+    def elisa_user_is_authenticated(self):
+        elisa_user = credentials.get_login('elisa')
+        return check_kerberos_credentials(
+            against_user = elisa_user.username,
+            silent = True,
+            ticket_dir = CERNSessionHandler.__get_elisa_kerberos_cache_path(),
+        )
+
+
+    def authenticate_elisa_user(self):
+        elisa_user = credentials.get_login('elisa')
+        elisa_kerb_cache = CERNSessionHandler.__get_elisa_kerberos_cache_path()
+        import os
+
+        if not os.path.isdir(elisa_kerb_cache):
+            os.mkdir(elisa_kerb_cache)
+
+        if self.elisa_user_is_authenticated():
+            # we're authenticated, stop here
+            return True
+
+        return new_kerberos_ticket(
+            user = elisa_user.username,
+            realm = elisa_user.realm,
+            password = elisa_user.password,
+            ticket_dir = elisa_kerb_cache,
+        )
+
+    def generate_elisa_cern_cookie(self, website, cookie_dir):
+        elisa_user = credentials.get_login('elisa')
+        elisa_kerb_cache = CERNSessionHandler.__get_elisa_kerberos_cache_path()
+
+        self.authenticate_elisa_user()
+
+        return elisa_user.generate_cern_sso_cookie(
+            website,
+            elisa_kerb_cache,
+            cookie_dir,
+        )
+
+    def create_session_kerberos_cache(self):
+        user_kerb_cache = CERNSessionHandler.__get_session_kerberos_cache_path()
+        import os
+
+        if not os.path.isdir(user_kerb_cache):
+            os.mkdir(user_kerb_cache)
+
+    def generate_elisa_cern_cookie(self, website, cookie_dir):
+        elisa_user = credentials.get_login('elisa')
+        elisa_kerb_cache = CERNSessionHandler.__get_elisa_kerberos_cache_path()
+
+        self.authenticate_elisa_user()
+
+        return elisa_user.generate_cern_sso_cookie(
+            website,
+            elisa_kerb_cache,
+            cookie_dir,
+        )
+
+    def start_session(self):
+        self.create_session_kerberos_cache()
+        cache_path = CERNSessionHandler.__get_session_kerberos_cache_path()
+
+        f = open(cache_path/'active_session', "w")
+        f.close()
