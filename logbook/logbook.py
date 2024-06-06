@@ -13,7 +13,7 @@ from urllib import response
 from authentication import auth
 from credmgr import credentials, CERNSessionHandler
 from elisa import ElisaLogbook
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from flask_restful import Api
 from flask_caching import Cache
 
@@ -127,28 +127,30 @@ def Fmessage_on_stop():
 @auth.login_required
 def new_message():
     if request.form['body'] == "":
-         return {'success': False, 'response': "Message cannot be empty!", 'thread_id': -1}, 400
+         return jsonify({'response': "Message cannot be empty!"}, status=400, mimetype='application/json')
     try:
-        sys_list = request.form['systems'].split()
+        sys_list = request.form.get('system', ['DAQ'])  #Defaults to DAQ since that's the most likely use case
         thread_id = logbook.start_new_thread(subject=request.form['title'], body=request.form['body'], command=request.form['command'], author=request.form['author'], systems=sys_list)
     except Exception as e:
-        return {'success': False, 'response': str(e), 'thread_id': -1}, 500
+        return jsonify({'response':str(e)}, status=500, mimetype='application/json')
 
-    return {'success': True, 'response': "Message thread started successfully", 'thread_id': thread_id}, 201
+    out_data = {'response': "Message thread started successfully", 'thread_id': thread_id}
+    return jsonify(out_data, status=201, mimetype='application/json')
 
 # $ curl --user fooUsr:barPass -d "author=jsmith&body=bar&command=start&systems=DAQ CRP&id=999" -X PUT http://localhost:5005/v1/elisaLogbook/reply_to_message/
 @app.route('/v1/elisaLogbook/reply_to_message/', methods=["PUT"])
 @auth.login_required
 def reply_to_message():
     if request.form['body'] == "":
-         return {'success': False, 'response': "Message cannot be empty!", 'thread_id': -1}, 400
+         return jsonify({'response': "Message cannot be empty!"}, status=400, mimetype='application/json')
     try:
-        sys_list = request.form['systems'].split()
+        sys_list = request.form.get('system', ['DAQ'])
         thread_id = logbook.reply(body=request.form['body'], command=request.form['command'], author=request.form['author'], systems=sys_list, id=request.form['id'])
     except Exception as e:
-        return {'success': False, 'response': str(e), 'thread_id': -1}, 500
+        return jsonify({'response':str(e)}, status=500, mimetype='application/json')
 
-    return {'success': True, 'response': "Message replied to successfully", 'thread_id': thread_id}, 201
+    out_data = {'response': "Message replied to successfully", 'thread_id': thread_id}
+    return jsonify(out_data, status=201, mimetype='application/json')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5005, debug=True)
