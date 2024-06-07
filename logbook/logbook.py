@@ -1,6 +1,6 @@
 __author__ = "Jonathan Hancock"
 __credits__ = ["J.Bracinik", "P.Lasorak"]
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __maintainer__ = "Jonathan Hancock"
 __email__ = "jonathan.hancock@cern.ch"
 
@@ -11,9 +11,9 @@ import json
 from urllib import response
 
 from authentication import auth
-from credmgr import credentials
+from credmgr import credentials, CERNSessionHandler
 from elisa import ElisaLogbook
-from flask import Flask, request
+from flask import Flask, request, jsonify, make_response
 from flask_restful import Api
 from flask_caching import Cache
 
@@ -44,10 +44,10 @@ except:
     bad_string = hard_var + " is not a valid choice!"
     raise Exception(bad_string + hardware_string)
 
-credentials.add_login(app.config['HARDWARECONF'], app.config['USER'], app.config['PASSWORD'])
-credentials.change_user(app.config['USER'])
+credentials.add_login("elisa", app.config['USER'], app.config['PASSWORD'], "CERN.CH")
+cern_auth = CERNSessionHandler(username = app.config['USER'])
 
-logbook = ElisaLogbook("foo", app.config['HARDWARECONF'])
+logbook = ElisaLogbook(app.config['HARDWARECONF'], cern_auth)
 #Main app
 #The general principle is to replace the methods of each class with API methods
 #The first type of logging is fileLogbook, which writes logs to a given file in the current working directory.
@@ -61,16 +61,16 @@ def index():
 @auth.login_required
 def Fmessage_on_start():
     try:
-        run_number = int(request.form['run_num'])
+        run_number = int(request.json['run_num'])
     except:
         error = "Run number is not an integer!"
         return error, 400
 
     try:
-        file_path = app.config["PATH"]+f"_{run_number}_{request.form['run_type']}.txt"
+        file_path = app.config["PATH"]+f"_{run_number}_{request.json['run_type']}.txt"
         f = open(file_path, "w")
-        f.write(f"-- User {request.form['author']} started a run {run_number}, of type {request.form['run_type']} --\n")
-        f.write(request.form['author']+": "+request.form['message']+"\n")
+        f.write(f"-- User {request.json['author']} started a run {run_number}, of type {request.json['run_type']} --\n")
+        f.write(request.json['author']+": "+request.json['message']+"\n")
         f.close()
         rstring = "Logfile started at " + file_path + "\n"
         return rstring, 201
@@ -82,7 +82,7 @@ def Fmessage_on_start():
 @auth.login_required
 def Fadd_message():
     try:
-        file_path = app.config["PATH"]+f"_{request.form['run_num']}_{request.form['run_type']}.txt"
+        file_path = app.config["PATH"]+f"_{request.json['run_num']}_{request.json['run_type']}.txt"
     except Exception as e:
             return str(e), 400
 
@@ -92,7 +92,7 @@ def Fadd_message():
         error = "File not found!"
         return error, 404
 
-    f.write(request.form['author']+": "+request.form['message']+"\n")
+    f.write(request.json['author']+": "+request.json['message']+"\n")
     f.close()
     rstring = "Logfile updated at " + file_path + "\n"
     return rstring, 200
@@ -102,7 +102,7 @@ def Fadd_message():
 @auth.login_required
 def Fmessage_on_stop():
     try:
-        file_path = app.config["PATH"]+f"_{request.form['run_num']}_{request.form['run_type']}.txt"
+        file_path = app.config["PATH"]+f"_{request.json['run_num']}_{request.json['run_type']}.txt"
     except Exception as e:
         return str(e), 400
 
@@ -112,8 +112,8 @@ def Fmessage_on_stop():
         error = "File not found!"
         return error, 404
 
-    f.write(f"-- User {request.form['author']} stopped the run {request.form['run_num']}, of type {request.form['run_type']} --\n")
-    f.write(request.form['author']+": "+request.form['message']+"\n")
+    f.write(f"-- User {request.json['author']} stopped the run {request.json['run_num']}, of type {request.json['run_type']} --\n")
+    f.write(request.json['author']+": "+request.json['message']+"\n")
     f.close()
     rstring = "Log stopped at " + file_path + "\n"
     return rstring, 200
@@ -121,56 +121,69 @@ def Fmessage_on_stop():
 
 #The second (preferred) type of logging is elisaLogbook, which sends the logs off to an external database.
 
-# $ curl --user fooUsr:barPass -d "author=jsmith&message=foo&run_num=1&run_type=TEST" -X POST http://localhost:5005/v1/elisaLogbook/message_on_start/
-@app.route('/v1/elisaLogbook/message_on_start/', methods=["POST"])
+# $ curl --user fooUsr:barPass -H "Content-Type: application/json" -d '{"author":"jhancock", "title":"Test", "body":"Testing the microservice", "command":"start", "systems":["daq"]}'  -X POST http://localhost:5005/v1/elisaLogbook/new_message/
+@app.route('/v1/elisaLogbook/new_message/', methods=["POST"])
 @auth.login_required
-def message_on_start():
-    logbook._start_new_message_thread()
-    
-    text = f"<p>User {request.form['author']} started run {request.form['run_num']} of type {request.form['run_type']}</p>"
-    if request.form['message'] != "":
-        text += "\n<p>"+request.form['author']+": "+request.form['message']+"</p>"
-    text += "\n<p>log automatically generated by NanoRC.</p>"
-    
-    title = f"{request.form['author']} started new run {request.form['run_num']} ({request.form['run_type']})"
-
+def new_message():
+    print(request.json)
+    if request.json.get('body', "") == "" or request.json.get('title', "") == "" or request.json.get('command', "") == "" or request.json.get('author', "") == "":
+        resp = make_response(
+            jsonify(
+                response = "Body, title, command, author cannot be empty!",
+                sent_data = request.json
+            )
+        )
+        resp.status = 400
+        resp.headers['mimetype'] = 'application/json'
+        return resp
     try:
-        logbook._send_message(subject=title, body=text, command='start', author=request.form['author'])
+        sys_list = request.json.get('system', ['DAQ'])  #Defaults to DAQ since that's the most likely use case
+        thread_id = logbook.start_new_thread(subject=request.json['title'], body=request.json['body'], command=request.json['command'], author=request.json['author'], systems=sys_list)
     except Exception as e:
-        return str(e), 500
-    
-    return "Message thread started successfully \n", 201
+        import traceback
+        traceback.print_exc()
+        stack = traceback.format_exc().split("\n")
+        resp = make_response(jsonify(stacktrace = stack))
+        resp.status = 500
+        resp.headers['mimetype'] = 'application/json'
+        return resp
 
-# $ curl --user fooUsr:barPass -d "author=jsmith&message=foo" -X PUT http://localhost:5005/v1/elisaLogbook/add_message/
-@app.route('/v1/elisaLogbook/add_message/', methods=["PUT"])
-@auth.login_required
-def add_message():
-    if request.form['message'] != "":
-            text = "<p>"+request.form['author']+": "+request.form['message']+"</p>"
-            try:
-                logbook._send_message(subject="User comment", body=text, command='message', author=request.form['author'])
-            except Exception as e:
-                return str(e), 500
-            return "Message added successfully \n", 200
-    else:
-        error = "Message cannot be empty! \n"
-        return error, 400
+    resp = make_response(jsonify(response = "Message thread started successfully", thread_id = thread_id))
+    resp.status = 201
+    resp.headers['mimetype'] = 'application/json'
+    return resp
 
-# $ curl --user fooUsr:barPass -d "author=jsmith&message=foo&run_num=1&run_type=TEST" -X PUT http://localhost:5005/v1/elisaLogbook/message_on_stop/
-@app.route('/v1/elisaLogbook/message_on_stop/', methods=["PUT"])
+
+# $ curl --user fooUsr:barPass -H "Content-Type: application/json" -d '{"author":"jsmith", "body":"Testing the microservice", "command":"start", "systems":["daq"], "id": 9999}'  -X PUT http://localhost:5005/v1/elisaLogbook/reply_to_message/
+@app.route('/v1/elisaLogbook/reply_to_message/', methods=["PUT"])
 @auth.login_required
-def message_on_stop():
-    text = f"<p>User {request.form['author']} finished run {request.form['run_num']}</p>"
-    if request.form['message']!="":
-        text = "\n<p>"+request.form['author']+": "+request.form['message']+"</p>"
-    text += "\n<p>log automatically generated by NanoRC.</p>"
-    
-    title = f"{request.form['author']} ended run {request.form['run_num']} ({request.form['run_type']})"
+def reply_to_message():
+    if request.json.get('body', "") == "" or request.json.get('title', "") == "" or request.json.get('command', "") == "" or request.json.get('author', "") == "" or request.json.get('id', "") == "":
+        resp = make_response(
+            jsonify(
+                response = "Body, title, command, author or id cannot be empty!",
+                sent_data = request.json
+            )
+        )
+        resp.status = 400
+        resp.headers['mimetype'] = 'application/json'
+        return resp
     try:
-        logbook._send_message(subject=title, body=text, command='stop', author=request.form['author'])
+        sys_list = request.json.get('system', ['DAQ'])
+        thread_id = logbook.reply(body=request.json['body'], command=request.json['command'], author=request.json['author'], systems=sys_list, id=request.json['id'])
     except Exception as e:
-        return str(e), 500
-    return "Message thread stopped successfully \n", 200
+        import traceback
+        traceback.print_exc()
+        stack = traceback.format_exc().split("\n")
+        resp = make_response(jsonify(stacktrace = stack))
+        resp.status = 500
+        resp.headers['mimetype'] = 'application/json'
+        return resp
+
+    resp = make_response(jsonify(response = "Message replied successfully", thread_id = thread_id))
+    resp.status = 201
+    resp.headers['mimetype'] = 'application/json'
+    return resp
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5005, debug=True)
