@@ -13,7 +13,7 @@ from urllib import response
 from authentication import auth
 from credmgr import credentials, CERNSessionHandler
 from elisa import ElisaLogbook
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 from flask_restful import Api
 from flask_caching import Cache
 
@@ -61,16 +61,16 @@ def index():
 @auth.login_required
 def Fmessage_on_start():
     try:
-        run_number = int(request.form['run_num'])
+        run_number = int(request.json['run_num'])
     except:
         error = "Run number is not an integer!"
         return error, 400
 
     try:
-        file_path = app.config["PATH"]+f"_{run_number}_{request.form['run_type']}.txt"
+        file_path = app.config["PATH"]+f"_{run_number}_{request.json['run_type']}.txt"
         f = open(file_path, "w")
-        f.write(f"-- User {request.form['author']} started a run {run_number}, of type {request.form['run_type']} --\n")
-        f.write(request.form['author']+": "+request.form['message']+"\n")
+        f.write(f"-- User {request.json['author']} started a run {run_number}, of type {request.json['run_type']} --\n")
+        f.write(request.json['author']+": "+request.json['message']+"\n")
         f.close()
         rstring = "Logfile started at " + file_path + "\n"
         return rstring, 201
@@ -82,7 +82,7 @@ def Fmessage_on_start():
 @auth.login_required
 def Fadd_message():
     try:
-        file_path = app.config["PATH"]+f"_{request.form['run_num']}_{request.form['run_type']}.txt"
+        file_path = app.config["PATH"]+f"_{request.json['run_num']}_{request.json['run_type']}.txt"
     except Exception as e:
             return str(e), 400
 
@@ -92,7 +92,7 @@ def Fadd_message():
         error = "File not found!"
         return error, 404
 
-    f.write(request.form['author']+": "+request.form['message']+"\n")
+    f.write(request.json['author']+": "+request.json['message']+"\n")
     f.close()
     rstring = "Logfile updated at " + file_path + "\n"
     return rstring, 200
@@ -102,7 +102,7 @@ def Fadd_message():
 @auth.login_required
 def Fmessage_on_stop():
     try:
-        file_path = app.config["PATH"]+f"_{request.form['run_num']}_{request.form['run_type']}.txt"
+        file_path = app.config["PATH"]+f"_{request.json['run_num']}_{request.json['run_type']}.txt"
     except Exception as e:
         return str(e), 400
 
@@ -112,8 +112,8 @@ def Fmessage_on_stop():
         error = "File not found!"
         return error, 404
 
-    f.write(f"-- User {request.form['author']} stopped the run {request.form['run_num']}, of type {request.form['run_type']} --\n")
-    f.write(request.form['author']+": "+request.form['message']+"\n")
+    f.write(f"-- User {request.json['author']} stopped the run {request.json['run_num']}, of type {request.json['run_type']} --\n")
+    f.write(request.json['author']+": "+request.json['message']+"\n")
     f.close()
     rstring = "Log stopped at " + file_path + "\n"
     return rstring, 200
@@ -126,31 +126,65 @@ def Fmessage_on_stop():
 @app.route('/v1/elisaLogbook/new_message/', methods=["POST"])
 @auth.login_required
 def new_message():
-    if request.form['body'] == "":
-         return jsonify({'response': "Message cannot be empty!"}, status=400, mimetype='application/json')
+    print(request.json)
+    if request.json.get('body', "") == "" or request.json.get('title', "") == "" or request.json.get('command', "") == "" or request.json.get('author', "") == "":
+        resp = make_response(
+            jsonify(
+                response = "Body, title, command, author cannot be empty!",
+                sent_data = request.json
+            )
+        )
+        resp.status = 400
+        resp.headers['mimetype'] = 'application/json'
+        return resp
     try:
-        sys_list = request.form.get('system', ['DAQ'])  #Defaults to DAQ since that's the most likely use case
-        thread_id = logbook.start_new_thread(subject=request.form['title'], body=request.form['body'], command=request.form['command'], author=request.form['author'], systems=sys_list)
+        sys_list = request.json.get('system', ['DAQ'])  #Defaults to DAQ since that's the most likely use case
+        thread_id = logbook.start_new_thread(subject=request.json['title'], body=request.json['body'], command=request.json['command'], author=request.json['author'], systems=sys_list)
     except Exception as e:
-        return jsonify({'response':str(e)}, status=500, mimetype='application/json')
+        import traceback
+        traceback.print_exc()
+        stack = traceback.format_exc().split("\n")
+        resp = make_response(jsonify(stacktrace = stack))
+        resp.status = 500
+        resp.headers['mimetype'] = 'application/json'
+        return resp
 
-    out_data = {'response': "Message thread started successfully", 'thread_id': thread_id}
-    return jsonify(out_data, status=201, mimetype='application/json')
+    resp = make_response(jsonify(response = "Message thread started successfully", thread_id = thread_id))
+    resp.status = 201
+    resp.headers['mimetype'] = 'application/json'
+    return resp
+
 
 # $ curl --user fooUsr:barPass -d "author=jsmith&body=bar&command=start&systems=DAQ CRP&id=999" -X PUT http://localhost:5005/v1/elisaLogbook/reply_to_message/
 @app.route('/v1/elisaLogbook/reply_to_message/', methods=["PUT"])
 @auth.login_required
 def reply_to_message():
-    if request.form['body'] == "":
-         return jsonify({'response': "Message cannot be empty!"}, status=400, mimetype='application/json')
+    if request.json.get('body', "") == "" or request.json.get('title', "") == "" or request.json.get('command', "") == "" or request.json.get('author', "") == "" or request.json.get('id', "") == "":
+        resp = make_response(
+            jsonify(
+                response = "Body, title, command, author or id cannot be empty!",
+                sent_data = request.json
+            )
+        )
+        resp.status = 400
+        resp.headers['mimetype'] = 'application/json'
+        return resp
     try:
-        sys_list = request.form.get('system', ['DAQ'])
-        thread_id = logbook.reply(body=request.form['body'], command=request.form['command'], author=request.form['author'], systems=sys_list, id=request.form['id'])
+        sys_list = request.json.get('system', ['DAQ'])
+        thread_id = logbook.reply(body=request.json['body'], command=request.json['command'], author=request.json['author'], systems=sys_list, id=request.json['id'])
     except Exception as e:
-        return jsonify({'response':str(e)}, status=500, mimetype='application/json')
+        import traceback
+        traceback.print_exc()
+        stack = traceback.format_exc().split("\n")
+        resp = make_response(jsonify(stacktrace = stack))
+        resp.status = 500
+        resp.headers['mimetype'] = 'application/json'
+        return resp
 
-    out_data = {'response': "Message replied to successfully", 'thread_id': thread_id}
-    return jsonify(out_data, status=201, mimetype='application/json')
+    resp = make_response(jsonify(response = "Message replied successfully", thread_id = thread_id))
+    resp.status = 201
+    resp.headers['mimetype'] = 'application/json'
+    return resp
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5005, debug=True)

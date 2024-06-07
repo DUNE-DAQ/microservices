@@ -13,11 +13,13 @@ def which(program):
     fpath, fname = os.path.split(program)
     if fpath:
         if is_exe(program):
+            print('Found1', program)
             return program
     else:
         for path in os.environ.get("PATH", "").split(os.pathsep):
             exe_file = os.path.join(path, program)
             if is_exe(exe_file):
+                print('Found2', program)
                 return exe_file
 
     return None
@@ -133,27 +135,21 @@ class ServiceAccountWithKerberos():
         self.realm = realm
 
     def generate_cern_sso_cookie(self, website, kerberos_directory, output_directory):
-        args = []
         env = {'KRB5CCNAME': f'DIR:{kerberos_directory}'}
 
         import sh
+        executable = sh.Command('auth-get-sso-cookie')
 
-        if which('cern-get-sso-cookie'):
-            executable = sh.Command("cern-get-sso-cookie")
-            args = ["--krb", "-r", "-u", website, "-o", output_directory]
-        elif which('auth-get-sso-cookie'):
-            executable = sh.Command('auth-get-sso-cookie')
-            args = ['-u', website, '-o', output_directory]
-        else:
-            raise RuntimeError("Couldn't get SSO cookie, there is no 'cern-get-sso-cookie' or 'auth-get-user-token' on your system!")
+        try:
+            proc = executable(
+                '-u', website,
+                '-o', output_directory,
+                _env=env, _new_session=False
+            )
+        except sh.ErrorReturnCode as error:
+            self.log.error(error)
+            raise RuntimeError(f"Couldn't get SSO cookie! {error.stdout=} {error.stderr=}") from e
 
-        proc = executable(*args, _env=env, _new_session=True)
-        if proc.exit_code != 0:
-            self.log.error("Couldn't get SSO cookie!")
-            self.log.error("You need to 'kinit' or 'change_user' and try again!")
-            self.log.error(f'{executable} stdout: {proc.stdout}')
-            self.log.error(f'{executable} stderr: {proc.stderr}')
-            raise RuntimeError("Couldn't get SSO cookie!")
         return output_directory
 
 class CredentialManager:
