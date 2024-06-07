@@ -47,17 +47,17 @@ spec:
         - name: MICROSERVICE
           value: logbook
         - name: HARDWARE
-          value: XXXXXXXXXXXXX
+          value: np02-coldbox
         - name: USERNAME
           valueFrom:
             secretKeyRef:
-              key: YYYY
-              name: XXXXX
+              key: user
+              name: logbook-secret 
         - name: PASSWORD
           valueFrom:
             secretKeyRef:
-              key: YYYY
-              name: XXXXX
+              key: pass
+              name: logbook-secret
         resources:
           limits:
             memory: 1Gi
