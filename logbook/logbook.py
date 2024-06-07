@@ -120,9 +120,8 @@ def Fmessage_on_stop():
 
 
 #The second (preferred) type of logging is elisaLogbook, which sends the logs off to an external database.
-#Systems effected should be passed as a space separated list
 
-# $ curl --user fooUsr:barPass -d "author=jsmith&title=foo&body=bar&command=start&systems=DAQ CRP" -X POST http://localhost:5005/v1/elisaLogbook/new_message/
+# $ curl --user fooUsr:barPass -H "Content-Type: application/json" -d '{"author":"jhancock", "title":"Test", "body":"Testing the microservice", "command":"start", "systems":["daq"]}'  -X POST http://localhost:5005/v1/elisaLogbook/new_message/
 @app.route('/v1/elisaLogbook/new_message/', methods=["POST"])
 @auth.login_required
 def new_message():
@@ -155,7 +154,7 @@ def new_message():
     return resp
 
 
-# $ curl --user fooUsr:barPass -d "author=jsmith&body=bar&command=start&systems=DAQ CRP&id=999" -X PUT http://localhost:5005/v1/elisaLogbook/reply_to_message/
+# $ curl --user fooUsr:barPass -H "Content-Type: application/json" -d '{"author":"jsmith", "body":"Testing the microservice", "command":"start", "systems":["daq"], "id": 9999}'  -X PUT http://localhost:5005/v1/elisaLogbook/reply_to_message/
 @app.route('/v1/elisaLogbook/reply_to_message/', methods=["PUT"])
 @auth.login_required
 def reply_to_message():
