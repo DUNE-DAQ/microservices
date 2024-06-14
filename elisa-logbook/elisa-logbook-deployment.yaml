@@ -11,28 +11,28 @@ metadata:
     pod-security.kubernetes.io/enforce-version: latest
     pod-security.kubernetes.io/warn: baseline
     pod-security.kubernetes.io/warn-version: latest
-  name: logbook
+  name: elisa-logbook
 ---
-# You must still create a secret called logbook-secret with the required keys
+# You must still create a secret called elisa-logbook-secret with the required keys
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app.kubernetes.io/app: logbook
-    app.kubernetes.io/component: logbook
-  name: logbook
-  namespace: logbook
+    app.kubernetes.io/app: elisa-logbook
+    app.kubernetes.io/component: elisa-logbook
+  name: elisa-logbook
+  namespace: elisa-logbook
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/app: logbook
-      app.kubernetes.io/component: logbook
+      app.kubernetes.io/app: elisa-logbook
+      app.kubernetes.io/component: elisa-logbook
   template:
     metadata:
       labels:
-        app.kubernetes.io/app: logbook
-        app.kubernetes.io/component: logbook
+        app.kubernetes.io/app: elisa-logbook
+        app.kubernetes.io/component: elisa-logbook
     spec:
       affinity:
         nodeAffinity:
@@ -43,25 +43,25 @@ spec:
                 operator: Exists
       containers:
       - image: ghcr.io/dune-daq/microservices:latest
-        name: logbook
+        name: elisa-logbook
         env:
         - name: MICROSERVICE
-          value: logbook
+          value: elisa-logbook
         - name: HARDWARE
           valueFrom:
             secretKeyRef:
               key: hardware
-              name: logbook-secret 
+              name: elisa-logbook-secret 
         - name: USERNAME
           valueFrom:
             secretKeyRef:
               key: username
-              name: logbook-secret 
+              name: elisa-logbook-secret 
         - name: PASSWORD
           valueFrom:
             secretKeyRef:
               key: password
-              name: logbook-secret
+              name: elisa-logbook-secret
         resources:
           limits:
             memory: 1Gi
