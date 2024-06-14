@@ -13,6 +13,7 @@ metadata:
     pod-security.kubernetes.io/warn-version: latest
   name: logbook
 ---
+# You must still create a secret called logbook-secret with the required keys
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -47,16 +48,19 @@ spec:
         - name: MICROSERVICE
           value: logbook
         - name: HARDWARE
-          value: np02-coldbox
+          valueFrom:
+            secretKeyRef:
+              key: hardware
+              name: logbook-secret 
         - name: USERNAME
           valueFrom:
             secretKeyRef:
-              key: user
+              key: username
               name: logbook-secret 
         - name: PASSWORD
           valueFrom:
             secretKeyRef:
-              key: pass
+              key: password
               name: logbook-secret
         resources:
           limits:
