@@ -1,4 +1,4 @@
-name: Build microservices docker image
+name: Build microservices dependencies docker image
 
 on:
   push:
