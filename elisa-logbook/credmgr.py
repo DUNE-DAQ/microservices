@@ -210,8 +210,6 @@ class CERNSessionHandler:
         self.log = logging.getLogger(self.__class__.__name__)
         self.elisa_username = username
 
-        #self.start_session()
-
         if not self.elisa_user_is_authenticated():
             self.authenticate_elisa_user()
 
