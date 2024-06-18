@@ -210,20 +210,8 @@ class CERNSessionHandler:
         self.log = logging.getLogger(self.__class__.__name__)
         self.elisa_username = username
 
-        self.start_session()
-
         if not self.elisa_user_is_authenticated():
             self.authenticate_elisa_user()
-
-
-    @staticmethod
-    def __get_session_kerberos_cache_path():
-        import os
-        from pathlib import Path
-
-        return Path(
-            os.path.expanduser(f'~/.elisa_userkerbcache')
-        )
 
     @staticmethod
     def __get_elisa_kerberos_cache_path():
@@ -231,7 +219,7 @@ class CERNSessionHandler:
         from pathlib import Path
 
         return Path(
-            os.path.expanduser(f'~/.nanorc_elisakerbcache')
+            os.path.expanduser('/tmp/.nanorc_elisakerbcache')
         )
 
     def elisa_user_is_authenticated(self):
@@ -241,7 +229,6 @@ class CERNSessionHandler:
             silent = True,
             ticket_dir = CERNSessionHandler.__get_elisa_kerberos_cache_path(),
         )
-
 
     def authenticate_elisa_user(self):
         elisa_user = credentials.get_login('elisa')
@@ -273,29 +260,3 @@ class CERNSessionHandler:
             elisa_kerb_cache,
             cookie_dir,
         )
-
-    def create_session_kerberos_cache(self):
-        user_kerb_cache = CERNSessionHandler.__get_session_kerberos_cache_path()
-        import os
-
-        if not os.path.isdir(user_kerb_cache):
-            os.mkdir(user_kerb_cache)
-
-    def generate_elisa_cern_cookie(self, website, cookie_dir):
-        elisa_user = credentials.get_login('elisa')
-        elisa_kerb_cache = CERNSessionHandler.__get_elisa_kerberos_cache_path()
-
-        self.authenticate_elisa_user()
-
-        return elisa_user.generate_cern_sso_cookie(
-            website,
-            elisa_kerb_cache,
-            cookie_dir,
-        )
-
-    def start_session(self):
-        self.create_session_kerberos_cache()
-        cache_path = CERNSessionHandler.__get_session_kerberos_cache_path()
-
-        f = open(cache_path/'active_session', "w")
-        f.close()
