@@ -8,6 +8,10 @@ on:
       - 'v*'
     paths:
       - Dockerfile
+  pull_request:
+    types: [closed]
+    branches:
+      - develop
 
   workflow_dispatch:
 

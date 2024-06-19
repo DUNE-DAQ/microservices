@@ -8,7 +8,11 @@ on:
       - 'v*'
     paths:
       - dockerfiles/microservices-dependencies.dockerfile
-
+  pull_request:
+    types: [closed]
+    branches:
+      - develop
+      
   workflow_dispatch:
 
 jobs:
