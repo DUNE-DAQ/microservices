@@ -5,7 +5,7 @@ ARG ERSKAFKAVERSION=v1.5.4  # For ERSSubscriber.py from erskafka
 ARG LOCALPYDIR=/microservices_python
 
 RUN yum clean all \
-  && yum -y install gcc make git unzip libpq-devel libffi-devel python3-pip python3-wheel \
+  && yum -y install gcc make git unzip libpq-devel libffi-devel python3-pip python3-wheel krb5-devel python3-devel \
   && yum clean all
 
 # Can drop when migration to sqlalchemy is complete since we're using the thin client there
