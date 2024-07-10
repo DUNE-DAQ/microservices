@@ -60,7 +60,7 @@ def cli(subscriber_bootstrap, subscriber_group, subscriber_timeout, subscriber_t
                                      group_id = subscriber_group,
                                      timeout_ms = subscriber_timeout)
 
-    # this is a list of single json entries
+    # this is a list of Entries
     q = queue.Queue()
 
     callback_function = partial(process_entry, 
@@ -68,15 +68,57 @@ def cli(subscriber_bootstrap, subscriber_group, subscriber_timeout, subscriber_t
     
     sub.add_callback(name="to_influx", 
                      function=callback_function)
+
+    thread = threading.Thread(target=consume, daemon=True, args=(q,1,) )
+    thread.start()
     
     sub.start()
 
+def consume( q : queue.Queue, timeout_ms,
+             influx : InfluxDBClient = None ) :
+    logging.info("Starting consumer thread")
+    batch=[]
+    batch_ms = 0
+    while True :
+        try :
+            entry = q.get(timeout=1)
+
+            if ( entry.ms - batch_ms < timeout_ms ) :
+                batch.append(entry.json)
+                batch_ms = min(batch_ms, entry.ms)
+                
+            if ( entry.ms - batch_ms >= timeout_ms ) :
+                send_batch(batch)
+                batch=[entry.json]
+                batch_ms = entry.ms
+            
+        except queue.Empty :
+            logging.debug("Queue is empty")
+            send_batch(batch, influx)
+            batch=[]
+            batch_ms=0
+                
+def send_batch( batch : list,
+                influx : InfluxDBClient = None ) :
+    if len(batch) > 0 :
+        logging.debug("Sending %s points", len(batch) )
+        if influx :
+            try :
+                influx.write_points(batch)
+            except  influxdb.exceptions.InfluxDBClientError as e:
+                logging.error(e)
+            except :
+                logging.error("Something went wrong: json batch not sent")
+        else :
+            print(batch)
+
+                
 def process_entry( entry : opmon_schema.OpMonEntry, 
                    q : queue.Queue ) :
     d = to_dict(entry)
     js = json.dumps(d)
-    logging.debug(js)
-    #q.put(js)
+    e = Entry(json=js, ms=entry.time.ToMilliseconds())
+    q.put(e)
 
 
 def to_dict( entry : opmon_schema.OpMonEntry ) -> dict :
@@ -113,6 +155,11 @@ def create_tags( entry : opmon_schema.OpMonEntry ) -> dict :
     tags |= entry.custom_origin
 
     return tags
+
+class Entry :
+    def __init__(self, json, ms) :
+        self.json = json
+        self.ms = ms
 
 if __name__ == '__main__':
     cli()
