@@ -4,23 +4,30 @@
 #  received with this code.
 #
 
-import kafkaopmon.OpMonSubscriber as opmonsub
+import kafkaopmon.OpMonSubscriber as opmon_sub
 import google.protobuf.json_format as pb_json
+from google.protobuf.timestamp_pb2 import Timestamp
+import opmonlib.opmon_entry_pb2 as opmon_schema
+
 from influxdb import InfluxDBClient
 from functools import partial
-import psycopg2
 import json
 import click
 import logging
+import queue
+import threading
 
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 @click.command(context_settings=CONTEXT_SETTINGS)
+# subscriber options
 @click.option('--subscriber-bootstrap', type=click.STRING, default="monkafka.cern.ch:30092", help="boostrap server and port of the OpMonSubscriber")
-@click.option('--subscriber-group',   type=click.STRING, default=None, help='group ID of the OpMonSubscriber')
-@click.option('--subscriber-timeout', type=click.INT,    default=500, help='timeout in ms used in the OpMonSubscriber')
+@click.option('--subscriber-group',     type=click.STRING, default=None, help='group ID of the OpMonSubscriber')
+@click.option('--subscriber-timeout',   type=click.INT,    default=500, help='timeout in ms used in the OpMonSubscriber')
+@click.option('--subscriber-topic',     type=click.STRING, multiple=True, default=['opmon_stream'] )
 
+#influx options
 @click.option('--influxdb-address', type=click.STRING, default='opmondb.cern.ch', help='address of the influx db')
 @click.option('--influxdb-port', type=click.INT, default=31002, help='port of the influxdb')
 @click.option('--influxdb-name', type=click.STRING, default='influxv3', help='name used in the influxdb query')
@@ -37,182 +44,63 @@ def cli(subscriber_bootstrap, subscriber_group, subscriber_timeout,
         level=logging.DEBUG if debug else logging.INFO,
         datefmt='%Y-%m-%d %H:%M:%S')
 
-    try:
-        con = psycopg2.connect(host=db_address,
-                              port=db_port,
-                              user=db_user,
-                              password=db_password,
-                              dbname=db_name)
-    except Exception as e:
-        logging.error(e)
-        logging.fatal('Connection to the database failed, aborting...')
-        exit()
-        
-    global table_name
-    table_name = '"' + db_table + '"'
+    influx = InfluxDBClient(host=influxdb_address, port=influxdb_port)
+    db_list = influx.get_list_database()
+    logging.info("Available DBs:",db_list)
+    if {"name":influxdb_name}  not in db_list:
+        logging.warning(influxdb_name, "DB not available")
+        if influxdb_create:
+            influx.create_database(influxdb_name);
+            logging.info("New list of DBs:", influx.get_list_database())
 
-    cur = con.cursor()
+    influx.switch_database(influxdb_name)
 
-    try: # try to make sure tables exist
-        create_database(cursor=cur, connection=con)
-    except:
-        con.rollback()
-        logging.info( "Database was already created" )
-    else :
-        logging.info( "Database creation: Success" )
-    finally:
-        logging.info( "Database is ready" )
+    sub = opmon_sub.OpMonSubscriber( bootstrap=subscriber_bootstrap,
+                                     topics=topic,
+                                     group_id = subscriber_group,
+                                     timeout_ms = subscriber_timeout)
 
-    check_tables(cursor=cur, connection=con)
-        
-    subscriber_conf = json.loads("{}")
-    subscriber_conf["bootstrap"] = subscriber_bootstrap
-    subscriber_conf["timeout"]   = subscriber_timeout
-    if subscriber_group:
-        subscriber_conf["group_id"]  = subscriber_group
+    # this is a list of single json entries
+    q = queue.Queue()
 
-    sub = erssub.ERSSubscriber(subscriber_conf)
-
-    callback_function = partial(process_chain, 
-                                cursor=cur, 
-                                connection=con)
+    callback_function = partial(process_entry, 
+                                q = q )
     
-    sub.add_callback(name="postgres", 
+    sub.add_callback(name="to_influx", 
                      function=callback_function)
     
     sub.start()
 
+def process_entry( entry : opmon_schema.OpMonEntry, 
+                   q : queue.Queue ) :
+    d = to_dict(entry)
+    js = json.dumps(d)
+    #q.put(js)
+    logging.debug(js)
 
-def process_chain( chain, cursor, connection ) :
-    logging.debug(chain)
-
-    counter = 0;
-    success = False
-    while(not success) :
-        counter += 1
-        try :
-            for cause in reversed(chain.causes) :
-                process_issue(issue=cause, 
-                              session=chain.session,
-                              cursor=cursor)
-
-            process_issue(issue=chain.final, 
-                          session=chain.session,
-                          cursor=cursor)
-            connection.commit()
-        except psycopg2.errors.UndefinedTable as e:
-       	    logging.error(e)
-            logging.error("Table was undefined yet it was supposed to be defined at this point")
-            connection.rollback()
-            create_database(cursor=cursor,
-                            connection=connection)
-        except psycopg2.errors.UndefinedColumn as e:
-            logging.warning(e)
-            connection.rollback()
-            clean_database(cursor=cursor, 
-                           connection=connection)
-            create_database(cursor=cursor,
-                            connection=connection)
-        except Exception as e:
-            logging.error("Something unexpected happened")
-            logging.error(e)
-
-        else:
-            success=True
-            logging.debug(f"Entry sent after {counter} attempts")
-
-        if (counter > 2) :
-            if not success :
-                logging.error("Issue failed to be delivered")
-                logging.error(pb_json.MessageToJson(chain))
-            break
-        
-
-def process_issue( issue, session, cursor ) :
-    fields = []
-    values = []
-
-    ## top level info
-    add_entry("session", session, fields, values)
-    add_entry("issue_name", issue.name, fields, values)
-    add_entry("severity", issue.severity, fields, values)
-    add_entry("time", issue.time, fields, values)
-
-    ## context related info
-    add_entry("cwd", issue.context.cwd, fields, values)
-    add_entry("file_name", issue.context.file_name, fields, values)
-    add_entry("function_name", issue.context.function_name, fields, values)
-    add_entry("host_name", issue.context.host_name, fields, values)
-    add_entry("line_number", issue.context.line_number, fields, values)
-    add_entry("package_name", issue.context.package_name, fields, values)
-
-    add_entry("process_id", issue.context.process_id, fields, values)
-    add_entry("thread_id", issue.context.thread_id, fields, values)
-    add_entry("user_id", issue.context.user_id, fields, values)
-    add_entry("user_name", issue.context.user_name, fields, values)
-    add_entry("application_name", issue.context.application_name, fields, values)
-
-    # heavy information
-    add_entry("inheritance", '/'.join(issue.inheritance), fields, values)
-    add_entry("message", issue.message, fields, values)
-    add_entry("params", issue.parameters, fields, values)
-
-    command = f"INSERT INTO {table_name} ({','.join(fields)}) VALUES ({('%s, ' * len(values))[:-2]});"
-   
-    logging.debug(command)
-    cursor.execute(command, values)
+def to_dict( entry : opmon_schema.OpMonEntry ) -> dict :
+    ret = dict(measurement = entry.measurement)
+    ret['fields'] = entry.data  ## will this work as expected?
+    ret['tags'] = create_tags(entry)
+    ret['time'] = entry.time.ToJsonString()
 
 
-def add_entry(field, value, fields, values):
-    fields.append(field)
-    values.append(str(value))
-
-
-def clean_database(cursor, connection):
-    command = f"DROP TABLE {table_name} ;"
-
-    logging.debug(command)
-    cursor.execute(command)
-    connection.commit()
-
-def check_tables(cursor, connection) :
-    command = """SELECT relname FROM pg_class WHERE relkind='r'
-                  AND relname !~ '^(pg_|sql_)';"""
+def create_tags( entry : opmon_schema.OpMonEntry ) -> dict :
+    opmon_id = entry.origin
+    #session and application
+    tags = dict(session = opmon_id.session, 
+                application = opmon_id.application)
     
-    logging.debug(command)
-    cursor.execute(command)
-    tables = [i[0] for i in cursor.fetchall()] # A list() of tables.
-    logging.info(f"Tables: {tables}")
-    return tables
+    #element and subelements
+    struct = opmon_id.substructure
+    for i in range(len(struct))
+        name='sub'*i + 'element'
+        tags[name] = struct[i]
 
-def create_database(cursor, connection):
-    command = f"CREATE TABLE {table_name} ("
-    command += '''
-                session             TEXT, 
-                issue_name          TEXT,
-                inheritance         TEXT,
-                message             TEXT,
-                params              TEXT,
-                severity            TEXT,
-                time                BIGINT,
-                cwd                 TEXT,
-                file_name           TEXT,
-                function_name       TEXT,
-                host_name           TEXT,
-                package_name        TEXT,
-                user_name           TEXT,
-                application_name    TEXT,
-                user_id             INT,
-                process_id          INT,
-                thread_id           INT,
-                line_number         INT
-               ); ''' 
+    #custom origin
+    tags |= entry.custom_origin
 
-    logging.debug(command)
-    cursor.execute(command)
-    connection.commit()
-
-
+    return tags
 
 if __name__ == '__main__':
     cli()
