@@ -30,7 +30,7 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 #influx options
 @click.option('--influxdb-address', type=click.STRING, default='opmondb.cern.ch', help='address of the influx db')
 @click.option('--influxdb-port', type=click.INT, default=31002, help='port of the influxdb')
-@click.option('--influxdb-name', type=click.STRING, default='influxv3', help='name used in the influxdb query')
+@click.option('--influxdb-name', type=click.STRING, default='test_influx', help='name used in the influxdb query')
 @click.option('--influxdb-create', type=click.BOOL, default=True, help='Creates the influxdb if it does not exists')
 
 @click.option('--debug',       type=click.BOOL, default=True, help='Set debug print levels')
@@ -91,7 +91,6 @@ def unpack_payload( entry : opmon_schema.OpMonEntry ) -> dict :
     ret = dict()
     for key in data :
         value = data[key]
-        kind = value.WhichOneof('kind')
         casted_value = getattr(value, value.WhichOneof('kind'))
         ret[key] = casted_value
                
