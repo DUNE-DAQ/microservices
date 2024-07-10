@@ -75,14 +75,27 @@ def process_entry( entry : opmon_schema.OpMonEntry,
                    q : queue.Queue ) :
     d = to_dict(entry)
     js = json.dumps(d)
-    #q.put(js)
     logging.debug(js)
+    #q.put(js)
+
 
 def to_dict( entry : opmon_schema.OpMonEntry ) -> dict :
     ret = dict(measurement = entry.measurement)
-    ret['fields'] = entry.data  ## will this work as expected?
+    ret['fields'] = unpack_payload(entry)
     ret['tags'] = create_tags(entry)
     ret['time'] = entry.time.ToJsonString()
+    return ret
+
+def unpack_payload( entry : opmon_schema.OpMonEntry ) -> dict :
+    data = entry.data
+    ret = dict()
+    for key in data :
+        value = data[key]
+        kind = value.WhichOneof('kind')
+        casted_value = getattr(value, value.WhichOneof('kind'))
+        ret[key] = casted_value
+               
+    return ret
 
 
 def create_tags( entry : opmon_schema.OpMonEntry ) -> dict :
