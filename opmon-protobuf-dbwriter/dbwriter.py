@@ -35,7 +35,7 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 @click.option('--debug',       type=click.BOOL, default=True, help='Set debug print levels')
 
-def cli(subscriber_bootstrap, subscriber_group, subscriber_timeout,
+def cli(subscriber_bootstrap, subscriber_group, subscriber_timeout, subscriber_topic,
         influxdb_address, influxdb_port, influxdb_name, influxdb_create,
         debug):
 
@@ -44,19 +44,19 @@ def cli(subscriber_bootstrap, subscriber_group, subscriber_timeout,
         level=logging.DEBUG if debug else logging.INFO,
         datefmt='%Y-%m-%d %H:%M:%S')
 
-    influx = InfluxDBClient(host=influxdb_address, port=influxdb_port)
-    db_list = influx.get_list_database()
-    logging.info("Available DBs:",db_list)
-    if {"name":influxdb_name}  not in db_list:
-        logging.warning(influxdb_name, "DB not available")
-        if influxdb_create:
-            influx.create_database(influxdb_name);
-            logging.info("New list of DBs:", influx.get_list_database())
+#    influx = InfluxDBClient(host=influxdb_address, port=influxdb_port)
+#    db_list = influx.get_list_database()
+#    logging.info("Available DBs:",db_list)
+#    if {"name":influxdb_name}  not in db_list:
+#        logging.warning(influxdb_name, "DB not available")
+#        if influxdb_create:
+#            influx.create_database(influxdb_name);
+#            logging.info("New list of DBs:", influx.get_list_database())
 
-    influx.switch_database(influxdb_name)
+#    influx.switch_database(influxdb_name)
 
     sub = opmon_sub.OpMonSubscriber( bootstrap=subscriber_bootstrap,
-                                     topics=topic,
+                                     topics=subscriber_topic,
                                      group_id = subscriber_group,
                                      timeout_ms = subscriber_timeout)
 
@@ -93,7 +93,7 @@ def create_tags( entry : opmon_schema.OpMonEntry ) -> dict :
     
     #element and subelements
     struct = opmon_id.substructure
-    for i in range(len(struct))
+    for i in range(len(struct)) :
         name='sub'*i + 'element'
         tags[name] = struct[i]
 
