@@ -71,7 +71,7 @@ def cli(subscriber_bootstrap, subscriber_group, subscriber_timeout, subscriber_t
                      function=callback_function)
 
     thread = threading.Thread(target=consume, daemon=True,
-                              args=(q,influxdb_timeout,) )
+                              args=(q,influxdb_timeout,influx) )
     thread.start()
     
     sub.start()
