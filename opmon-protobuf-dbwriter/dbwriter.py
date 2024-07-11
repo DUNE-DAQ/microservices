@@ -22,21 +22,22 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 
 @click.command(context_settings=CONTEXT_SETTINGS)
 # subscriber options
-@click.option('--subscriber-bootstrap', type=click.STRING, default="monkafka.cern.ch:30092", help="boostrap server and port of the OpMonSubscriber")
-@click.option('--subscriber-group',     type=click.STRING, default=None, help='group ID of the OpMonSubscriber')
-@click.option('--subscriber-timeout',   type=click.INT,    default=500, help='timeout in ms used in the OpMonSubscriber')
-@click.option('--subscriber-topic',     type=click.STRING, multiple=True, default=['opmon_stream'] )
+@click.option('--subscriber-bootstrap', type=click.STRING,                default="monkafka.cern.ch:30092", help="boostrap server and port of the OpMonSubscriber")
+@click.option('--subscriber-group',     type=click.STRING,                default=None, help='group ID of the OpMonSubscriber')
+@click.option('--subscriber-timeout',   type=click.INT,                   default=500, help='timeout in ms used in the OpMonSubscriber')
+@click.option('--subscriber-topic',     type=click.STRING, multiple=True, default=['opmon_stream'], help='The system will add the "monitoring." prefix' )
 
 #influx options
-@click.option('--influxdb-address', type=click.STRING, default='opmondb.cern.ch', help='address of the influx db')
-@click.option('--influxdb-port', type=click.INT, default=31002, help='port of the influxdb')
-@click.option('--influxdb-name', type=click.STRING, default='test_influx', help='name used in the influxdb query')
-@click.option('--influxdb-create', type=click.BOOL, default=True, help='Creates the influxdb if it does not exists')
+@click.option('--influxdb-address', type=click.STRING, default='np04-srv-017', help='address of the influx db')
+@click.option('--influxdb-port',    type=click.INT,    default=31002,          help='port of the influxdb')
+@click.option('--influxdb-name',    type=click.STRING, default='test_influx',  help='name used in the influxdb query')
+@click.option('--influxdb-create',  type=click.BOOL,   default=True,           help='Creates the influxdb if it does not exists')
+@click.option('--influxdb-timeout', type=click.INT,    default=500,            help='Size in ms of the batches sent to influx')
 
 @click.option('--debug',       type=click.BOOL, default=True, help='Set debug print levels')
 
 def cli(subscriber_bootstrap, subscriber_group, subscriber_timeout, subscriber_topic,
-        influxdb_address, influxdb_port, influxdb_name, influxdb_create,
+        influxdb_address, influxdb_port, influxdb_name, influxdb_create, influxdb_timeout,
         debug):
 
     logging.basicConfig(
@@ -44,16 +45,16 @@ def cli(subscriber_bootstrap, subscriber_group, subscriber_timeout, subscriber_t
         level=logging.DEBUG if debug else logging.INFO,
         datefmt='%Y-%m-%d %H:%M:%S')
 
-#    influx = InfluxDBClient(host=influxdb_address, port=influxdb_port)
-#    db_list = influx.get_list_database()
-#    logging.info("Available DBs:",db_list)
-#    if {"name":influxdb_name}  not in db_list:
-#        logging.warning(influxdb_name, "DB not available")
-#        if influxdb_create:
-#            influx.create_database(influxdb_name);
-#            logging.info("New list of DBs:", influx.get_list_database())
+    influx = InfluxDBClient(host=influxdb_address, port=influxdb_port)
+    db_list = influx.get_list_database()
+    logging.info("Available DBs:",db_list)
+    if {"name":influxdb_name}  not in db_list:
+        logging.warning(influxdb_name, "DB not available")
+        if influxdb_create:
+            influx.create_database(influxdb_name);
+            logging.info("New list of DBs:", influx.get_list_database())
 
-#    influx.switch_database(influxdb_name)
+    influx.switch_database(influxdb_name)
 
     sub = opmon_sub.OpMonSubscriber( bootstrap=subscriber_bootstrap,
                                      topics=subscriber_topic,
@@ -69,7 +70,8 @@ def cli(subscriber_bootstrap, subscriber_group, subscriber_timeout, subscriber_t
     sub.add_callback(name="to_influx", 
                      function=callback_function)
 
-    thread = threading.Thread(target=consume, daemon=True, args=(q,1,) )
+    thread = threading.Thread(target=consume, daemon=True,
+                              args=(q,influxdb_timeout,) )
     thread.start()
     
     sub.start()
@@ -81,7 +83,7 @@ def consume( q : queue.Queue, timeout_ms,
     batch_ms = 0
     while True :
         try :
-            entry = q.get(timeout=1)
+            entry = q.get(timeout=1) ## timeout here is in seconds
 
             if ( entry.ms - batch_ms < timeout_ms ) :
                 batch.append(entry.json)
@@ -101,7 +103,7 @@ def consume( q : queue.Queue, timeout_ms,
 def send_batch( batch : list,
                 influx : InfluxDBClient = None ) :
     if len(batch) > 0 :
-        logging.debug("Sending %s points", len(batch) )
+        logging.info("Sending %s points", len(batch) )
         if influx :
             try :
                 influx.write_points(batch)
