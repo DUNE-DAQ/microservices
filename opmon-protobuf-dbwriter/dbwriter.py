@@ -30,7 +30,7 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 #influx options
 @click.option('--influxdb-address', type=click.STRING, default='np04-srv-017', help='address of the influx db')
 @click.option('--influxdb-port',    type=click.INT,    default=31002,          help='port of the influxdb')
-@click.option('--influxdb-name',    type=click.STRING, default='test_influx',  help='name used in the influxdb query')
+@click.option('--influxdb-name',    type=click.STRING, default='test_influx',  help='Table name destination inside influxdb')
 @click.option('--influxdb-create',  type=click.BOOL,   default=True,           help='Creates the influxdb if it does not exists')
 @click.option('--influxdb-timeout', type=click.INT,    default=500,            help='Size in ms of the batches sent to influx')
 
