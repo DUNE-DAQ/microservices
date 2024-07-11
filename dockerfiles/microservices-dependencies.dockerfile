@@ -2,6 +2,9 @@ FROM cern/alma9-base
 
 ARG ERSVERSION=v1.5.1  # For issue.proto from ers
 ARG ERSKAFKAVERSION=v1.5.4  # For ERSSubscriber.py from erskafka
+ARG OPMONLIBVERSION=v1.5.1  # For opmon_entry.proto from opmonlib
+ARG KAFKAOPMONVERSION=v1.5.4  # For OpMonSubscriber.py from kafkaopmon
+
 ARG LOCALPYDIR=/microservices_python
 
 RUN yum clean all \
@@ -29,11 +32,15 @@ RUN git clone https://github.com/DUNE-DAQ/elisa_client_api.git && \
 RUN curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v24.3/protoc-24.3-linux-x86_64.zip && \
   unzip protoc-24.3-linux-x86_64.zip && \
   curl -O https://raw.githubusercontent.com/DUNE-DAQ/ers/$ERSVERSION/schema/ers/issue.proto && \
+  curl -O https://raw.githubusercontent.com/DUNE-DAQ/opmonlib/$OPMONLIBVERSION/schema/oopmonlib/opmon_entry.proto && \
   mkdir -p $LOCALPYDIR/ers && \
-  protoc --python_out=$LOCALPYDIR/ers issue.proto
+  protoc --python_out=$LOCALPYDIR/ers issue.proto && \
+  protoc --python_out=$LOCALPYDIR/opmonlib opmon_entry.proto 
 
 RUN mkdir -p $LOCALPYDIR/erskafka && \
-    curl https://raw.githubusercontent.com/DUNE-DAQ/erskafka/$ERSKAFKAVERSION/python/erskafka/ERSSubscriber.py -o $LOCALPYDIR/erskafka/ERSSubscriber.py
+    curl https://raw.githubusercontent.com/DUNE-DAQ/erskafka/$ERSKAFKAVERSION/python/erskafka/ERSSubscriber.py -o $LOCALPYDIR/erskafka/ERSSubscriber.py && \
+    mkdir -p $LOCALPYDIR/kafkaopmon && \
+    curl https://raw.githubusercontent.com/DUNE-DAQ/kafkaopmon/$KAFKAOPMONVERSION/python/kafkaopmon/OpMonSubscriber.py -o $LOCALPYDIR/kafkaopmon/OpMonSubscriber.py 
 
 ENV PYTHONPATH=$LOCALPYDIR:$PYTHONPATH
 
