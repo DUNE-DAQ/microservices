@@ -2,8 +2,8 @@ FROM cern/alma9-base
 
 ARG ERSVERSION=v1.5.1  # For issue.proto from ers
 ARG ERSKAFKAVERSION=v1.5.4  # For ERSSubscriber.py from erskafka
-ARG OPMONLIBVERSION=v1.5.1  # For opmon_entry.proto from opmonlib
-ARG KAFKAOPMONVERSION=v1.5.4  # For OpMonSubscriber.py from kafkaopmon
+ARG OPMONLIBVERSION=v2.0.0  # For opmon_entry.proto from opmonlib
+ARG KAFKAOPMONVERSION=v2.0.0  # For OpMonSubscriber.py from kafkaopmon
 
 ARG LOCALPYDIR=/microservices_python
 
