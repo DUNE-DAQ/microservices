@@ -32,7 +32,7 @@ RUN git clone https://github.com/DUNE-DAQ/elisa_client_api.git && \
 RUN curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v24.3/protoc-24.3-linux-x86_64.zip && \
   unzip protoc-24.3-linux-x86_64.zip && \
   curl -O https://raw.githubusercontent.com/DUNE-DAQ/ers/$ERSVERSION/schema/ers/issue.proto && \
-  curl -O https://raw.githubusercontent.com/DUNE-DAQ/opmonlib/$OPMONLIBVERSION/schema/oopmonlib/opmon_entry.proto && \
+  curl -O https://raw.githubusercontent.com/DUNE-DAQ/opmonlib/$OPMONLIBVERSION/schema/opmonlib/opmon_entry.proto && \
   mkdir -p $LOCALPYDIR/ers && \
   protoc --python_out=$LOCALPYDIR/ers issue.proto && \
   protoc --python_out=$LOCALPYDIR/opmonlib opmon_entry.proto 
