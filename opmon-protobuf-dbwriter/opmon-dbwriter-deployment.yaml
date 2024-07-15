@@ -41,7 +41,7 @@ spec:
               - key: node-role.kubernetes.io/worker
                 operator: Exists
       containers:
-      - image: ghcr.io/dune-daq/microservices:9685   ## TBC
+      - image: ghcr.io/dune-daq/microservices:mroda-opmon_protobuf   ## TBC
         imagePullPolicy: Always
         name: opmon-protobuf-replica 
         env:
