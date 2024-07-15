@@ -36,9 +36,6 @@ RUN curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v24.3
   protoc --python_out=$LOCALPYDIR/ers issue.proto && \
   curl -O https://raw.githubusercontent.com/DUNE-DAQ/opmonlib/$OPMONLIBVERSION/schema/opmonlib/opmon_entry.proto && \
   mkdir -p $LOCALPYDIR/opmonlib && \
-  pwd && \
-  ls -l . && \
-  ls -lR /include microservices_python && \
   protoc --python_out=$LOCALPYDIR/opmonlib  -I/  -I/include opmon_entry.proto 
 
 RUN mkdir -p $LOCALPYDIR/erskafka && \
