@@ -100,7 +100,7 @@ def cli(
     influxdb_name,
     influxdb_create,
     influxdb_timeout,
-    influxdb_username, 
+    influxdb_username,
     influxdb_password,
     debug,
 ):
@@ -112,8 +112,10 @@ def cli(
     )
 
     kwargs = dict()
-    if influxdb_username : kwargs["username"]=influxdb_username
-    if influxdb_password : kwargs["password"]=influxdb_password
+    if influxdb_username:
+        kwargs["username"] = influxdb_username
+    if influxdb_password:
+        kwargs["password"] = influxdb_password
     influx = InfluxDBClient(host=influxdb_address, port=influxdb_port, **kwargs)
     db_list = influx.get_list_database()
     logging.info("Available DBs:", db_list)
