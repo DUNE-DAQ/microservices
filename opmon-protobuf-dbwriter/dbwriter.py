@@ -77,6 +77,18 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
     default=500,
     help="Size in ms of the batches sent to influx",
 )
+@click.option(
+    "--influxdb-username",
+    type=click.STRING,
+    default=None,
+    help="Username to acces influxdb",
+)
+@click.option(
+    "--influxdb-password",
+    type=click.STRING,
+    default=None,
+    help="Password to acces influxdb",
+)
 @click.option("--debug", type=click.BOOL, default=True, help="Set debug print levels")
 def cli(
     subscriber_bootstrap,
@@ -88,6 +100,8 @@ def cli(
     influxdb_name,
     influxdb_create,
     influxdb_timeout,
+    influxdb_username, 
+    influxdb_password,
     debug,
 ):
 
@@ -97,7 +111,10 @@ def cli(
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    influx = InfluxDBClient(host=influxdb_address, port=influxdb_port)
+    kwargs = dict()
+    if influxdb_username : kwargs["username"]=influxdb_username
+    if influxdb_password : kwargs["password"]=influxdb_password
+    influx = InfluxDBClient(host=influxdb_address, port=influxdb_port, **kwargs)
     db_list = influx.get_list_database()
     logging.info("Available DBs:", db_list)
     if {"name": influxdb_name} not in db_list:
