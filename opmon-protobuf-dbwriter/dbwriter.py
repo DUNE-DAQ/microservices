@@ -53,7 +53,7 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 @click.option(
     "--influxdb-address",
     type=click.STRING,
-    default="monkafka.cern.ch:30092",
+    default="monkafka.cern.ch",
     help="address of the influx db",
 )
 @click.option(
