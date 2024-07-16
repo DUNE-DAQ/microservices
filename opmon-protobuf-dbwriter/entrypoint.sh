@@ -9,7 +9,7 @@ python3 ./dbwriter.py --subscriber-bootstrap $OPMON_DBWRITER_KAFKA_BOOTSTRAP_SER
         --subscriber-group $OPMON_DBWRITER_KAFKA_GROUP --subscriber-timeout  $OPMON_DBWRITER_SUBSCRIBER_TIMEOUT_MS  \
 	--subscriber-topic $OPMON_DBWRITER_TOPIC \
 	--influxdb-address $OPMON_DBWRITER_INFLUX_HOST --influxdb-port $OPMON_DBWRITER_INFLUX_PORT \
-	--influx-name $OPMON_DBWRITER_TABLE --influxdb-timeout $OPMON_DBWRITER_BATCH_SIZE_MS \
+	--influxdb-name $OPMON_DBWRITER_TABLE --influxdb-timeout $OPMON_DBWRITER_BATCH_SIZE_MS \
 	--debug False --influxdb-create True
                      
 
