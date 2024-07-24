@@ -10,5 +10,5 @@ python3 ./dbwriter.py --subscriber-bootstrap $OPMON_DBWRITER_KAFKA_BOOTSTRAP_SER
 	--subscriber-topic $OPMON_DBWRITER_TOPIC \
 	--influxdb-address $OPMON_DBWRITER_INFLUX_HOST --influxdb-port $OPMON_DBWRITER_INFLUX_PORT \
 	--influxdb-name $OPMON_DBWRITER_TABLE --influxdb-timeout $OPMON_DBWRITER_BATCH_SIZE_MS \
-	--debug False --influxdb-create True --influxdb-username $OPMON_DBWRITER_INFLUX_USER --influxdb-password OPMON_DBWRITER_INFLUX_PASSWORD 
+	--debug False --influxdb-create True --influxdb-username $OPMON_DBWRITER_INFLUX_USER --influxdb-password $OPMON_DBWRITER_INFLUX_PASSWORD 
 	
