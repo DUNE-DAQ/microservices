@@ -1,6 +1,6 @@
 FROM cern/alma9-base
 
-ARG ERSVERSION=v1.5.1  # For issue.proto from ers
+ARG ERSVERSION=v1.5.2  # For issue.proto from ers
 ARG ERSKAFKAVERSION=v1.5.4  # For ERSSubscriber.py from erskafka
 ARG OPMONLIBVERSION=v2.0.0  # For opmon_entry.proto from opmonlib
 ARG KAFKAOPMONVERSION=v2.0.0  # For OpMonSubscriber.py from kafkaopmon
