@@ -63,6 +63,10 @@ spec:
           value: opmon_protobuf_v1
         - name: OPMON_DBWRITER_BATCH_SIZE_MS
           value: 800
+        - name: OPMON_DBWRITER_INFLUX_USER
+          value: user
+        - name: OPMON_DBWRITER_INFLUX_PASSWORD
+          value: pass 
         resources:
           limits:
             memory: 1Gi
