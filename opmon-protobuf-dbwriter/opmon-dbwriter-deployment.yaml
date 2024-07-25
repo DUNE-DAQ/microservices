@@ -25,11 +25,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: opmon-protobuf-replica
+      app: opmon-protobuf-dbwriter
   template:
     metadata:
       labels:
-        app: opmon-protobuf-replica
+        app: opmon-protobuf-dbwriter
         app.kubernetes.io/app: opmon-protobuf-dbwriter 
         app.kubernetes.io/component: opmon-protobuf-dbwriter  
     spec:
@@ -43,7 +43,7 @@ spec:
       containers:
       - image: ghcr.io/dune-daq/microservices:mroda-opmon_protobuf   ## TBC
         imagePullPolicy: Always
-        name: opmon-protobuf-replica 
+        name: opmon-protobuf-dbwriter 
         env:
         - name: MICROSERVICE
           value: opmon-protobuf-dbwriter
