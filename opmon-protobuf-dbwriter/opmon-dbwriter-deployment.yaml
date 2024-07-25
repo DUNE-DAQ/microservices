@@ -47,7 +47,7 @@ spec:
         env:
         - name: MICROSERVICE
           value: opmon-protobuf-dbwriter
-        - name: ERS_DBWRITER_KAFKA_BOOTSTRAP_SERVER
+        - name: OPMON_DBWRITER_KAFKA_BOOTSTRAP_SERVER
           value: dune-daq.kafka.svc.cluster.local:9092
         - name: OPMON_DBWRITER_INFLUX_USER
           value: user
