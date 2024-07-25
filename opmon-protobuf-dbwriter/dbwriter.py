@@ -185,8 +185,9 @@ def send_batch(batch: list, influx: InfluxDBClient = None):
                 influx.write_points(batch)
             except influxdb.exceptions.InfluxDBClientError as e:
                 logging.error(e)
-            except:
+            except Exception as e:
                 logging.error("Something went wrong: json batch not sent")
+                logging.error("Details: {}".format(str(e)))
         else:
             print(batch)
 
