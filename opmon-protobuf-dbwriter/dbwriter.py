@@ -194,8 +194,8 @@ def send_batch(batch: list, influx: InfluxDBClient = None):
 
 def process_entry(entry: opmon_schema.OpMonEntry, q: queue.Queue):
     d = to_dict(entry)
-    js = json.dumps(d)
-    e = Entry(json=js, ms=entry.time.ToMilliseconds())
+    # js = json.dumps(d)
+    e = Entry(json=d, ms=entry.time.ToMilliseconds())
     q.put(e)
 
 
@@ -236,7 +236,7 @@ def create_tags(entry: opmon_schema.OpMonEntry) -> dict:
 
 
 class Entry:
-    def __init__(self, json: json, ms: int):
+    def __init__(self, json: dict, ms: int):
         self.json = json
         self.ms = ms
 
