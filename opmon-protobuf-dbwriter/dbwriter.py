@@ -234,7 +234,7 @@ def create_tags(entry: opmon_schema.OpMonEntry) -> dict:
 
 
 class Entry:
-    def __init__(self, json: str, ms: int):
+    def __init__(self, json: json, ms: int):
         self.json = json
         self.ms = ms
 
