@@ -10,6 +10,7 @@ from google.protobuf.timestamp_pb2 import Timestamp
 import opmonlib.opmon_entry_pb2 as opmon_schema
 
 from influxdb import InfluxDBClient
+import influxdb
 from functools import partial
 import json
 import click
@@ -169,7 +170,7 @@ def consume(q: queue.Queue, timeout_ms, influx: InfluxDBClient = None):
                 batch = [entry.json]
                 batch_ms = entry.ms
 
-        except Exception :
+        except queue.Empty:
             logging.debug("Queue is empty")
             send_batch(batch, influx)
             batch = []
