@@ -194,7 +194,6 @@ def send_batch(batch: list, influx: InfluxDBClient = None):
 
 def process_entry(entry: opmon_schema.OpMonEntry, q: queue.Queue):
     d = to_dict(entry)
-    # js = json.dumps(d)
     e = Entry(json=d, ms=entry.time.ToMilliseconds())
     q.put(e)
 
