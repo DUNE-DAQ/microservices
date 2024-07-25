@@ -169,7 +169,7 @@ def consume(q: queue.Queue, timeout_ms, influx: InfluxDBClient = None):
                 batch = [entry.json]
                 batch_ms = entry.ms
 
-        except queue.Empty:
+        except Exception :
             logging.debug("Queue is empty")
             send_batch(batch, influx)
             batch = []
