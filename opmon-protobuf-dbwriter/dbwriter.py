@@ -118,12 +118,12 @@ def cli(
         kwargs["password"] = influxdb_password
     influx = InfluxDBClient(host=influxdb_address, port=influxdb_port, **kwargs)
     db_list = influx.get_list_database()
-    logging.info("Available DBs:", db_list)
+    logging.info("Available DBs: %s", db_list)
     if {"name": influxdb_name} not in db_list:
-        logging.warning(influxdb_name, "DB not available")
+        logging.warning("%s DB not available", influxdb_name )
         if influxdb_create:
             influx.create_database(influxdb_name)
-            logging.info("New list of DBs:", influx.get_list_database())
+            logging.info("New list of DBs: %s", influx.get_list_database())
 
     influx.switch_database(influxdb_name)
 
