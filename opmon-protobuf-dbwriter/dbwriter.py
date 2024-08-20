@@ -166,7 +166,7 @@ def consume(q: queue.Queue, timeout_ms, influx: InfluxDBClient = None):
             if entry.ms - batch_ms >= timeout_ms:
                 # note that if we are facing with a late arrival, i.e. entry.ms was smaller than batch_ms, the difference is 0, so this if is skipped
                 # i.e. there is not double insertion
-                send_batch(batch)
+                send_batch(batch, influx)
                 batch = [entry.json]
                 batch_ms = entry.ms
 
