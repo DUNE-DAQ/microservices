@@ -137,15 +137,22 @@ class ServiceAccountWithKerberos():
         import sh
         executable = sh.Command('auth-get-sso-cookie')
 
-        try:
-            proc = executable(
-                '-u', website,
-                '-o', output_directory,
-                _env=env, _new_session=False
-            )
-        except sh.ErrorReturnCode as error:
-            log.error(error)
-            raise RuntimeError(f"Couldn't get SSO cookie! {error.stdout=} {error.stderr=}") from e
+        for _ in range(5):
+            try:
+                proc = executable(
+                    '-u', website,
+                    '-o', output_directory,
+                    _env=env, _new_session=False
+                )
+            except sh.ErrorReturnCode as error:
+                stderr=e.stderr.decode('utf-8')
+                stdout=e.stdout.decode('utf-8')
+                log.error(f'{error}\nSTDOUT: {stdout}\nSTDERR: {stderr}')
+                log.error('Retrying in 1 second...')
+                time.sleep(1)
+                continue
+
+            break
 
         return output_directory
 
