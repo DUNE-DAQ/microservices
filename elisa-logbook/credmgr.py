@@ -2,8 +2,9 @@ import sys, os
 import logging
 from getpass import getpass
 import subprocess
-import logging
 import tempfile
+
+log = logging.getLogger('credmgr')
 
 def which(program):
     # https://stackoverflow.com/a/377028
@@ -70,8 +71,6 @@ def new_kerberos_ticket(user:str, realm:str, password:str=None, ticket_dir:str="
     return True
 
 def get_kerberos_user(silent=False, ticket_dir:str="~/"):
-    import logging
-    log = logging.getLogger('get_kerberos_user')
 
     env = env_for_kerberos(ticket_dir)
     args=['klist'] # on my mac, I can specify --json and that gives everything nicely in json format... but...
@@ -98,8 +97,6 @@ def get_kerberos_user(silent=False, ticket_dir:str="~/"):
     return None
 
 def check_kerberos_credentials(against_user:str, silent=False, ticket_dir:str="~/"):
-    import logging
-    log = logging.getLogger('check_kerberos_credentials')
 
     env = env_for_kerberos(ticket_dir)
 
@@ -147,14 +144,13 @@ class ServiceAccountWithKerberos():
                 _env=env, _new_session=False
             )
         except sh.ErrorReturnCode as error:
-            self.log.error(error)
+            log.error(error)
             raise RuntimeError(f"Couldn't get SSO cookie! {error.stdout=} {error.stderr=}") from e
 
         return output_directory
 
 class CredentialManager:
     def __init__(self):
-        self.log = logging.getLogger(self.__class__.__name__)
         self.authentications = []
 
     def add_login(self, service:str, user:str, password:str, realm:str):
@@ -162,25 +158,25 @@ class CredentialManager:
 
     def add_login_from_file(self, service:str, file:str):
         if not os.path.isfile(os.getcwd()+"/"+file+".py"):
-            self.log.error(f"Couldn't find file {file} in PWD")
+            log.error(f"Couldn't find file {file} in PWD")
             raise
 
         sys.path.append(os.getcwd())
         i = __import__(file, fromlist=[''])
         self.add_login(service, i.user, i.password)
-        self.log.info(f"Added login data from file: {file}")
+        log.info(f"Added login data from file: {file}")
 
     def get_login(self, service:str, user:str):
         for auth in self.authentications:
             if service == auth.service and user == auth.user:
                 return auth
-        self.log.error(f"Couldn't find login for service: {service}, user: {user}")
+        log.error(f"Couldn't find login for service: {service}, user: {user}")
 
     def get_login(self, service:str):
         for auth in self.authentications:
             if service == auth.service:
                 return auth
-        self.log.error(f"Couldn't find login for service: {service}")
+        log.error(f"Couldn't find login for service: {service}")
 
     def rm_login(self, service:str, user:str):
         for auth in self.authentications:
@@ -206,8 +202,7 @@ credentials = CredentialManager()
 
 class CERNSessionHandler:
     def __init__(self, username:str):
-        import logging
-        self.log = logging.getLogger(self.__class__.__name__)
+        log = logging.getLogger(self.__class__.__name__)
         self.elisa_username = username
 
         if not self.elisa_user_is_authenticated():
