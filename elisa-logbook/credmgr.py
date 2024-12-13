@@ -202,7 +202,6 @@ credentials = CredentialManager()
 
 class CERNSessionHandler:
     def __init__(self, username:str):
-        log = logging.getLogger(self.__class__.__name__)
         self.elisa_username = username
 
         if not self.elisa_user_is_authenticated():
