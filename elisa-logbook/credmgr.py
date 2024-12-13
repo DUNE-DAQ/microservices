@@ -1,10 +1,14 @@
-import sys, os
-import logging
 from getpass import getpass
+import logging
+import os
 import subprocess
+import sys
 import tempfile
+import time
+
 
 log = logging.getLogger('credmgr')
+
 
 def which(program):
     # https://stackoverflow.com/a/377028
@@ -118,7 +122,6 @@ def check_kerberos_credentials(against_user:str, silent=False, ticket_dir:str="~
         if not silent: log.info('Another user is logged in')
         return False
     else:
-        import subprocess
         ticket_is_valid = subprocess.call(['klist', '-s'], env=env) == 0
         if not silent and not ticket_is_valid:
             log.info('Kerberos ticket is expired')
