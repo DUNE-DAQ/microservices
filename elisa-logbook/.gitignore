@@ -1,2 +1,2 @@
-./.venv/
-./elisa_client_api/
+.venv/
+elisa_client_api/
