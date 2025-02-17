@@ -47,6 +47,7 @@ spec:
             - matchExpressions:
               - key: node-role.kubernetes.io/worker
                 operator: Exists
+      automountServiceAccountToken: false
       containers:
       - image: ghcr.io/dune-daq/microservices:9685
         imagePullPolicy: Always
