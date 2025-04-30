@@ -58,6 +58,7 @@ spec:
         ports:
         - containerPort: 5000
           protocol: TCP
+          name: http
         resources:
           limits:
             memory: 1Gi
@@ -89,7 +90,7 @@ spec:
   - name: http
     port: 5000
     protocol: TCP
-    targetPort: 5000
+    targetPort: http
   selector:
     app.kubernetes.io/app: runnumber-rest
     app.kubernetes.io/component: runnumber-rest
