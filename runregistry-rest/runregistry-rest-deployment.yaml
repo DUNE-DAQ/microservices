@@ -58,6 +58,7 @@ spec:
         ports:
         - containerPort: 5005
           protocol: TCP
+          name: http
         resources:
           limits:
             memory: 1Gi
@@ -96,7 +97,7 @@ spec:
   - name: http
     port: 5005
     protocol: TCP
-    targetPort: 5005
+    targetPort: http
   selector:
     app.kubernetes.io/app: runregistry-rest
     app.kubernetes.io/component: runregistry-rest
