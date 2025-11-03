@@ -133,6 +133,7 @@ class ServiceAccountWithKerberos():
         self.username = username
         self.password = password
         self.realm = realm
+        self.log = logging.getLogger(self.__class__.__name__)
 
     def generate_cern_sso_cookie(self, website, kerberos_directory, output_directory):
         env = {'KRB5CCNAME': f'DIR:{kerberos_directory}'}

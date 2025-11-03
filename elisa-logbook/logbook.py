@@ -158,10 +158,10 @@ def new_message():
 @app.route('/v1/elisaLogbook/reply_to_message/', methods=["PUT"])
 @auth.login_required
 def reply_to_message():
-    if request.json.get('body', "") == "" or request.json.get('title', "") == "" or request.json.get('command', "") == "" or request.json.get('author', "") == "" or request.json.get('id', "") == "":
+    if request.json.get('body', "") == "" or request.json.get('command', "") == "" or request.json.get('author', "") == "" or request.json.get('id', "") == "":
         resp = make_response(
             jsonify(
-                response = "Body, title, command, author or id cannot be empty!",
+                response = "Body, command, author or id cannot be empty!",
                 sent_data = request.json
             )
         )
