@@ -1,15 +1,5 @@
 #!/bin/bash
 
-#
-# SELECT c.relname AS table_name
-# FROM pg_class c
-# JOIN pg_namespace n ON n.oid = c.relnamespace
-# WHERE c.relkind IN ('r', 'p')
-#   AND n.nspname NOT IN ('pg_catalog', 'information_schema')
-#   AND c.relispartition = false
-# ORDER BY c.relname;
-#
-
 TABLE_NAME="${1:-example}"
 YEAR="${2:-$(date '+%Y')}"
 
@@ -59,6 +49,7 @@ start_week=${START_DATE}
 week_number=0
 previous_partition=""
 
+echo "BEGIN TRANSACTION;"
 for count in {1..60}; do
     week_number=$((week_number + 1))
     week_count_string=$(printf "%02d" ${week_number})
@@ -115,3 +106,5 @@ done
 
 # Output final partition if valid
 output_partition_if_valid "${previous_partition}"
+
+echo "END TRANSACTION;"
