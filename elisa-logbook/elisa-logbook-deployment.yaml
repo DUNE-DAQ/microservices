@@ -52,12 +52,12 @@ spec:
           valueFrom:
             secretKeyRef:
               key: hardware
-              name: elisa-logbook-secret 
+              name: elisa-logbook-secret
         - name: USERNAME
           valueFrom:
             secretKeyRef:
               key: username
-              name: elisa-logbook-secret 
+              name: elisa-logbook-secret
         - name: PASSWORD
           valueFrom:
             secretKeyRef:
@@ -76,5 +76,12 @@ spec:
           runAsGroup: 11000
           seccompProfile:
             type: RuntimeDefault
+        volumeMounts:
+        - mountPath: /microservices/elisa-logbook/logfiles
+          name: logs-volume
+      volumes: # persistance is not required at this time
+      - name: logs-volume
+        emptyDir:
+          sizeLimit: 10Gi
       securityContext:
         fsGroup: 11000
