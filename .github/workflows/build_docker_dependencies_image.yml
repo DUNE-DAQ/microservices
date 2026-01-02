@@ -26,7 +26,7 @@ jobs:
           path: microservices
 
       - name: Log in to the Container registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -34,7 +34,7 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           images: |
             ghcr.io/DUNE-DAQ/microservices_dependencies
@@ -44,7 +44,7 @@ jobs:
             type=ref,event=tag
 
       - name: Build and push Docker images
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v6
         with:
           context: ${{ github.workspace }}/microservices/
           file: ${{ github.workspace }}/microservices/dockerfiles/Dockerfile.dependencies
