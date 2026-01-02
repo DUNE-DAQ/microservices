@@ -2,37 +2,30 @@ import datetime as dt
 
 from api import db
 
-__all__ = ['RunRegistryConfig', 'RunRegistryMeta']
+__all__ = ["RunRegistryConfig", "RunRegistryMeta"]
 
 
 class RunRegistryMeta(db.Model):
     run_number = db.Column(
-        'run_number', db.Integer, primary_key=True, autoincrement=True, nullable=False
+        "run_number", db.Integer, primary_key=True, autoincrement=True, nullable=False
     )
     start_time = db.Column(
-        'start_time', db.TIMESTAMP(6), nullable=False, default=dt.datetime.utcnow
+        "start_time", db.TIMESTAMP(6), nullable=False, default=dt.datetime.utcnow
     )
-    stop_time = db.Column(
-        'stop_time', db.TIMESTAMP(6), nullable=True
-    )
-    detector_id = db.Column(
-        'detector_id', db.String(40)
-    )
-    run_type = db.Column(
-        'run_type', db.String(40)
-    )
-    filename = db.Column(
-        'filename', db.String(100)
-    )
-    software_version = db.Column(
-        'software_version', db.String(40)
-    )
-    configs = db.relationship('RunRegistryConfigs', backref='meta')
+    stop_time = db.Column("stop_time", db.TIMESTAMP(6), nullable=True)
+    detector_id = db.Column("detector_id", db.String(40))
+    run_type = db.Column("run_type", db.String(40))
+    filename = db.Column("filename", db.String(100))
+    software_version = db.Column("software_version", db.String(40))
+    configs = db.relationship("RunRegistryConfigs", backref="meta")
+
 
 class RunRegistryConfigs(db.Model):
     run_number = db.Column(
-        'run_number', db.Integer, db.ForeignKey(RunRegistryMeta.run_number), primary_key=True, nullable=False
+        "run_number",
+        db.Integer,
+        db.ForeignKey(RunRegistryMeta.run_number),
+        primary_key=True,
+        nullable=False,
     )
-    configuration = db.Column(
-        'configuration', db.LargeBinary, nullable=False
-    )
+    configuration = db.Column("configuration", db.LargeBinary, nullable=False)
