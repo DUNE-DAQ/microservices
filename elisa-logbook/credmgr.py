@@ -202,21 +202,69 @@ class CredentialManager:
                 self.authentications.remove(auth)
                 return
 
-    def new_kerberos_ticket(self):
+    def new_kerberos_ticket(self, user: str, realm: str = "CERN.CH", ticket_dir: str = "~/"):
+        """
+        Create a new Kerberos ticket for the specified user.
+        
+        Args:
+            user: Username to authenticate
+            realm: Kerberos realm (default: CERN.CH)
+            ticket_dir: Directory for Kerberos ticket cache (default: ~/)
+            
+        Returns:
+            True if ticket was created successfully, False otherwise
+        """
+        # Find the authentication credentials for this user
+        auth = None
         for a in self.authentications:
-            if a.user == self.user:
-                password = a.password
+            if a.username == user:
+                auth = a
                 break
-
+        
+        if auth is None:
+            self.log.error(f"No authentication found for user: {user}")
+            return False
+        
+        # Set up environment for Kerberos
+        env = env_for_kerberos(ticket_dir)
+        
+        # Create the kinit subprocess
         p = subprocess.Popen(
-            ["kinit", self.user + "@CERN.CH"],
+            ["kinit", f"{user}@{realm}"],
             stdout=subprocess.PIPE,
             stdin=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env=env,
         )
-        stdout_data = p.communicate(password.encode())
-        print(stdout_data[-1].decode())
-        return True
+        
+        # Check if subprocess started successfully
+        if p.poll() is not None and p.returncode != 0:
+            self.log.error(f"Could not execute kinit {user}@{realm}")
+            return False
+        
+        # Communicate password to kinit
+        try:
+            stdout_data, stderr_data = p.communicate(auth.password.encode())
+            
+            # Log stderr if there's any output
+            if stderr_data:
+                stderr_text = stderr_data.decode()
+                if stderr_text.strip():
+                    self.log.info(f"kinit stderr: {stderr_text}")
+            
+            # Check return code
+            if p.returncode == 0:
+                self.log.info(f"Successfully created Kerberos ticket for {user}@{realm}")
+                return True
+            else:
+                self.log.error(f"Failed to create Kerberos ticket for {user}@{realm}. Return code: {p.returncode}")
+                if stderr_data:
+                    self.log.error(f"Error output: {stderr_data.decode()}")
+                return False
+                
+        except Exception as e:
+            self.log.exception(f"Exception while creating Kerberos ticket: {e}")
+            return False
 
 
 credentials = CredentialManager()
