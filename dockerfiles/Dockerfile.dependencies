@@ -18,8 +18,11 @@ ENV PATH="${VENV_PATH}/bin:$PATH"
 RUN mkdir -p ${APP_ROOT} ${APP_DATA} ${VENV_PATH}
 WORKDIR ${APP_ROOT}
 
+# Install base python bits
+# Install required devel bits
 RUN yum clean expire-cache \
-    && yum -y install git python3-pip python3-pip-wheel make gcc python3-devel libffi-devel krb5-devel \
+    && yum -y install git python3-pip python3-pip-wheel \
+    && yum -y install make gcc python3-devel krb5-devel libffi-devel libpq-devel \
     && yum clean all
 
 # setup venv
