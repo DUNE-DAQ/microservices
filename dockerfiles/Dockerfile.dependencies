@@ -52,7 +52,7 @@ RUN mkdir -p ${VENV_PATH}/erskafka \
     && echo "Installing https://raw.githubusercontent.com/DUNE-DAQ/erskafka/$ERSKAFKAVERSION/python/erskafka/ERSSubscriber.py" \
     && curl https://raw.githubusercontent.com/DUNE-DAQ/erskafka/$ERSKAFKAVERSION/python/erskafka/ERSSubscriber.py -o ${VENV_PATH}/erskafka/ERSSubscriber.py \
     && mkdir -p ${VENV_PATH}/kafkaopmon \
-    && echo "Installing https://raw.githubusercontent.com/DUNE-DAQ/erskafka/$ERSKAFKAVERSION/python/erskafka/ERSSubscriber.py" \
+    && echo "Installing https://raw.githubusercontent.com/DUNE-DAQ/kafkaopmon/${KAFKAOPMONVERSION}/python/kafkaopmon/OpMonSubscriber.py" \
     && curl https://raw.githubusercontent.com/DUNE-DAQ/kafkaopmon/${KAFKAOPMONVERSION}/python/kafkaopmon/OpMonSubscriber.py -o ${VENV_PATH}/kafkaopmon/OpMonSubscriber.py
 
 # elisa_client_api and CERN kerberos needed by the logbook microservice at NP04
