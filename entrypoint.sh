@@ -18,7 +18,7 @@ fi
 
 cd "${microservice_dir}" || exit 2
 
-$(pwd)/entrypoint.sh
+"$(pwd)/entrypoint.sh"
 
 retval=$?
 echo "Return value of call to ${microservice_dir}/entrypoint.sh is:${retval}"
