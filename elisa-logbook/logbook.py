@@ -29,11 +29,19 @@ for key in keylist:
     hardware_string += " "
     hardware_string += key
 
+
 # We use environment variables to pass data
-hard_var = (os.getenv("HARDWARE")).rstrip("\n")
-app.config["PATH"] = (os.getenv("APP_DATA", default="./logfiles")).rstrip("\n")
-app.config["USER"] = (os.getenv("USERNAME")).rstrip("\n")
-app.config["PASSWORD"] = (os.getenv("PASSWORD")).rstrip("\n")
+def get_required_env(name: str) -> str:
+    value = os.getenv(name)
+    if value is None:
+        raise RuntimeError(f"Required environment variable {name} is not set")
+    return value.rstrip("\n")
+
+
+hard_var = get_required_env("HARDWARE")
+app.config["PATH"] = os.getenv("APP_DATA", "./logfiles").rstrip("\n")
+app.config["USER"] = get_required_env("USERNAME")
+app.config["PASSWORD"] = get_required_env("PASSWORD")
 
 try:
     app.config["HARDWARECONF"] = elisaconf[hard_var]
