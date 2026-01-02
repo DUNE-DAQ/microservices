@@ -25,7 +25,7 @@ class ElisaLogbook:
         self.session_handler = handler
 
     def start_new_thread(
-        self, subject: str, body: str, command: str, author: str, systems: [str]
+        self, subject: str, body: str, command: str, author: str, systems: list[str]
     ):
         elisa_arg = copy.deepcopy(self.elisa_arguments)
         if not credentials.get_login("elisa"):
