@@ -181,7 +181,7 @@ class CredentialManager:
 
         sys.path.append(os.getcwd())
         i = __import__(file, fromlist=[""])
-        self.add_login(service, i.user, i.password)
+        self.add_login(service, i.user, i.password, i.realm)
         self.log.info(f"Added login data from file: {file}")
 
     def get_login(self, service: str, user: str | None = None):
