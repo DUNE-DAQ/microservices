@@ -30,12 +30,10 @@ for key in keylist:
     hardware_string += key
 
 # We use environment variables to pass data
-user_var = (os.getenv("USERNAME")).rstrip("\n")
-pass_var = (os.getenv("PASSWORD")).rstrip("\n")
 hard_var = (os.getenv("HARDWARE")).rstrip("\n")
 app.config["PATH"] = (os.getenv("APP_DATA", default="./logfiles")).rstrip("\n")
-app.config["USER"] = user_var
-app.config["PASSWORD"] = pass_var
+app.config["USER"] = (os.getenv("USERNAME")).rstrip("\n")
+app.config["PASSWORD"] = (os.getenv("PASSWORD")).rstrip("\n")
 try:
     app.config["HARDWARECONF"] = elisaconf[
         hard_var
