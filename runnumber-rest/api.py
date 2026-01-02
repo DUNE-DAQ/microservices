@@ -16,7 +16,6 @@ __emails__ = [
 import datetime as dt
 import os
 import re
-from urllib.parse import urlparse
 
 import flask
 from authentication import auth
@@ -46,12 +45,9 @@ api = Api(app)
 from database import RunNumber
 
 
-PARSED_URI = urlparse(app.config["SQLALCHEMY_DATABASE_URI"])
-DB_TYPE = PARSED_URI.scheme
-
-
 def register_event_handlers():
     """Register database event handlers. Must be called within an app context."""
+
     @event.listens_for(db.engine, "handle_error")
     def handle_exception(context):
         if not context.is_disconnect and re.match(
