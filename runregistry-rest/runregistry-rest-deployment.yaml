@@ -74,15 +74,6 @@ spec:
           runAsGroup: 11000
           seccompProfile:
             type: RuntimeDefault
-        volumeMounts:
-        - mountPath: /microservices/runregistry-rest/uploads
-          name: uploads-volume
-      volumes: # persistance is not required at this time
-      - name: uploads-volume
-        emptyDir:
-          sizeLimit: 10Gi
-      securityContext:
-        fsGroup: 11000
 ---
 apiVersion: v1
 kind: Service
