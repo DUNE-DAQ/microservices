@@ -16,7 +16,7 @@ if [[ ! -e ${microservice_dir}/entrypoint.sh ]]; then
     exit 2
 fi
 
-cd $microservice_dir
+cd "${microservice_dir}" || exit 2
 
 $(pwd)/entrypoint.sh
 
