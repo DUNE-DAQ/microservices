@@ -141,6 +141,7 @@ class ServiceAccountWithKerberos:
         self.username = username
         self.password = password
         self.realm = realm
+        self.log = logging.getLogger(self.__class__.__name__)
 
     def generate_cern_sso_cookie(self, website, kerberos_directory, output_directory):
         env = os.environ.copy()
@@ -155,7 +156,7 @@ class ServiceAccountWithKerberos:
                 text=True,
             )
         except subprocess.CalledProcessError as error:
-            self.log.error(error)
+            self.log.exception("SSO cookie generation failed")
             raise RuntimeError(
                 f"Couldn't get SSO cookie! stdout={error.stdout!r} stderr={error.stderr!r}"
             ) from error
