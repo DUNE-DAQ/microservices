@@ -187,7 +187,7 @@ class CredentialManager:
         for auth in self.authentications:
             if auth.service != service:
                 continue
-            if user is None or auth.user == user:
+            if user is None or auth.username == user:
                 return auth
 
         if user:
@@ -197,7 +197,7 @@ class CredentialManager:
 
     def rm_login(self, service: str, user: str):
         for auth in self.authentications:
-            if service == auth.service and user == auth.user:
+            if service == auth.service and user == auth.username:
                 self.authentications.remove(auth)
                 return
 
