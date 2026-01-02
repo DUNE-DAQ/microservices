@@ -47,6 +47,7 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           context: ${{ github.workspace }}/microservices/
+          file: ${{ github.workspace }}/microservices/dockerfiles/Dockerfile.dependencies
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
