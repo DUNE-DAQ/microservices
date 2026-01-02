@@ -1,6 +1,6 @@
+Flask==2.2.5
 Flask-Caching==2.0.2
 Flask-HTTPAuth==4.6.0
-Flask==2.2.5
 Flask-RESTful==0.3.9
 Flask-SQLAlchemy==3.0.5
 click==8.1.2
@@ -8,11 +8,7 @@ gevent==22.10.2
 protobuf==4.24.3
 influxdb==5.3.1
 kafka-python==2.0.2
-sqlalchemy==2.0.20
-
-# sql alchemy databases we use
-psycopg2-binary==2.9.7
-oracledb==2.0.1
+sqlalchemy[oracle-oracledb,postgresql-psycopgbinary]==2.0.45
 
 # elisa requires this but doesn't list the requirement
 # since it is called via subprocess
