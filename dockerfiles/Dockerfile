@@ -6,7 +6,7 @@ ARG MICROSERVICES_VERSION=develop
 
 RUN cd ${APP_ROOT} \
   && git clone -b ${MICROSERVICES_VERSION} https://github.com/DUNE-DAQ/microservices.git \
-  && cp entrypoint.sh /
+  && cp microservices/entrypoint.sh /
 
 WORKDIR ${APP_ROOT}/microservices
 
