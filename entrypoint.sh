@@ -1,11 +1,10 @@
 #!/bin/bash
 
-cd $(dirname $0)
 source ./entrypoint_functions.sh
 
 ensure_required_variables "MICROSERVICE"
 
-microservice_dir=$(dirname $0)/$MICROSERVICE
+microservice_dir=$(pwd)/$MICROSERVICE
 
 if [[ ! -e ${microservice_dir}/entrypoint.sh ]]; then
     echo "This script sees the MICROSERVICE environment variable set to \"$MICROSERVICE\" but is unable to find the corresponding entrypoint script \"${microservice_dir}/entrypoint.sh\"" >&2

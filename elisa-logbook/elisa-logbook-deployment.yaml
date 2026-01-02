@@ -64,7 +64,7 @@ spec:
               key: password
               name: elisa-logbook-secret
         - name: APP_DATA
-          value: /microservices/elisa-logbook/logfiles
+          value: /opt/data
         resources:
           limits:
             memory: 1Gi
@@ -79,7 +79,7 @@ spec:
           seccompProfile:
             type: RuntimeDefault
         volumeMounts:
-        - mountPath: /microservices/elisa-logbook/logfiles
+        - mountPath: /opt/data
           name: data-volume
       volumes: # persistance is not required at this time
       - name: data-volume
