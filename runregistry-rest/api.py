@@ -18,7 +18,6 @@ import io
 import os
 import re
 import urllib
-from urllib.parse import urlparse
 
 import flask
 from authentication import auth
@@ -53,7 +52,7 @@ api = Api(app)
 from database import RunRegistryConfigs, RunRegistryMeta
 
 
-PARSED_URI = urlparse(app.config["SQLALCHEMY_DATABASE_URI"])
+PARSED_URI = urllib.parse.urlparse(app.config["SQLALCHEMY_DATABASE_URI"])
 DB_TYPE = PARSED_URI.scheme
 
 
