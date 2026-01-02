@@ -34,13 +34,11 @@ hard_var = (os.getenv("HARDWARE")).rstrip("\n")
 app.config["PATH"] = (os.getenv("APP_DATA", default="./logfiles")).rstrip("\n")
 app.config["USER"] = (os.getenv("USERNAME")).rstrip("\n")
 app.config["PASSWORD"] = (os.getenv("PASSWORD")).rstrip("\n")
+
 try:
-    app.config["HARDWARECONF"] = elisaconf[
-        hard_var
-    ]  # A dictionary containing all the hardware-dependant configs
-except:
-    bad_string = hard_var + " is not a valid choice!"
-    raise Exception(bad_string + hardware_string)
+    app.config["HARDWARECONF"] = elisaconf[hard_var]
+except KeyError as exc:
+    raise KeyError(f"{hard_var} is not a valid choice!{hardware_string}") from exc
 
 os.makedirs(app.config["PATH"], exist_ok=True)
 if not os.access(app.config["PATH"], os.W_OK):
@@ -68,7 +66,7 @@ def index():
 def Fmessage_on_start():
     try:
         run_number = int(request.json["run_num"])
-    except:
+    except (KeyError, TypeError, ValueError):
         error = "Run number is not an integer!"
         return error, 400
 

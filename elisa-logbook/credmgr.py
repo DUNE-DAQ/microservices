@@ -149,7 +149,7 @@ class ServiceAccountWithKerberos:
         env["KRB5CCNAME"] = f"DIR:{kerberos_directory}"
 
         try:
-            proc = subprocess.run(
+            subprocess.run(
                 ["auth-get-sso-cookie", "-u", website, "-o", output_directory],
                 env=env,
                 check=True,

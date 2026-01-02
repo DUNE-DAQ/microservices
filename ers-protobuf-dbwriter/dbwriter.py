@@ -75,7 +75,7 @@ def cli(
 
     try:
         engine = create_engine(db_uri)
-        connection = engine.connect()
+        engine.connect()
     except Exception as e:
         logging.error(e)
         logging.fatal("Connection to the database failed, aborting...")
