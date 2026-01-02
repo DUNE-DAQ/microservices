@@ -76,8 +76,8 @@ def cli(
     try:
         engine = create_engine(db_uri)
         engine.connect()
-    except Exception as e:
-        logging.error(e)
+    except SQLAlchemyError:
+        logging.exception("Failed to connect to database")
         logging.fatal("Connection to the database failed, aborting...")
         exit()
 
