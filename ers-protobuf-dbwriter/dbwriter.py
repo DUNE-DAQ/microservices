@@ -24,7 +24,6 @@ from sqlalchemy import (
 from sqlalchemy.exc import SQLAlchemyError
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
-METADATA = MetaData()
 
 
 @click.command(context_settings=CONTEXT_SETTINGS)
@@ -50,7 +49,7 @@ METADATA = MetaData()
     "--db-uri",
     required=True,
     type=click.STRING,
-    help="SQLAlchemy database URL (e.g., postgresql://user:pass@host:port/dbname)",
+    help="SQLAlchemy database URI (e.g., postgresql://user:pass@host:port/dbname)",
 )
 @click.option(
     "--db-table",
@@ -82,17 +81,8 @@ def cli(
         logging.fatal("Connection to the database failed, aborting...")
         exit()
 
-    global table_name, issues_table
-    table_name = db_table
-
-    try:  # try to make sure tables exist
-        create_database(engine=engine)
-    except:
-        logging.info("Database was already created")
-    else:
-        logging.info("Database creation: Success")
-    finally:
-        logging.info("Database is ready")
+    metadata = MetaData()
+    issues_table = create_database_table(metadata, db_table, engine)
 
     check_tables(engine=engine)
 
@@ -104,14 +94,14 @@ def cli(
 
     sub = erssub.ERSSubscriber(subscriber_conf)
 
-    callback_function = partial(process_chain, engine=engine)
+    callback_function = partial(process_chain, engine=engine, issues_table=issues_table)
 
     sub.add_callback(name="database", function=callback_function)
 
     sub.start()
 
 
-def process_chain(chain, engine):
+def process_chain(chain, engine, issues_table):
     logging.debug(chain)
 
     counter = 0
@@ -122,10 +112,18 @@ def process_chain(chain, engine):
         trans = connection.begin()
         try:
             for cause in reversed(chain.causes):
-                process_issue(issue=cause, session=chain.session, connection=connection)
+                process_issue(
+                    issue=cause,
+                    session=chain.session,
+                    connection=connection,
+                    issues_table=issues_table,
+                )
 
             process_issue(
-                issue=chain.final, session=chain.session, connection=connection
+                issue=chain.final,
+                session=chain.session,
+                connection=connection,
+                issues_table=issues_table,
             )
             trans.commit()
         except SQLAlchemyError as e:
@@ -135,13 +133,13 @@ def process_chain(chain, engine):
                 logging.error(
                     "Table was undefined yet it was supposed to be defined at this point"
                 )
-                create_database(engine=engine)
+                create_database_table(issues_table.metadata, issues_table.name, engine)
             elif (
                 "no such column" in str(e).lower() or "unknown column" in str(e).lower()
             ):
                 logging.warning("Column issue detected")
-                clean_database(engine=engine)
-                create_database(engine=engine)
+                clean_database(issues_table, engine)
+                create_database_table(issues_table.metadata, issues_table.name, engine)
             else:
                 logging.error("Something unexpected happened")
         except Exception as e:
@@ -161,7 +159,7 @@ def process_chain(chain, engine):
             break
 
 
-def process_issue(issue, session, connection):
+def process_issue(issue, session, connection, issues_table):
     values = {}
 
     ## top level info
@@ -194,9 +192,9 @@ def process_issue(issue, session, connection):
     connection.execute(ins)
 
 
-def clean_database(engine):
+def clean_database(issues_table, engine):
     issues_table.drop(engine, checkfirst=True)
-    logging.debug(f"Dropped table {table_name}")
+    logging.debug(f"Dropped table {issues_table.name}")
 
 
 def check_tables(engine):
@@ -206,12 +204,10 @@ def check_tables(engine):
     return tables
 
 
-def create_database(engine):
-    global issues_table
-
+def create_database_table(metadata, table_name, engine):
     issues_table = Table(
         table_name,
-        METADATA,
+        metadata,
         Column("session", Text),
         Column("issue_name", Text),
         Column("inheritance", Text),
@@ -232,8 +228,10 @@ def create_database(engine):
         Column("line_number", Integer),
     )
 
-    METADATA.create_all(engine, checkfirst=True)
+    metadata.create_all(engine, checkfirst=True)
+    logging.info("Database is ready")
     logging.debug(f"Created table {table_name}")
+    return issues_table
 
 
 if __name__ == "__main__":
