@@ -10,13 +10,14 @@ DEPLOYMENT_ENV - set to the environment you are deploying to, default is DEV
 """
 import os
 
-from api import app, db
+from api import app, db, register_event_handlers
 
 # setenv DEBUG=True to enable debug mode
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
 with app.app_context():
     db.create_all()
+    register_event_handlers()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5005, debug=DEBUG)
