@@ -202,14 +202,14 @@ class CredentialManager:
                 self.authentications.remove(auth)
                 return
 
-    def new_kerberos_ticket(self, user: str, realm: str = "CERN.CH", ticket_dir: str = "~/"):
+    def new_kerberos_ticket(self, user: str, realm: str = "CERN.CH", ticket_dir: str = "/tmp"):
         """
         Create a new Kerberos ticket for the specified user.
         
         Args:
             user: Username to authenticate
             realm: Kerberos realm (default: CERN.CH)
-            ticket_dir: Directory for Kerberos ticket cache (default: ~/)
+            ticket_dir: Directory for Kerberos ticket cache (default: /tmp)
             
         Returns:
             True if ticket was created successfully, False otherwise
