@@ -33,9 +33,9 @@ for key in keylist:
 user_var = (os.getenv("USERNAME")).rstrip("\n")
 pass_var = (os.getenv("PASSWORD")).rstrip("\n")
 hard_var = (os.getenv("HARDWARE")).rstrip("\n")
+app.config["PATH"] = (os.getenv("APP_DATA", default="./logfiles")).rstrip("\n")
 app.config["USER"] = user_var
 app.config["PASSWORD"] = pass_var
-app.config["PATH"] = "./logfiles/"
 try:
     app.config["HARDWARECONF"] = elisaconf[
         hard_var
@@ -43,6 +43,12 @@ try:
 except:
     bad_string = hard_var + " is not a valid choice!"
     raise Exception(bad_string + hardware_string)
+
+os.makedirs(app.config["PATH"], exist_ok=True)
+if not os.access(app.config["PATH"], os.W_OK):
+    raise PermissionError(
+        f"Error: Permission denied to access the file at {app.config['PATH']}"
+    )
 
 credentials.add_login("elisa", app.config["USER"], app.config["PASSWORD"], "CERN.CH")
 cern_auth = CERNSessionHandler(username=app.config["USER"])
