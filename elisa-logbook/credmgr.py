@@ -177,7 +177,7 @@ class CredentialManager:
     def add_login_from_file(self, service: str, file: str):
         if not os.path.isfile(os.getcwd() + "/" + file + ".py"):
             self.log.error(f"Couldn't find file {file} in PWD")
-            raise
+            raise RuntimeError(f"Couldn't find file {file} in PWD")
 
         sys.path.append(os.getcwd())
         i = __import__(file, fromlist=[""])
