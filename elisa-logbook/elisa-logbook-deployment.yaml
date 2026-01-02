@@ -5,11 +5,11 @@ metadata:
   annotations:
     kluctl.io/skip-delete-if-tags: "true"
   labels:
-    pod-security.kubernetes.io/audit: baseline
+    pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/audit-version: latest
-    pod-security.kubernetes.io/enforce: baseline # unified image runs as root :(
+    pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/enforce-version: latest
-    pod-security.kubernetes.io/warn: baseline
+    pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/warn-version: latest
   name: elisa-logbook
 ---
@@ -71,13 +71,16 @@ spec:
           requests:
             memory: 32Mi
         securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
+          runAsUser: 11000
           runAsGroup: 11000
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
           seccompProfile:
             type: RuntimeDefault
+          capabilities:
+            drop:
+              - ALL
         volumeMounts:
         - mountPath: /opt/data
           name: data-volume
