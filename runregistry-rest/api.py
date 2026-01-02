@@ -70,7 +70,7 @@ def cache_key():
     key = (
         flask.request.path
         + "?"
-        + urllib.urlencode(
+        + urllib.parse.urlencode(
             [(k, v) for k in sorted(args) for v in sorted(args.getlist(k))]
         )
     )
