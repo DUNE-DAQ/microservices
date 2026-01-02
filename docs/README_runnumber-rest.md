@@ -1,9 +1,5 @@
 # Installation steps
-You need the following package (from the "CERN Only" repository) installed on the host:
-```
-oracle-instantclient12.1-devel
-oracle-instantclient-tnsnames.ora
-```
+This uses sqlalchemy to abstract away oracle vs postgresql.
 
 Then, create the virtual environment:
 ```

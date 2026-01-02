@@ -12,17 +12,13 @@ First, we need to make the secrets. Create a yaml file `ers-secret.yaml` contain
 apiVersion: v1
 kind: Secret
 metadata:
-  name: ers-secret
-  namespace: monitoring
+  name: ers-postgresql-svcbind-custom-user
+  namespace: ers
 type: Opaque
 data:
-  ERS_DBWRITER_HOST:
-  ERS_DBWRITER_PORT:
-  ERS_DBWRITER_USER:
-  ERS_DBWRITER_PASS:
-  ERS_DBWRITER_NAME:
+  ERS_DBWRITER_DB_URI
 ```
-where after each of the env variables (`ERS_DBWRITER_XXXX`) the secret goes in base64 form (can be obtained by doing `echo -n "secret" | base64`). To add the secrets run 
+where after each of the env variables (`ERS_DBWRITER_XXXX`) the secret goes in base64 form (can be obtained by doing `echo -n "secret" | base64`). To add the secrets run
 ```
 kubectl apply -f ers-secret.yaml
 ```
@@ -46,7 +42,6 @@ The script can also be run locally which can be useful to debug or start up quic
 ```
 python3 dbwriter.py
 ```
-Passing the appropriate variables. 
+Passing the appropriate variables.
 As this script requires ers and erskafak, it has to be launched by a developing envirnoment.
 It can run at the same time locally and in kubernetes.
-

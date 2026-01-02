@@ -1,9 +1,5 @@
 # Installation steps
-For Oracle, you need the following packages installed on the host.
-
-```
-oracle-instantclient12.1-devel
-```
+This uses sqlalchemy to abstract away oracle vs postgresql.
 
 Then, create the virtual environment:
 ```
