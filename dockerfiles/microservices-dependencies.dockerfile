@@ -19,7 +19,7 @@ RUN mkdir -p ${APP_ROOT} ${APP_DATA} ${VENV_PATH}
 WORKDIR ${APP_ROOT}
 
 RUN yum clean expire-cache \
-    && yum -y install gcc make git libpq-devel libffi-devel python3-pip python3-wheel krb5-devel python3-devel \
+    && yum -y install gcc make git libpq-devel libffi-devel python3-pip python3-pip-wheel krb5-devel python3-devel \
     && yum clean all
 
 # setup venv
