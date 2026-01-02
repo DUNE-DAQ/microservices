@@ -8,7 +8,6 @@ gevent==22.10.2
 protobuf==4.24.3
 influxdb==5.3.1
 kafka-python==2.0.2
-sh==2.0.7
 sqlalchemy==2.0.20
 
 # sql alchemy databases we use

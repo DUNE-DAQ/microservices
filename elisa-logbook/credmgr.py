@@ -5,8 +5,6 @@ import sys
 from getpass import getpass
 from pathlib import Path
 
-import sh
-
 
 def which(program):
     # https://stackoverflow.com/a/377028
@@ -147,18 +145,21 @@ class ServiceAccountWithKerberos:
         self.realm = realm
 
     def generate_cern_sso_cookie(self, website, kerberos_directory, output_directory):
-        env = {"KRB5CCNAME": f"DIR:{kerberos_directory}"}
-
-        executable = sh.Command("auth-get-sso-cookie")
+        env = os.environ.copy()
+        env["KRB5CCNAME"] = f"DIR:{kerberos_directory}"
 
         try:
-            executable(
-                "-u", website, "-o", output_directory, _env=env, _new_session=False
+            proc = subprocess.run(
+                ["auth-get-sso-cookie", "-u", website, "-o", output_directory],
+                env=env,
+                check=True,
+                capture_output=True,
+                text=True,
             )
-        except sh.ErrorReturnCode as error:
+        except subprocess.CalledProcessError as error:
             self.log.error(error)
             raise RuntimeError(
-                f"Couldn't get SSO cookie! {error.stdout=} {error.stderr=}"
+                f"Couldn't get SSO cookie! stdout={error.stdout!r} stderr={error.stderr!r}"
             ) from error
 
         return output_directory
