@@ -1,4 +1,4 @@
-# @file dbwriter.py Writing ERS schemas info to PostgreSQL database
+# @file dbwriter.py Writing ERS schemas info to database using SQLAlchemy
 #  This is part of the DUNE DAQ software, copyright 2020.
 #  Licensing/copyright details are in the COPYING file that you should have
 #  received with this code.
@@ -11,9 +11,20 @@ from functools import partial
 import click
 import erskafka.ERSSubscriber as erssub
 import google.protobuf.json_format as pb_json
-import psycopg2
+from sqlalchemy import (
+    BigInteger,
+    Column,
+    Integer,
+    MetaData,
+    Table,
+    Text,
+    create_engine,
+    inspect,
+)
+from sqlalchemy.exc import SQLAlchemyError
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
+METADATA = MetaData()
 
 
 @click.command(context_settings=CONTEXT_SETTINGS)
@@ -36,45 +47,23 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
     help="timeout in ms used in the ERSSubscriber",
 )
 @click.option(
-    "--db-address",
+    "--db-uri",
     required=True,
     type=click.STRING,
-    help="address of the PostgreSQL db",
-)
-@click.option(
-    "--db-port", required=True, type=click.STRING, help="port of the PostgreSQL db"
-)
-@click.option(
-    "--db-user",
-    required=True,
-    type=click.STRING,
-    help="user for login to the PostgreSQL db",
-)
-@click.option(
-    "--db-password",
-    required=True,
-    type=click.STRING,
-    help="password for login to the PostgreSQL db",
-)
-@click.option(
-    "--db-name", required=True, type=click.STRING, help="name of the PostgreSQL db"
+    help="SQLAlchemy database URL (e.g., postgresql://user:pass@host:port/dbname)",
 )
 @click.option(
     "--db-table",
     required=True,
     type=click.STRING,
-    help="name of table used in the PostgreSQL db",
+    help="name of table used in the database",
 )
 @click.option("--debug", type=click.BOOL, default=True, help="Set debug print levels")
 def cli(
     subscriber_bootstrap,
     subscriber_group,
     subscriber_timeout,
-    db_address,
-    db_port,
-    db_user,
-    db_password,
-    db_name,
+    db_uri,
     db_table,
     debug,
 ):
@@ -86,34 +75,26 @@ def cli(
     )
 
     try:
-        con = psycopg2.connect(
-            host=db_address,
-            port=db_port,
-            user=db_user,
-            password=db_password,
-            dbname=db_name,
-        )
+        engine = create_engine(db_uri)
+        connection = engine.connect()
     except Exception as e:
         logging.error(e)
         logging.fatal("Connection to the database failed, aborting...")
         exit()
 
-    global table_name
-    table_name = '"' + db_table + '"'
-
-    cur = con.cursor()
+    global table_name, issues_table
+    table_name = db_table
 
     try:  # try to make sure tables exist
-        create_database(cursor=cur, connection=con)
+        create_database(engine=engine)
     except:
-        con.rollback()
         logging.info("Database was already created")
     else:
         logging.info("Database creation: Success")
     finally:
         logging.info("Database is ready")
 
-    check_tables(cursor=cur, connection=con)
+    check_tables(engine=engine)
 
     subscriber_conf = json.loads("{}")
     subscriber_conf["bootstrap"] = subscriber_bootstrap
@@ -123,45 +104,55 @@ def cli(
 
     sub = erssub.ERSSubscriber(subscriber_conf)
 
-    callback_function = partial(process_chain, cursor=cur, connection=con)
+    callback_function = partial(process_chain, engine=engine)
 
-    sub.add_callback(name="postgres", function=callback_function)
+    sub.add_callback(name="database", function=callback_function)
 
     sub.start()
 
 
-def process_chain(chain, cursor, connection):
+def process_chain(chain, engine):
     logging.debug(chain)
 
     counter = 0
     success = False
     while not success:
         counter += 1
+        connection = engine.connect()
+        trans = connection.begin()
         try:
             for cause in reversed(chain.causes):
-                process_issue(issue=cause, session=chain.session, cursor=cursor)
+                process_issue(issue=cause, session=chain.session, connection=connection)
 
-            process_issue(issue=chain.final, session=chain.session, cursor=cursor)
-            connection.commit()
-        except psycopg2.errors.UndefinedTable as e:
-            logging.error(e)
-            logging.error(
-                "Table was undefined yet it was supposed to be defined at this point"
+            process_issue(
+                issue=chain.final, session=chain.session, connection=connection
             )
-            connection.rollback()
-            create_database(cursor=cursor, connection=connection)
-        except psycopg2.errors.UndefinedColumn as e:
-            logging.warning(e)
-            connection.rollback()
-            clean_database(cursor=cursor, connection=connection)
-            create_database(cursor=cursor, connection=connection)
+            trans.commit()
+        except SQLAlchemyError as e:
+            logging.error(e)
+            trans.rollback()
+            if "no such table" in str(e).lower() or "doesn't exist" in str(e).lower():
+                logging.error(
+                    "Table was undefined yet it was supposed to be defined at this point"
+                )
+                create_database(engine=engine)
+            elif (
+                "no such column" in str(e).lower() or "unknown column" in str(e).lower()
+            ):
+                logging.warning("Column issue detected")
+                clean_database(engine=engine)
+                create_database(engine=engine)
+            else:
+                logging.error("Something unexpected happened")
         except Exception as e:
             logging.error("Something unexpected happened")
             logging.error(e)
-
+            trans.rollback()
         else:
             success = True
             logging.debug(f"Entry sent after {counter} attempts")
+        finally:
+            connection.close()
 
         if counter > 2:
             if not success:
@@ -170,91 +161,79 @@ def process_chain(chain, cursor, connection):
             break
 
 
-def process_issue(issue, session, cursor):
-    fields = []
-    values = []
+def process_issue(issue, session, connection):
+    values = {}
 
     ## top level info
-    add_entry("session", session, fields, values)
-    add_entry("issue_name", issue.name, fields, values)
-    add_entry("severity", issue.severity, fields, values)
-    add_entry("time", issue.time, fields, values)
+    values["session"] = str(session)
+    values["issue_name"] = str(issue.name)
+    values["severity"] = str(issue.severity)
+    values["time"] = issue.time
 
     ## context related info
-    add_entry("cwd", issue.context.cwd, fields, values)
-    add_entry("file_name", issue.context.file_name, fields, values)
-    add_entry("function_name", issue.context.function_name, fields, values)
-    add_entry("host_name", issue.context.host_name, fields, values)
-    add_entry("line_number", issue.context.line_number, fields, values)
-    add_entry("package_name", issue.context.package_name, fields, values)
+    values["cwd"] = str(issue.context.cwd)
+    values["file_name"] = str(issue.context.file_name)
+    values["function_name"] = str(issue.context.function_name)
+    values["host_name"] = str(issue.context.host_name)
+    values["line_number"] = issue.context.line_number
+    values["package_name"] = str(issue.context.package_name)
 
-    add_entry("process_id", issue.context.process_id, fields, values)
-    add_entry("thread_id", issue.context.thread_id, fields, values)
-    add_entry("user_id", issue.context.user_id, fields, values)
-    add_entry("user_name", issue.context.user_name, fields, values)
-    add_entry("application_name", issue.context.application_name, fields, values)
+    values["process_id"] = issue.context.process_id
+    values["thread_id"] = issue.context.thread_id
+    values["user_id"] = issue.context.user_id
+    values["user_name"] = str(issue.context.user_name)
+    values["application_name"] = str(issue.context.application_name)
 
     # heavy information
-    add_entry("inheritance", "/".join(issue.inheritance), fields, values)
-    add_entry("message", issue.message, fields, values)
-    add_entry("params", issue.parameters, fields, values)
+    values["inheritance"] = "/".join(issue.inheritance)
+    values["message"] = str(issue.message)
+    values["params"] = str(issue.parameters)
 
-    command = f"INSERT INTO {table_name} ({','.join(fields)}) VALUES ({('%s, ' * len(values))[:-2]});"
-
-    logging.debug(command)
-    cursor.execute(command, values)
-
-
-def add_entry(field, value, fields, values):
-    fields.append(field)
-    values.append(str(value))
+    ins = issues_table.insert().values(**values)
+    logging.debug(str(ins))
+    connection.execute(ins)
 
 
-def clean_database(cursor, connection):
-    command = f"DROP TABLE {table_name} ;"
-
-    logging.debug(command)
-    cursor.execute(command)
-    connection.commit()
+def clean_database(engine):
+    issues_table.drop(engine, checkfirst=True)
+    logging.debug(f"Dropped table {table_name}")
 
 
-def check_tables(cursor, connection):
-    command = """SELECT relname FROM pg_class WHERE relkind='r'
-                  AND relname !~ '^(pg_|sql_)';"""
-
-    logging.debug(command)
-    cursor.execute(command)
-    tables = [i[0] for i in cursor.fetchall()]  # A list() of tables.
+def check_tables(engine):
+    inspector = inspect(engine)
+    tables = inspector.get_table_names()
     logging.info(f"Tables: {tables}")
     return tables
 
 
-def create_database(cursor, connection):
-    command = f"CREATE TABLE {table_name} ("
-    command += """
-                session             TEXT, 
-                issue_name          TEXT,
-                inheritance         TEXT,
-                message             TEXT,
-                params              TEXT,
-                severity            TEXT,
-                time                BIGINT,
-                cwd                 TEXT,
-                file_name           TEXT,
-                function_name       TEXT,
-                host_name           TEXT,
-                package_name        TEXT,
-                user_name           TEXT,
-                application_name    TEXT,
-                user_id             INT,
-                process_id          INT,
-                thread_id           INT,
-                line_number         INT
-               ); """
+def create_database(engine):
+    global issues_table
 
-    logging.debug(command)
-    cursor.execute(command)
-    connection.commit()
+    issues_table = Table(
+        table_name,
+        METADATA,
+        Column("session", Text),
+        Column("issue_name", Text),
+        Column("inheritance", Text),
+        Column("message", Text),
+        Column("params", Text),
+        Column("severity", Text),
+        Column("time", BigInteger),
+        Column("cwd", Text),
+        Column("file_name", Text),
+        Column("function_name", Text),
+        Column("host_name", Text),
+        Column("package_name", Text),
+        Column("user_name", Text),
+        Column("application_name", Text),
+        Column("user_id", Integer),
+        Column("process_id", Integer),
+        Column("thread_id", Integer),
+        Column("line_number", Integer),
+    )
+
+    METADATA.create_all(engine, checkfirst=True)
+    logging.debug(f"Created table {table_name}")
 
 
 if __name__ == "__main__":
