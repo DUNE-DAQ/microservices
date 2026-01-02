@@ -1,5 +1,10 @@
 #!/bin/bash
 
+
+if [[ ! -e ./entrypoint_functions.sh ]]; then
+    echo "This script should be run from the top of the microservices repo" >&2
+    exit 2
+fi
 source ./entrypoint_functions.sh
 
 ensure_required_variables "MICROSERVICE"
