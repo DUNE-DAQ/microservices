@@ -13,7 +13,7 @@ metadata:
     pod-security.kubernetes.io/warn-version: latest
   name: elisa-logbook
 ---
-# You must still create a secret called elisa-logbook-secret with the required keys
+# You must still create the necessary secret(s) with the required keys
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -69,7 +69,7 @@ spec:
           limits:
             memory: 1Gi
           requests:
-            memory: 8Mi
+            memory: 32Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

@@ -14,8 +14,7 @@ metadata:
   name: runservices
 ---
 # You must still deploy postgresql with its manifests from upstream
-# and create a secret called runservices-postgresql-svcbind-custom-user with the required keys.
-# The ServiceBinding secret from bitnami is such a secret.
+# You must still create the necessary secret(s) with the required keys
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -63,7 +62,7 @@ spec:
           limits:
             memory: 1Gi
           requests:
-            memory: 8Mi
+            memory: 64Mi
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
         securityContext:

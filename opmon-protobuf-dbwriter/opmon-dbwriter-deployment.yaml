@@ -13,6 +13,7 @@ metadata:
     pod-security.kubernetes.io/warn-version: latest
   name: opmon
 ---
+# You must still create the necessary secret(s) with the required keys
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -30,8 +31,8 @@ spec:
     metadata:
       labels:
         app: opmon-protobuf-dbwriter
-        app.kubernetes.io/app: opmon-protobuf-dbwriter 
-        app.kubernetes.io/component: opmon-protobuf-dbwriter  
+        app.kubernetes.io/app: opmon-protobuf-dbwriter
+        app.kubernetes.io/component: opmon-protobuf-dbwriter
     spec:
       affinity:
         nodeAffinity:
@@ -44,7 +45,7 @@ spec:
       containers:
       - image: ghcr.io/dune-daq/microservices:mroda-opmon_protobuf   ## TBC
         imagePullPolicy: Always
-        name: opmon-protobuf-dbwriter 
+        name: opmon-protobuf-dbwriter
         env:
         - name: MICROSERVICE
           value: opmon-protobuf-dbwriter
@@ -53,7 +54,7 @@ spec:
         - name: OPMON_DBWRITER_INFLUX_USER
           value: user
         - name: OPMON_DBWRITER_INFLUX_PASSWORD
-          value: pass 
+          value: pass
         - name: OPMON_DBWRITER_INFLUX_HOST
           value: opmon-influxdb.opmon.svc
         - name: OPMON_DBWRITER_INFLUX_PORT
@@ -72,7 +73,7 @@ spec:
           limits:
             memory: 1Gi
           requests:
-            memory: 8Mi
+            memory: 32Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -81,5 +82,3 @@ spec:
           runAsGroup: 11000
           seccompProfile:
             type: RuntimeDefault
-      securityContext:
-        fsGroup: 11000
