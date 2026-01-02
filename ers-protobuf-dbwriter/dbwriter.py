@@ -9,7 +9,6 @@ import logging
 from functools import partial
 
 import click
-import ers.issue_pb2 as ersissue
 import erskafka.ERSSubscriber as erssub
 import google.protobuf.json_format as pb_json
 import psycopg2

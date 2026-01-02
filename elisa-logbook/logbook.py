@@ -4,12 +4,9 @@ __version__ = "1.1.0"
 __maintainer__ = "Jonathan Hancock"
 __email__ = "jonathan.hancock@cern.ch"
 
-import argparse
 import json
 import os
-import re
 import traceback
-from urllib import response
 
 from authentication import auth
 from credmgr import CERNSessionHandler, credentials
@@ -170,7 +167,7 @@ def new_message():
             author=request.json["author"],
             systems=sys_list,
         )
-    except Exception as e:
+    except Exception:
 
         traceback.print_exc()
         stack = traceback.format_exc().split("\n")
@@ -216,7 +213,7 @@ def reply_to_message():
             systems=sys_list,
             id=request.json["id"],
         )
-    except Exception as e:
+    except Exception:
 
         traceback.print_exc()
         stack = traceback.format_exc().split("\n")

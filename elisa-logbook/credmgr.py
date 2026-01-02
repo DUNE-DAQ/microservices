@@ -2,7 +2,6 @@ import logging
 import os
 import subprocess
 import sys
-import tempfile
 from getpass import getpass
 from pathlib import Path
 
@@ -53,9 +52,7 @@ def new_kerberos_ticket(
         )
 
         if p.poll() is not None and p.returncode != 0:
-            raise RuntimeError(
-                f"Could not execute kinit {user}@{realm}\n{stdout_data[-1].decode()}"
-            )
+            raise RuntimeError(f"Could not execute kinit {user}@{realm}")
 
         if password is None:
             print(f"Password for {user}@{realm}:")
@@ -124,7 +121,7 @@ def check_kerberos_credentials(against_user: str, silent=False, ticket_dir: str 
         if kerb_user:
             log.info(f"Detected kerberos ticket for user: '{kerb_user}'")
         else:
-            log.info(f"No kerberos ticket found")
+            log.info("No kerberos ticket found")
 
     if not kerb_user:
         if not silent:
@@ -155,14 +152,14 @@ class ServiceAccountWithKerberos:
         executable = sh.Command("auth-get-sso-cookie")
 
         try:
-            proc = executable(
+            executable(
                 "-u", website, "-o", output_directory, _env=env, _new_session=False
             )
         except sh.ErrorReturnCode as error:
             self.log.error(error)
             raise RuntimeError(
                 f"Couldn't get SSO cookie! {error.stdout=} {error.stderr=}"
-            ) from e
+            ) from error
 
         return output_directory
 
@@ -187,17 +184,17 @@ class CredentialManager:
         self.add_login(service, i.user, i.password)
         self.log.info(f"Added login data from file: {file}")
 
-    def get_login(self, service: str, user: str):
+    def get_login(self, service: str, user: str | None = None):
         for auth in self.authentications:
-            if service == auth.service and user == auth.user:
+            if auth.service != service:
+                continue
+            if user is None or auth.user == user:
                 return auth
-        self.log.error(f"Couldn't find login for service: {service}, user: {user}")
 
-    def get_login(self, service: str):
-        for auth in self.authentications:
-            if service == auth.service:
-                return auth
-        self.log.error(f"Couldn't find login for service: {service}")
+        if user:
+            self.log.error(f"Couldn't find login for service: {service}, user: {user}")
+        else:
+            self.log.error(f"Couldn't find login for service: {service}")
 
     def rm_login(self, service: str, user: str):
         for auth in self.authentications:
@@ -206,7 +203,6 @@ class CredentialManager:
                 return
 
     def new_kerberos_ticket(self):
-        success = False
         for a in self.authentications:
             if a.user == self.user:
                 password = a.password
@@ -220,7 +216,6 @@ class CredentialManager:
         )
         stdout_data = p.communicate(password.encode())
         print(stdout_data[-1].decode())
-        success = p.returncode == 0
         return True
 
 

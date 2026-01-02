@@ -4,18 +4,15 @@
 #  received with this code.
 #
 
-import json
 import logging
 import queue
 import threading
 from functools import partial
 
 import click
-import google.protobuf.json_format as pb_json
 import influxdb
 import kafkaopmon.OpMonSubscriber as opmon_sub
 import opmonlib.opmon_entry_pb2 as opmon_schema
-from google.protobuf.timestamp_pb2 import Timestamp
 from influxdb import InfluxDBClient
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
