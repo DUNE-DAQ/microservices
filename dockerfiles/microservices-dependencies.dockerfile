@@ -8,40 +8,40 @@ ARG KAFKAOPMONVERSION=v2.0.0  # For OpMonSubscriber.py from kafkaopmon
 ARG LOCALPYDIR=/microservices_python
 
 RUN yum clean all \
-  && yum -y install gcc make git unzip libpq-devel libffi-devel python3-pip python3-wheel krb5-devel python3-devel \
-  && yum clean all
+    && yum -y install gcc make git unzip libpq-devel libffi-devel python3-pip python3-wheel krb5-devel python3-devel \
+    && yum clean all
 
 # Can drop when migration to sqlalchemy is complete since we're using the thin client there
-RUN curl -O https://download.oracle.com/otn_software/linux/instantclient/1919000/oracle-instantclient19.19-basic-19.19.0.0.0-1.el9.x86_64.rpm && \
-  yum -y install libaio libnsl && \
-  rpm -iv oracle-instantclient19.19-basic-19.19.0.0.0-1.el9.x86_64.rpm
+RUN curl -O https://download.oracle.com/otn_software/linux/instantclient/1919000/oracle-instantclient19.19-basic-19.19.0.0.0-1.el9.x86_64.rpm \
+    && yum -y install libaio libnsl \
+    && rpm -iv oracle-instantclient19.19-basic-19.19.0.0.0-1.el9.x86_64.rpm
 
 COPY requirements.txt /
-RUN python3 -m pip install --upgrade setuptools && \
-  python3 -m pip install -r requirements.txt && \
-  python3 -m pip cache remove \*
+RUN python3 -m pip install --upgrade setuptools \
+    && python3 -m pip install -r requirements.txt \
+    && python3 -m pip cache remove \*
 
 # elisa_client_api needed by the logbook microservice
-RUN git clone https://github.com/DUNE-DAQ/elisa_client_api.git && \
-    python3 -m pip install --upgrade setuptools && \
-    python3 -m pip install ./elisa_client_api 
+RUN git clone https://github.com/DUNE-DAQ/elisa_client_api.git \
+    && python3 -m pip install --upgrade setuptools \
+    && python3 -m pip install ./elisa_client_api
 
 # protoc-24.3-linux-x86_64.zip is the latest zipfile available as of Sep-15-2023
 # See also https://grpc.io/docs/protoc-installation/#install-pre-compiled-binaries-any-os
 
-RUN curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v24.3/protoc-24.3-linux-x86_64.zip && \
-  unzip protoc-24.3-linux-x86_64.zip && \
-  curl -O https://raw.githubusercontent.com/DUNE-DAQ/ers/$ERSVERSION/schema/ers/issue.proto && \
-  mkdir -p $LOCALPYDIR/ers && \
-  protoc --python_out=$LOCALPYDIR/ers issue.proto && \
-  curl -O https://raw.githubusercontent.com/DUNE-DAQ/opmonlib/$OPMONLIBVERSION/schema/opmonlib/opmon_entry.proto && \
-  mkdir -p $LOCALPYDIR/opmonlib && \
-  protoc --python_out=$LOCALPYDIR/opmonlib  -I/  -I/include opmon_entry.proto 
+RUN curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v24.3/protoc-24.3-linux-x86_64.zip \
+    && unzip protoc-24.3-linux-x86_64.zip \
+    && curl -O https://raw.githubusercontent.com/DUNE-DAQ/ers/$ERSVERSION/schema/ers/issue.proto \
+    && mkdir -p $LOCALPYDIR/ers \
+    && protoc --python_out=$LOCALPYDIR/ers issue.proto \
+    && curl -O https://raw.githubusercontent.com/DUNE-DAQ/opmonlib/$OPMONLIBVERSION/schema/opmonlib/opmon_entry.proto \
+    && mkdir -p $LOCALPYDIR/opmonlib \
+    && protoc --python_out=$LOCALPYDIR/opmonlib -I/ -I/include opmon_entry.proto
 
-RUN mkdir -p $LOCALPYDIR/erskafka && \
-    curl https://raw.githubusercontent.com/DUNE-DAQ/erskafka/$ERSKAFKAVERSION/python/erskafka/ERSSubscriber.py -o $LOCALPYDIR/erskafka/ERSSubscriber.py && \
-    mkdir -p $LOCALPYDIR/kafkaopmon && \
-    curl https://raw.githubusercontent.com/DUNE-DAQ/kafkaopmon/$KAFKAOPMONVERSION/python/kafkaopmon/OpMonSubscriber.py -o $LOCALPYDIR/kafkaopmon/OpMonSubscriber.py 
+RUN mkdir -p $LOCALPYDIR/erskafka \
+    && curl https://raw.githubusercontent.com/DUNE-DAQ/erskafka/$ERSKAFKAVERSION/python/erskafka/ERSSubscriber.py -o $LOCALPYDIR/erskafka/ERSSubscriber.py \
+    && mkdir -p $LOCALPYDIR/kafkaopmon \
+    && curl https://raw.githubusercontent.com/DUNE-DAQ/kafkaopmon/$KAFKAOPMONVERSION/python/kafkaopmon/OpMonSubscriber.py -o $LOCALPYDIR/kafkaopmon/OpMonSubscriber.py
 
 ENV PYTHONPATH=$LOCALPYDIR:$PYTHONPATH
 
