@@ -22,7 +22,7 @@ WORKDIR ${APP_ROOT}
 # Install required devel bits
 RUN yum clean expire-cache \
     && yum -y install git python3-pip python3-pip-wheel \
-    && yum -y install make gcc python3-devel krb5-devel libffi-devel libpq-devel \
+    && yum -y install make gcc python3-devel krb5-devel libffi-devel libpq-devel postgresql \
     && yum clean all
 
 # setup venv
