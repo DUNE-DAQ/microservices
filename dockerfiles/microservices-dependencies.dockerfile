@@ -8,7 +8,7 @@ ARG KAFKAOPMONVERSION=v2.0.0  # For OpMonSubscriber.py from kafkaopmon
 ARG LOCALPYDIR=/microservices_python
 
 RUN yum clean expire-cache \
-    && yum -y install gcc make git unzip libpq-devel libffi-devel python3-pip python3-wheel krb5-devel python3-devel \
+    && yum -y install gcc make git libpq-devel libffi-devel python3-pip python3-wheel krb5-devel python3-devel \
     && yum clean all
 
 COPY cern.repo /etc/yum.repos.d/
@@ -29,7 +29,10 @@ RUN git clone https://github.com/DUNE-DAQ/elisa_client_api.git \
 # protoc-24.3-linux-x86_64.zip is the latest zipfile available as of Sep-15-2023
 # See also https://grpc.io/docs/protoc-installation/#install-pre-compiled-binaries-any-os
 
-RUN curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v24.3/protoc-24.3-linux-x86_64.zip \
+RUN yum clean expire-cache \
+    && yum -y install unzip \
+    && yum clean all \
+    curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v24.3/protoc-24.3-linux-x86_64.zip \
     && unzip protoc-24.3-linux-x86_64.zip \
     && curl -O https://raw.githubusercontent.com/DUNE-DAQ/ers/$ERSVERSION/schema/ers/issue.proto \
     && mkdir -p $LOCALPYDIR/ers \
