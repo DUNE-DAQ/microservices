@@ -60,9 +60,12 @@ class ElisaLogbook:
             self.log.info(f"ELisA logbook: Sent message (ID{answer.id})")
             return answer.id
 
-    def reply(self, body: str, command: str, author: str, systems: [str], id: int):
+    def reply(
+        self, body: str, command: str, author: str, systems: [str], message_id: int
+    ):
         elisa_arg = copy.deepcopy(self.elisa_arguments)
-        credentials.get_login("elisa")
+        if not credentials.get_login("elisa"):
+            raise RuntimeError("ELisA credentials not configured")
 
         with tempfile.NamedTemporaryFile() as tf:
             try:
@@ -74,8 +77,8 @@ class ElisaLogbook:
                 elisa_arg.update(sso)
                 elisa_inst = Elisa(**elisa_arg)
                 answer = None
-                self.log.info(f"ELisA logbook: Answering to message ID{id}")
-                message = MessageReply(id)
+                self.log.info(f"ELisA logbook: Answering to message ID{message_id}")
+                message = MessageReply(message_id)
                 message.author = author
                 message.systemsAffected = systems
                 for attr_name, attr_data in self.message_attributes[command].items():
@@ -90,6 +93,6 @@ class ElisaLogbook:
                 raise ex
 
             self.log.info(
-                f"ELisA logbook: Sent message (ID{answer.id}), replying to ID{id}"
+                f"ELisA logbook: Sent message (ID{answer.id}), replying to ID{message_id}"
             )
             return answer.id
