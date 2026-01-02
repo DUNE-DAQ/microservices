@@ -1,4 +1,4 @@
-FROM cern/alma9-base
+FROM docker.io/almalinux:9
 
 ARG ERSVERSION=v1.5.2  # For issue.proto from ers
 ARG ERSKAFKAVERSION=v1.5.4  # For ERSSubscriber.py from erskafka
@@ -7,14 +7,14 @@ ARG KAFKAOPMONVERSION=v2.0.0  # For OpMonSubscriber.py from kafkaopmon
 
 ARG LOCALPYDIR=/microservices_python
 
-RUN yum clean all \
+RUN yum clean expire-cache \
     && yum -y install gcc make git unzip libpq-devel libffi-devel python3-pip python3-wheel krb5-devel python3-devel \
     && yum clean all
 
-# Can drop when migration to sqlalchemy is complete since we're using the thin client there
-RUN curl -O https://download.oracle.com/otn_software/linux/instantclient/1919000/oracle-instantclient19.19-basic-19.19.0.0.0-1.el9.x86_64.rpm \
-    && yum -y install libaio libnsl \
-    && rpm -iv oracle-instantclient19.19-basic-19.19.0.0.0-1.el9.x86_64.rpm
+COPY cern.repo /etc/yum.repos.d/
+RUN yum clean expire-cache \
+    && yum -y install cern-krb5-conf \
+    && yum clean all
 
 COPY requirements.txt /
 RUN python3 -m pip install --upgrade setuptools \
