@@ -14,13 +14,11 @@ def which(program):
     fpath, fname = os.path.split(program)
     if fpath:
         if is_exe(program):
-            print("Found1", program)
             return program
     else:
         for path in os.environ.get("PATH", "").split(os.pathsep):
             exe_file = os.path.join(path, program)
             if is_exe(exe_file):
-                print("Found2", program)
                 return exe_file
 
     return None
