@@ -21,9 +21,13 @@ from sqlalchemy import (
     create_engine,
     inspect,
 )
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import (
+    OperationalError,
+    SQLAlchemyError,
+)
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
+MAX_RETRIES = 3
 
 
 @click.command(context_settings=CONTEXT_SETTINGS)
@@ -102,15 +106,21 @@ def cli(
 
 
 def process_chain(chain, engine, issues_table):
+    """Process a chain of issues and persist to database with retry logic"""
     logging.debug(chain)
 
-    counter = 0
-    success = False
-    while not success:
-        counter += 1
+    # Proactively ensure table exists
+    inspector = inspect(engine)
+    if issues_table.name not in inspector.get_table_names():
+        logging.warning(f"Table {issues_table.name} doesn't exist, creating it")
+        create_database_table(issues_table.metadata, issues_table.name, engine)
+
+    for attempt in range(1, MAX_RETRIES + 1):
         connection = engine.connect()
         trans = connection.begin()
+
         try:
+            # Process all causes in reverse order
             for cause in reversed(chain.causes):
                 process_issue(
                     issue=cause,
@@ -119,44 +129,57 @@ def process_chain(chain, engine, issues_table):
                     issues_table=issues_table,
                 )
 
+            # Process final issue
             process_issue(
                 issue=chain.final,
                 session=chain.session,
                 connection=connection,
                 issues_table=issues_table,
             )
+
             trans.commit()
-        except SQLAlchemyError as e:
-            logging.error(e)
+            logging.debug(f"Entry sent successfully after {attempt} attempt(s)")
+            return True
+
+        except OperationalError:
+            logging.exception(f"Operational error on attempt {attempt}")
             trans.rollback()
-            if "no such table" in str(e).lower() or "doesn't exist" in str(e).lower():
-                logging.error(
-                    "Table was undefined yet it was supposed to be defined at this point"
-                )
+
+            # Check if table is missing
+            inspector = inspect(engine)
+            if issues_table.name not in inspector.get_table_names():
+                logging.warning("Table missing, recreating")
                 create_database_table(issues_table.metadata, issues_table.name, engine)
-            elif (
-                "no such column" in str(e).lower() or "unknown column" in str(e).lower()
-            ):
-                logging.warning("Column issue detected")
-                clean_database(issues_table, engine)
-                create_database_table(issues_table.metadata, issues_table.name, engine)
-            else:
-                logging.error("Something unexpected happened")
-        except Exception as e:
-            logging.error("Something unexpected happened")
-            logging.error(e)
+                continue
+
+            # Handle schema mismatch - recreate table
+            logging.warning("Possible schema issue detected, recreating table")
+            clean_database(issues_table, engine)
+            create_database_table(issues_table.metadata, issues_table.name, engine)
+
+        except SQLAlchemyError:
+            logging.exception(f"SQLAlchemy error on attempt {attempt}")
             trans.rollback()
-        else:
-            success = True
-            logging.debug(f"Entry sent after {counter} attempts")
+
+            if attempt >= MAX_RETRIES:
+                logging.error("Max retries reached, operation failed")
+                raise
+
+        except Exception:
+            logging.exception(f"Unexpected error on attempt {attempt}")
+            trans.rollback()
+
+            if attempt >= MAX_RETRIES:
+                logging.error("Max retries reached due to unexpected error")
+                raise
+
         finally:
             connection.close()
 
-        if counter > 2:
-            if not success:
-                logging.error("Issue failed to be delivered")
-                logging.error(pb_json.MessageToJson(chain))
-            break
+    # If we get here, all retries failed
+    logging.error("Failed to deliver issue after all retry attempts")
+    logging.error(pb_json.MessageToJson(chain))
+    return False
 
 
 def process_issue(issue, session, connection, issues_table):
