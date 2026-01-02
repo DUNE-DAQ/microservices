@@ -28,7 +28,8 @@ class ElisaLogbook:
         self, subject: str, body: str, command: str, author: str, systems: [str]
     ):
         elisa_arg = copy.deepcopy(self.elisa_arguments)
-        credentials.get_login("elisa")
+        if not credentials.get_login("elisa"):
+            raise RuntimeError("ELisA credentials not configured")
 
         with tempfile.NamedTemporaryFile() as tf:
             try:
