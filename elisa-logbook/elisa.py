@@ -61,7 +61,7 @@ class ElisaLogbook:
             return answer.id
 
     def reply(
-        self, body: str, command: str, author: str, systems: [str], message_id: int
+        self, body: str, command: str, author: str, systems: list[str], message_id: int
     ):
         elisa_arg = copy.deepcopy(self.elisa_arguments)
         if not credentials.get_login("elisa"):
