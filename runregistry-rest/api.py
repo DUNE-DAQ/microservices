@@ -30,7 +30,7 @@ app = flask.Flask(__name__)
 app.config.update(
     MAX_CONTENT_LENGTH=32 * 1000 * 1000,
     UPLOAD_EXTENSIONS={".gz", ".tgz"},
-    UPLOAD_PATH="",
+    UPLOAD_PATH=os.environ.get("APP_DATA", "uploads"),
     CACHE_TYPE="simple",
     SQLALCHEMY_DATABASE_URI=os.environ.get(
         "DATABASE_URI", "sqlite:////tmp/test.sqlite"
@@ -54,6 +54,12 @@ from database import RunRegistryConfigs, RunRegistryMeta
 
 PARSED_URI = urlparse(app.config["SQLALCHEMY_DATABASE_URI"])
 DB_TYPE = PARSED_URI.scheme
+
+os.makedirs(app.config["UPLOAD_PATH"], exist_ok=True)
+if not os.access(app.config["UPLOAD_PATH"], os.W_OK):
+    raise PermissionError(
+        f"Error: Permission denied to access the file at {app.config['UPLOAD_PATH']}"
+    )
 
 
 def cache_key():

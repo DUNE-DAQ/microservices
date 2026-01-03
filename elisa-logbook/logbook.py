@@ -32,19 +32,28 @@ for key in keylist:
     hardware_string += key
 
 # We use environment variables to pass data
-user_var = (os.getenv("USERNAME")).rstrip("\n")
-pass_var = (os.getenv("PASSWORD")).rstrip("\n")
-hard_var = (os.getenv("HARDWARE")).rstrip("\n")
-app.config["USER"] = user_var
-app.config["PASSWORD"] = pass_var
-app.config["PATH"] = "./logfiles/"
+def get_required_env(name: str) -> str:
+    value = os.getenv(name)
+    if value is None:
+        raise RuntimeError(f"Required environment variable {name} is not set")
+    return value.rstrip("\n")
+
+
+hard_var = get_required_env("HARDWARE")
+app.config["PATH"] = os.getenv("APP_DATA", "./logfiles").rstrip("\n")
+app.config["USER"] = get_required_env("USERNAME")
+app.config["PASSWORD"] = get_required_env("PASSWORD")
+
 try:
-    app.config["HARDWARECONF"] = elisaconf[
-        hard_var
-    ]  # A dictionary containing all the hardware-dependant configs
-except:
-    bad_string = hard_var + " is not a valid choice!"
-    raise Exception(bad_string + hardware_string)
+    app.config["HARDWARECONF"] = elisaconf[hard_var]
+except KeyError as exc:
+    raise KeyError(f"{hard_var} is not a valid choice!{hardware_string}") from exc
+
+os.makedirs(app.config["PATH"], exist_ok=True)
+if not os.access(app.config["PATH"], os.W_OK):
+    raise PermissionError(
+        f"Error: Permission denied to access the file at {app.config['PATH']}"
+    )
 
 credentials.add_login("elisa", app.config["USER"], app.config["PASSWORD"], "CERN.CH")
 cern_auth = CERNSessionHandler(username=app.config["USER"])
