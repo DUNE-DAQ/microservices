@@ -1,4 +1,4 @@
-FROM docker.io/almalinux:9
+FROM docker.io/almalinux:10
 
 ARG ERSVERSION=v1.5.2  # For issue.proto from ers
 ARG ERSKAFKAVERSION=v1.5.4  # For ERSSubscriber.py from erskafka
@@ -22,38 +22,41 @@ WORKDIR ${APP_ROOT}
 # Install required devel bits
 RUN yum clean expire-cache \
     && yum -y install git python3-pip python3-pip-wheel \
-    && yum -y install make gcc python3-devel krb5-devel libffi-devel libpq-devel postgresql \
+    && yum -y install make gcc python3-devel protobuf-compiler protobuf-devel krb5-devel libffi-devel libpq-devel postgresql \
     && yum clean all
 
 # setup venv
-RUN python3 -m venv ${VENV_PATH}
+RUN python3 -m venv ${VENV_PATH} \
+    && ${VENV_PATH}/bin/pip install --no-cache-dir --upgrade pip \
+    && rm -rf /root/.cache ${HOME}/.cache ${VENV_PATH}/pip-selfcheck.json
 
 COPY requirements.txt ${VENV_PATH}/
 RUN ${VENV_PATH}/bin/pip install --no-cache-dir -r ${VENV_PATH}/requirements.txt \
     && rm -rf /root/.cache ${HOME}/.cache ${VENV_PATH}/pip-selfcheck.json ${VENV_PATH}/requirements.txt
 
-# protoc-24.3-linux-x86_64.zip is the latest zipfile available as of Sep-15-2023
-# See also https://grpc.io/docs/protoc-installation/#install-pre-compiled-binaries-any-os
 # setup protobuf schemas
-RUN curl -fSL -O https://github.com/protocolbuffers/protobuf/releases/download/v24.3/protoc-24.3-linux-x86_64.zip \
-    && yum -y install unzip \
-    && unzip protoc-24.3-linux-x86_64.zip \
-    && echo "Installing https://raw.githubusercontent.com/DUNE-DAQ/ers/${ERSVERSION}/schema/ers/issue.proto" \
+RUN echo "Installing https://raw.githubusercontent.com/DUNE-DAQ/ers/${ERSVERSION}/schema/ers/issue.proto" \
     && curl -fSL -O https://raw.githubusercontent.com/DUNE-DAQ/ers/$ERSVERSION/schema/ers/issue.proto \
-    && mkdir -p $LOCALPYDIR/ers \
-    && ./bin/protoc --python_out=$LOCALPYDIR/ers issue.proto \
+    && mkdir -p ${VENV_PATH}/ers \
+    && touch ${VENV_PATH}/ers/__init__.py \
+    && protoc --python_out=${VENV_PATH}/ers issue.proto \
+    && rm -f issue.proto \
     && echo "Installing https://raw.githubusercontent.com/DUNE-DAQ/opmonlib/${OPMONLIBVERSION}/schema/opmonlib/opmon_entry.proto" \
     && curl -fSL -O https://raw.githubusercontent.com/DUNE-DAQ/opmonlib/$OPMONLIBVERSION/schema/opmonlib/opmon_entry.proto \
-    && mkdir -p $LOCALPYDIR/opmonlib \
-    && ./bin/protoc --python_out=$LOCALPYDIR/opmonlib -I${APP_ROOT} -I/include opmon_entry.proto
+    && mkdir -p ${VENV_PATH}/opmonlib \
+    && touch ${VENV_PATH}/opmonlib/__init__.py \
+    && protoc --python_out=${VENV_PATH}/opmonlib -I${APP_ROOT} opmon_entry.proto \
+    && rm -f opmon_entry.proto
 
 # fetch ERS python bindings
-RUN mkdir -p $LOCALPYDIR/erskafka \
+RUN mkdir -p ${VENV_PATH}/erskafka \
+    && touch ${VENV_PATH}/erskafka/__init__.py \
     && echo "Installing https://raw.githubusercontent.com/DUNE-DAQ/erskafka/$ERSKAFKAVERSION/python/erskafka/ERSSubscriber.py" \
-    && curl -fSL https://raw.githubusercontent.com/DUNE-DAQ/erskafka/$ERSKAFKAVERSION/python/erskafka/ERSSubscriber.py -o $LOCALPYDIR/erskafka/ERSSubscriber.py \
-    && mkdir -p $LOCALPYDIR/kafkaopmon \
+    && curl -fSL https://raw.githubusercontent.com/DUNE-DAQ/erskafka/$ERSKAFKAVERSION/python/erskafka/ERSSubscriber.py -o ${VENV_PATH}/erskafka/ERSSubscriber.py \
+    && mkdir -p ${VENV_PATH}/kafkaopmon \
+    && touch ${VENV_PATH}/kafkaopmon/__init__.py \
     && echo "Installing https://raw.githubusercontent.com/DUNE-DAQ/kafkaopmon/${KAFKAOPMONVERSION}/python/kafkaopmon/OpMonSubscriber.py" \
-    && curl -fSL https://raw.githubusercontent.com/DUNE-DAQ/kafkaopmon/$KAFKAOPMONVERSION/python/kafkaopmon/OpMonSubscriber.py -o $LOCALPYDIR/kafkaopmon/OpMonSubscriber.py
+    && curl -fSL https://raw.githubusercontent.com/DUNE-DAQ/kafkaopmon/$KAFKAOPMONVERSION/python/kafkaopmon/OpMonSubscriber.py -o ${VENV_PATH}/kafkaopmon/OpMonSubscriber.py
 
 # elisa_client_api and CERN kerberos needed by the logbook microservice at NP04
 COPY cern.repo /etc/yum.repos.d/
