@@ -62,6 +62,8 @@ spec:
                 secretKeyRef:
                   key: password
                   name: elisa-logbook-secret
+            - name: APP_DATA
+              value: /opt/data
           resources:
             limits:
               memory: 1Gi
@@ -75,5 +77,10 @@ spec:
             runAsGroup: 11000
             seccompProfile:
               type: RuntimeDefault
-      securityContext:
-        fsGroup: 11000
+        volumeMounts:
+        - mountPath: /opt/data
+          name: data-volume
+      volumes: # persistance is not required at this time
+      - name: data-volume
+        emptyDir:
+          sizeLimit: 10Gi
