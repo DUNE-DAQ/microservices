@@ -49,7 +49,6 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
     default=["opmon_stream"],
     help='The system will add the "monitoring." prefix',
 )
-
 # influx options
 @click.option(
     "--influxdb-address",
@@ -105,7 +104,6 @@ def cli(
     influxdb_password,
     debug,
 ):
-
     logging.basicConfig(
         format="%(asctime)s %(levelname)-8s %(message)s",
         level=logging.DEBUG if debug else logging.INFO,
@@ -121,7 +119,7 @@ def cli(
     db_list = influx.get_list_database()
     logging.info("Available DBs: %s", db_list)
     if {"name": influxdb_name} not in db_list:
-        logging.warning("%s DB not available", influxdb_name )
+        logging.warning("%s DB not available", influxdb_name)
         if influxdb_create:
             influx.create_database(influxdb_name)
             logging.info("New list of DBs: %s", influx.get_list_database())

@@ -9,14 +9,16 @@ import psycopg2
 import json
 import os
 
+
 def clean_database(cursor, connection):
-    cursor.execute('''
+    cursor.execute("""
                 DROP TABLE public."ErrorReports";
-                ''')
+                """)
     connection.commit()
 
+
 def create_database(cursor, connection):
-    cursor.execute('''
+    cursor.execute("""
                 CREATE TABLE public."ErrorReports" (
                 partition           TEXT,
                 issue_name          TEXT,
@@ -39,41 +41,59 @@ def create_database(cursor, connection):
                 line_number         INT,
                 chain               TEXT
                );
-               '''
-                )
+               """)
     connection.commit()
 
-def main():
-    host = os.environ['ERS_DBWRITER_HOST']
-    port = os.environ['ERS_DBWRITER_PORT']
-    user = os.environ['ERS_DBWRITER_USER']
-    password = os.environ['ERS_DBWRITER_PASS']
-    dbname = os.environ['ERS_DBWRITER_NAME']
-    kafka_bootstrap = os.environ.get('ERS_DBWRITER_KAFKA_BOOTSTRAP_SERVER', 'monkafka.cern.ch:30092')
 
-    consumer = KafkaConsumer('erskafka-reporting',
-                            bootstrap_servers=kafka_bootstrap,
-                            group_id='ers-dbwriter')
+def main():
+    host = os.environ["ERS_DBWRITER_HOST"]
+    port = os.environ["ERS_DBWRITER_PORT"]
+    user = os.environ["ERS_DBWRITER_USER"]
+    password = os.environ["ERS_DBWRITER_PASS"]
+    dbname = os.environ["ERS_DBWRITER_NAME"]
+    kafka_bootstrap = os.environ.get(
+        "ERS_DBWRITER_KAFKA_BOOTSTRAP_SERVER", "monkafka.cern.ch:30092"
+    )
+
+    consumer = KafkaConsumer(
+        "erskafka-reporting", bootstrap_servers=kafka_bootstrap, group_id="ers-dbwriter"
+    )
 
     try:
-        con = psycopg2.connect(host=host,
-                               port=port,
-                               user=user,
-                               password=password,
-                               dbname=dbname)
+        con = psycopg2.connect(
+            host=host, port=port, user=user, password=password, dbname=dbname
+        )
     except:
-        print('Connection to the database failed, aborting...')
+        print("Connection to the database failed, aborting...")
         exit()
 
     # These are the fields in the ERS messages, see erskafka/src/KafkaStream.cpp
-    fields = ["partition", "issue_name", "message", "severity", "usecs_since_epoch", "time",
-              "qualifiers", "params", "cwd", "file_name", "function_name", "host_name",
-              "package_name", "user_name", "application_name", "user_id", "process_id",
-              "thread_id", "line_number", "chain"]
+    fields = [
+        "partition",
+        "issue_name",
+        "message",
+        "severity",
+        "usecs_since_epoch",
+        "time",
+        "qualifiers",
+        "params",
+        "cwd",
+        "file_name",
+        "function_name",
+        "host_name",
+        "package_name",
+        "user_name",
+        "application_name",
+        "user_id",
+        "process_id",
+        "thread_id",
+        "line_number",
+        "chain",
+    ]
 
     cur = con.cursor()
 
-    try: # try to make sure tables exist
+    try:  # try to make sure tables exist
         create_database(cur, con)
     except:
         # if this errors out it may be because the database is already there
@@ -83,12 +103,15 @@ def main():
     for message in consumer:
         print(message)
         js = json.loads(message.value)
-        if js == '[]':
+        if js == "[]":
             continue
         ls = [str(js[key]) for key in fields]
 
         try:
-            cur.execute(f'INSERT INTO public."ErrorReports" ({",".join(fields)}) VALUES({("%s, " * len(ls))[:-2]})', ls)
+            cur.execute(
+                f'INSERT INTO public."ErrorReports" ({",".join(fields)}) VALUES({("%s, " * len(ls))[:-2]})',
+                ls,
+            )
             # Save the insert (or any change) to the database
             con.commit()
         except psycopg2.errors.UndefinedTable:
@@ -99,5 +122,6 @@ def main():
             clean_database(cur, con)
             create_database(cur, con)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

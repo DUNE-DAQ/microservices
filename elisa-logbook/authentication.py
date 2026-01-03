@@ -7,6 +7,7 @@ APP_PASS = {
     "fooUsr": "barPass",
 }
 
+
 @auth.verify_password
 def verify(username, password):
     if not (username and password):

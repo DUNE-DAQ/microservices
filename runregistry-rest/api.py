@@ -38,7 +38,7 @@ app.config.update(
     DEPLOYMENT_ENV=os.environ.get("DEPLOYMENT_ENV", "DEV"),
     RUN_START=int(os.getenv("RUN_START", "1000")),
     SQLALCHEMY_ECHO=False,
-        SQLALCHEMY_ENGINE_OPTIONS={"pool_pre_ping": True, "pool_recycle": 3600},
+    SQLALCHEMY_ENGINE_OPTIONS={"pool_pre_ping": True, "pool_recycle": 3600},
 )
 
 cache = Cache(app)
@@ -55,6 +55,7 @@ from database import RunRegistryConfigs, RunRegistryMeta
 PARSED_URI = urlparse(app.config["SQLALCHEMY_DATABASE_URI"])
 DB_TYPE = PARSED_URI.scheme
 
+
 @app.before_first_request
 def register_event_handlers():
     @event.listens_for(db.engine, "handle_error")
@@ -63,6 +64,7 @@ def register_event_handlers():
             r"^(?:DPI-1001|DPI-4011)", str(context.original_exception)
         ):
             context.is_disconnect = True
+
 
 def cache_key():
     args = flask.request.args
@@ -102,7 +104,9 @@ class getRunMeta(Resource):
             print(f"getRunMeta: result {result}")
             result = list(result)
             column_names = RunRegistryMeta.__table__.columns.keys()
-            column_names.remove('filename') #Don't like this but only way to stay consistent with Oracle
+            column_names.remove(
+                "filename"
+            )  # Don't like this but only way to stay consistent with Oracle
             cnu = [name.upper() for name in column_names]
             return flask.make_response(flask.jsonify(cnu, [[*result]]))
         except Exception as err_obj:
@@ -123,12 +127,12 @@ class getRunMetaLast(Resource):
         try:
             result = (
                 db.session.query(
-                        RunRegistryMeta.run_number,
-                        RunRegistryMeta.start_time,
-                        RunRegistryMeta.stop_time,
-                        RunRegistryMeta.detector_id,
-                        RunRegistryMeta.run_type,
-                        RunRegistryMeta.software_version,
+                    RunRegistryMeta.run_number,
+                    RunRegistryMeta.start_time,
+                    RunRegistryMeta.stop_time,
+                    RunRegistryMeta.detector_id,
+                    RunRegistryMeta.run_type,
+                    RunRegistryMeta.software_version,
                 )
                 .order_by(desc(RunRegistryMeta.run_number))
                 .limit(amount)
@@ -137,7 +141,9 @@ class getRunMetaLast(Resource):
             print(f"getRunMetaLast: result {result}")
             result = [list(row) for row in result]
             column_names = RunRegistryMeta.__table__.columns.keys()
-            column_names.remove('filename') #Don't like this but only way to stay consistent with Oracle
+            column_names.remove(
+                "filename"
+            )  # Don't like this but only way to stay consistent with Oracle
             cnu = [name.upper() for name in column_names]
             return flask.make_response(flask.jsonify(cnu, [*result]))
         except Exception as err_obj:
@@ -169,15 +175,16 @@ class getRunBlob(Resource):
             )
             print("returning " + filename)
             if DB_TYPE == "postgresql":
-                resp = (flask.make_response(bytes(blob)))
+                resp = flask.make_response(bytes(blob))
             else:
-                resp = (flask.make_response(blob))
+                resp = flask.make_response(blob)
             resp.headers["Content-Type"] = "application/octet-stream"
             resp.headers["Content-Disposition"] = f"attachment; filename={filename}"
             return resp
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
-            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"})) 
+            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
+
 
 # $ curl -u fooUsr:barPass -F "run_num=1000" -F "det_id=foo" -F "run_type=bar" -F "software_version=dunedaq-vX.Y.Z" -F "file=@sspconf.tar.gz" -X POST np04-srv-017:30015/runregistry/insertRun/
 @api.resource("/runregistry/insertRun/")
@@ -259,13 +266,18 @@ class updateStopTimestamp(Resource):
         try:
             run = None
             with db.session.begin():
-                run = db.session.query(RunRegistryMeta).filter_by(run_number=runNum).one()
+                run = (
+                    db.session.query(RunRegistryMeta).filter_by(run_number=runNum).one()
+                )
                 run.stop_time = dt.datetime.utcnow()
             print(f"updateStopTimestamp: result {[run.start_time, run.stop_time]}")
-            return flask.make_response(flask.jsonify([[[run.start_time, run.stop_time]]]))
+            return flask.make_response(
+                flask.jsonify([[[run.start_time, run.stop_time]]])
+            )
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
+
 
 @app.route("/")
 def index():
