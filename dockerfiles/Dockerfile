@@ -8,4 +8,5 @@ RUN git clone -b ${MICROSERVICES_VERSION} https://github.com/DUNE-DAQ/microservi
 
 WORKDIR ${APP_ROOT}/microservices
 
+USER 1234
 ENTRYPOINT ["/entrypoint.sh"]
