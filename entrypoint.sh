@@ -1,22 +1,25 @@
 #!/bin/bash
 
-cd $(dirname $0)
+if [[ ! -e ./entrypoint_functions.sh ]]; then
+    echo "This script should be run from the top of the microservices repo" >&2
+    exit 2
+fi
 source ./entrypoint_functions.sh
 
 ensure_required_variables "MICROSERVICE"
 
-microservice_dir=$(dirname $0)/$MICROSERVICE
+microservice_dir="$(pwd)/${MICROSERVICE}"
 
 if [[ ! -e ${microservice_dir}/entrypoint.sh ]]; then
-    echo "This script sees the MICROSERVICE environment variable set to \"$MICROSERVICE\" but is unable to find the corresponding entrypoint script \"${microservice_dir}/entrypoint.sh\"" >&2
+    echo "This script sees the MICROSERVICE environment variable set to \"${MICROSERVICE}\" but is unable to find the corresponding entrypoint script \"${microservice_dir}/entrypoint.sh\"" >&2
     exit 2
 fi
 
-cd $microservice_dir
+cd "${microservice_dir}" || exit 2
 
-./entrypoint.sh
+"$(pwd)/entrypoint.sh"
 
 retval=$?
-echo "Return value of call to ${microservice_dir}/entrypoint.sh is $retval"
+echo "Return value of call to ${microservice_dir}/entrypoint.sh is:${retval}"
 
 exit $retval
