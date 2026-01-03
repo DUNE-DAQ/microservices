@@ -1,4 +1,4 @@
-FROM cern/alma9-base
+FROM docker.io/almalinux:9
 
 ARG ERSVERSION=v1.5.2  # For issue.proto from ers
 ARG ERSKAFKAVERSION=v1.5.4  # For ERSSubscriber.py from erskafka
@@ -25,11 +25,6 @@ RUN yum clean expire-cache \
     && yum -y install git python3-pip python3-pip-wheel \
     && yum -y install make gcc python3-devel krb5-devel libffi-devel libpq-devel postgresql \
     && yum clean all
-
-# Can drop when migration to sqlalchemy is complete since we're using the thin client there
-RUN curl -O https://download.oracle.com/otn_software/linux/instantclient/1919000/oracle-instantclient19.19-basic-19.19.0.0.0-1.el9.x86_64.rpm \
-    && yum -y install libaio libnsl \
-    && rpm -iv oracle-instantclient19.19-basic-19.19.0.0.0-1.el9.x86_64.rpm
 
 # setup venv
 RUN python3 -m venv ${VENV_PATH}
@@ -62,6 +57,11 @@ RUN mkdir -p $LOCALPYDIR/erskafka \
     && curl -fSL https://raw.githubusercontent.com/DUNE-DAQ/kafkaopmon/$KAFKAOPMONVERSION/python/kafkaopmon/OpMonSubscriber.py -o $LOCALPYDIR/kafkaopmon/OpMonSubscriber.py
 
 # elisa_client_api and CERN kerberos needed by the logbook microservice at NP04
+COPY cern.repo /etc/yum.repos.d/
+RUN yum clean expire-cache \
+    && yum -y install krb5-workstation cern-krb5-conf \
+    && yum clean all
+
 RUN git clone --depth 1 -b develop https://github.com/DUNE-DAQ/elisa_client_api.git \
     && ${VENV_PATH}/bin/pip install --no-cache-dir ./elisa_client_api \
     && rm -rf /root/.cache ${HOME}/.cache ${VENV_PATH}/pip-selfcheck.json elisa_client_api
