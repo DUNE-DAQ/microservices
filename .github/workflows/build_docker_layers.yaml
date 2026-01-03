@@ -1,0 +1,135 @@
+name: Build microservices docker images
+on:
+  push:
+    branches:
+      - develop
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - develop
+    paths:
+      - 'dockerfiles/requirements.txt'
+      - 'dockerfiles/Dockerfile.dependencies'
+      - 'dockerfiles/Dockerfile'
+      - '.github/workflows/build_docker_layers.yaml'
+  workflow_dispatch:
+    inputs:
+      force_rebuild_dependencies:
+        description: 'Force rebuild of dependencies image'
+        required: false
+        type: boolean
+        default: false
+jobs:
+  build-dependencies:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    # Only build dependencies:
+    #   if manually triggered with force flag
+    #   on tag push
+    #   on push to default branch AND dependency files changed
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.force_rebuild_dependencies == 'true') ||
+      github.ref_type == 'tag' ||
+      (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && (
+        contains(github.event.head_commit.modified, 'dockerfiles/requirements.txt') ||
+        contains(github.event.head_commit.added, 'dockerfiles/requirements.txt') ||
+        contains(github.event.head_commit.modified, 'dockerfiles/Dockerfile.dependencies') ||
+        contains(github.event.head_commit.added, 'dockerfiles/Dockerfile.dependencies') ||
+        contains(github.event.head_commit.modified, 'dockerfiles/Dockerfile') ||
+        contains(github.event.head_commit.added, 'dockerfiles/Dockerfile')
+      ))
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract Docker metadata for dependencies
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/DUNE-DAQ/microservices_dependencies
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
+            type=ref,event=tag
+            type=sha,format=short
+      - name: Build and push dependencies image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./dockerfiles
+          file: ./dockerfiles/Dockerfile.dependencies
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          provenance: true
+          sbom: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+  build-microservices:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    # Always run, but depend on dependencies job if it ran
+    needs: [build-dependencies]
+    if: |
+      always() &&
+      (needs.build-dependencies.result == 'success' || needs.build-dependencies.result == 'skipped')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Get git refs
+        id: git_refs
+        run: |
+          echo "short_sha=$(git rev-parse --short HEAD)" >> "${GITHUB_OUTPUT}"
+          echo "full_sha=$(git rev-parse HEAD)" >> "${GITHUB_OUTPUT}"
+      - name: Find microservices_dependency tag
+        id: find_dep_tag
+        run: |
+          if [[ "${{ needs.build-dependencies.result }}" == "success" ]]; then
+            echo "dep_tag=$(git rev-parse --short HEAD)" >> "${GITHUB_OUTPUT}"
+          else
+            echo "dep_tag=latest" >> "${GITHUB_OUTPUT}"
+          fi
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract Docker metadata for microservices
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/DUNE-DAQ/microservices
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
+            type=ref,event=tag
+            type=sha,format=short
+      - name: Build and push microservices image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./dockerfiles/Dockerfile
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          provenance: true
+          sbom: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            DEPENDENCY_TAG=${{ steps.find_dep_tag.outputs.dep_tag }}
+            MICROSERVICES_VERSION=${{ steps.git_refs.outputs.full_sha }}
