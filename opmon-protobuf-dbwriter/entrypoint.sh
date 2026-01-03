@@ -1,15 +1,23 @@
 #!/bin/bash
 
-cd $(dirname $0)
+cd "$(dirname "$0")" || exit 2
+if [[ ! -f ../entrypoint_functions.sh ]]; then
+    echo "Error: entrypoint_functions.sh not found" >&2
+    exit 2
+fi
 source ../entrypoint_functions.sh
 
 ensure_required_variables "OPMON_DBWRITER_KAFKA_BOOTSTRAP_SERVER OPMON_DBWRITER_KAFKA_GROUP OPMON_DBWRITER_SUBSCRIBER_TIMEOUT_MS OPMON_DBWRITER_TOPIC OPMON_DBWRITER_INFLUX_HOST OPMON_DBWRITER_INFLUX_PORT OPMON_DBWRITER_TABLE OPMON_DBWRITER_BATCH_SIZE_MS OPMON_DBWRITER_INFLUX_USER OPMON_DBWRITER_INFLUX_PASSWORD"
 
-python3 ./dbwriter.py --subscriber-bootstrap $OPMON_DBWRITER_KAFKA_BOOTSTRAP_SERVER \
-    --subscriber-group $OPMON_DBWRITER_KAFKA_GROUP --subscriber-timeout $OPMON_DBWRITER_SUBSCRIBER_TIMEOUT_MS \
-    --subscriber-topic $OPMON_DBWRITER_TOPIC \
-    --influxdb-address $OPMON_DBWRITER_INFLUX_HOST --influxdb-port $OPMON_DBWRITER_INFLUX_PORT \
-    --influxdb-name $OPMON_DBWRITER_TABLE --influxdb-timeout $OPMON_DBWRITER_BATCH_SIZE_MS \
+python3 ./dbwriter.py --subscriber-bootstrap "${OPMON_DBWRITER_KAFKA_BOOTSTRAP_SERVER}" \
+    --subscriber-group "${OPMON_DBWRITER_KAFKA_GROUP}" \
+    --subscriber-timeout "${OPMON_DBWRITER_SUBSCRIBER_TIMEOUT_MS}" \
+    --subscriber-topic "${OPMON_DBWRITER_TOPIC}" \
+    --influxdb-address "${OPMON_DBWRITER_INFLUX_HOST}" \
+    --influxdb-port "${OPMON_DBWRITER_INFLUX_PORT}" \
+    --influxdb-name "${OPMON_DBWRITER_TABLE}" \
+    --influxdb-username "${OPMON_DBWRITER_INFLUX_USER}" \
+    --influxdb-password "${OPMON_DBWRITER_INFLUX_PASSWORD}" \
+    --influxdb-timeout "${OPMON_DBWRITER_BATCH_SIZE_MS}" \
     --influxdb-create True \
-    --debug False \
-    --influxdb-username $OPMON_DBWRITER_INFLUX_USER --influxdb-password $OPMON_DBWRITER_INFLUX_PASSWORD
+    --debug False
