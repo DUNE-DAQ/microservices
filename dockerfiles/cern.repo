@@ -1,0 +1,20 @@
+[cern]
+name=AlmaLinux $releasever - CERN
+baseurl=https://linuxsoft.cern.ch/cern/alma/$releasever/CERN/$basearch
+enabled=1
+gpgcheck=1
+gpgkey=https://gitlab.cern.ch/linuxsupport/rpms/cern-gpg-keys/-/raw/main/src/RPM-GPG-KEY-kojiv2
+
+[cern-testing]
+name=AlmaLinux $releasever - CERN - testing
+baseurl=https://linuxsoft.cern.ch/cern/alma/$releasever-testing/CERN/$basearch
+enabled=0
+gpgcheck=1
+gpgkey=https://gitlab.cern.ch/linuxsupport/rpms/cern-gpg-keys/-/raw/main/src/RPM-GPG-KEY-kojiv2
+
+[cern-source]
+name=AlmaLinux $releasever - CERN Source
+baseurl=https://linuxsoft.cern.ch/cern/alma/$releasever/CERN/Source/
+enabled=0
+gpgcheck=1
+gpgkey=https://gitlab.cern.ch/linuxsupport/rpms/cern-gpg-keys/-/raw/main/src/RPM-GPG-KEY-kojiv2

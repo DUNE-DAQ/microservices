@@ -7,7 +7,7 @@ on:
     tags:
       - 'v*'
     paths:
-      - Dockerfile
+      - dockerfiles/Dockerfile
   pull_request:
     types: [closed]
     branches:
@@ -47,7 +47,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ${{ github.workspace }}/microservices/
-          file: ${{ github.workspace }}/microservices/Dockerfile
+          file: ${{ github.workspace }}/microservices/dockerfiles/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
