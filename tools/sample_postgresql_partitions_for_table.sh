@@ -1,15 +1,5 @@
 #!/bin/bash
 
-#
-# SELECT c.relname AS table_name
-# FROM pg_class c
-# JOIN pg_namespace n ON n.oid = c.relnamespace
-# WHERE c.relkind IN ('r', 'p')
-#   AND n.nspname NOT IN ('pg_catalog', 'information_schema')
-#   AND c.relispartition = false
-# ORDER BY c.relname;
-#
-
 TABLE_NAME="${1:-example}"
 YEAR="${2:-$(date '+%Y')}"
 
@@ -40,7 +30,7 @@ build_partition() {
     local start=$4
     local end=$5
 
-    echo "CREATE TABLE IF NOT EXISTS ${table}_year${year}_week${week} PARTITION OF ${table} FOR VALUES FROM ('${start}') TO ('${end}');"
+    echo "CREATE TABLE IF NOT EXISTS \"${table}_year${year}_week${week}\" PARTITION OF \"${table}\" FOR VALUES FROM ('${start}') TO ('${end}');"
 }
 
 # Function to output partition if it passes cutoff check
@@ -59,6 +49,31 @@ start_week=${START_DATE}
 week_number=0
 previous_partition=""
 
+# Validate table name contains only alphanumeric, underscore
+if [[ ! "${TABLE_NAME}" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]]; then
+    echo "Error: Invalid table name '${TABLE_NAME}'" >&2
+    exit 1
+fi
+
+# Reject reserved prefixes
+if [[ "${TABLE_NAME}" =~ ^pg_ ]]; then
+    echo "Error: Table name '${TABLE_NAME}' uses reserved 'pg_' prefix" >&2
+    exit 1
+fi
+
+# Validate table name length (PostgreSQL limit is 63 bytes)
+if [[ ${#TABLE_NAME} -gt 46 ]]; then
+    echo "Error: Table name '${TABLE_NAME}' exceeds 63-byte PostgreSQL limit with suffix" >&2
+    exit 1
+fi
+
+# Validate YEAR is a 4-digit number
+if [[ ! "${YEAR}" =~ ^[0-9]{4}$ ]]; then
+    echo "Error: Invalid year '${YEAR}' (must be 4 digits)" >&2
+    exit 1
+fi
+
+echo "BEGIN TRANSACTION;"
 for count in {1..60}; do
     week_number=$((week_number + 1))
     week_count_string=$(printf "%02d" ${week_number})
@@ -115,3 +130,5 @@ done
 
 # Output final partition if valid
 output_partition_if_valid "${previous_partition}"
+
+echo "END TRANSACTION;"
