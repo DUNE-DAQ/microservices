@@ -8,4 +8,3 @@ ensure_required_variables "USERNAME PASSWORD HARDWARE"
 mkdir -p ./logfiles
 
 python3 ./logbook.py
-

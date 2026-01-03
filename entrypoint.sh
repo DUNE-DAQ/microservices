@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 cd $(dirname $0)
 source ./entrypoint_functions.sh
 
