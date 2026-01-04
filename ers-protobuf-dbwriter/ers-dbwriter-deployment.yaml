@@ -4,11 +4,11 @@ metadata:
   annotations:
     kluctl.io/skip-delete-if-tags: "true"
   labels:
-    pod-security.kubernetes.io/audit: baseline
+    pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/audit-version: latest
-    pod-security.kubernetes.io/enforce: baseline # unified image runs as root :(
+    pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/enforce-version: latest
-    pod-security.kubernetes.io/warn: baseline
+    pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/warn-version: latest
   name: ers
 ---
@@ -19,6 +19,7 @@ kind: Deployment
 metadata:
   labels:
     app.kubernetes.io/app: ers-protobuf-dbwriter
+    app.kubernetes.io/name: ers-protobuf-dbwriter
     app.kubernetes.io/component: ers-protobuf-dbwriter
   name: ersstream-dbwriter
   namespace: ers
@@ -26,12 +27,14 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: ersprotobuf-dbwriter
+      app.kubernetes.io/app: ers-protobuf-dbwriter
+      app.kubernetes.io/name: ers-protobuf-dbwriter
+      app.kubernetes.io/component: ers-protobuf-dbwriter
   template:
     metadata:
       labels:
-        app: ersprotobuf-dbwriter
         app.kubernetes.io/app: ers-protobuf-dbwriter
+        app.kubernetes.io/name: ers-protobuf-dbwriter
         app.kubernetes.io/component: ers-protobuf-dbwriter
     spec:
       affinity:
@@ -42,10 +45,11 @@ spec:
                   - key: node-role.kubernetes.io/worker
                     operator: Exists
       automountServiceAccountToken: false
+      hostUsers: false
       containers:
         - image: ghcr.io/dune-daq/microservices:9685
           imagePullPolicy: Always
-          name: ersprotobuf-dbwriter
+          name: ers-protobuf-dbwriter
           env:
             - name: MICROSERVICE
               value: ers-protobuf-dbwriter
@@ -86,14 +90,25 @@ spec:
             limits:
               memory: 1Gi
             requests:
-              memory: 8Mi
+              cpu: 100m
+              memory: 64Mi
           securityContext:
+            runAsUser: 11000
+            runAsGroup: 11000
+            runAsNonRoot: true
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            seccompProfile:
+              type: RuntimeDefault
             capabilities:
               drop:
                 - ALL
-            runAsGroup: 11000
-            seccompProfile:
-              type: RuntimeDefault
+          volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
+      volumes:
+        - name: tmp-volume
+          emptyDir:
+            sizeLimit: 256Mi
       securityContext:
         fsGroup: 11000
