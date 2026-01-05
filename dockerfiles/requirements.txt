@@ -4,6 +4,7 @@ Flask-HTTPAuth==4.6.0
 Flask-RESTful==0.3.9
 Flask-SQLAlchemy==3.0.5
 click==8.1.2
+gunicorn[gevent]==23.0.0
 influxdb==5.3.1
 kafka-python==2.0.2
 protobuf==4.24.3

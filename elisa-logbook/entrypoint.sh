@@ -9,4 +9,4 @@ source ../entrypoint_functions.sh
 
 ensure_required_variables "USERNAME PASSWORD HARDWARE"
 
-python3 ./logbook.py
+exec gunicorn -b 0.0.0.0:5005 --workers=1 --worker-class=gevent --timeout 9000 --log-level=debug logbook:app
