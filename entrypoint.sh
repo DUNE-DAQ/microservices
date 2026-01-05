@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 if [[ ! -e ./entrypoint_functions.sh ]]; then
     echo "This script should be run from the top of the microservices repo" >&2
@@ -30,9 +31,4 @@ fi
 
 cd "${microservice_dir}" || exit 2
 
-"$(pwd)/entrypoint.sh"
-
-retval=$?
-echo "Return value of call to ${microservice_dir}/entrypoint.sh is:${retval}"
-
-exit $retval
+exec "${microservice_dir}/entrypoint.sh"
