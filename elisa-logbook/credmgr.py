@@ -8,27 +8,25 @@ from typing import Optional
 
 
 def which(program):
-    # https://stackoverflow.com/a/377028
+    # based on https://stackoverflow.com/a/377028
     def is_exe(fpath):
-        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+        return Path(fpath).is_file() and os.access(fpath, os.X_OK)
 
     fpath, _fname = os.path.split(program)
     if fpath:
         if is_exe(program):
-            print("Found1", program)
             return program
     else:
         for path in os.environ.get("PATH", "").split(os.pathsep):
-            exe_file = os.path.join(path, program)
+            exe_file = Path(path) / program
             if is_exe(exe_file):
-                print("Found2", program)
-                return exe_file
+                return str(exe_file)
 
     return None
 
 
 def env_for_kerberos(ticket_dir):
-    ticket_dir = os.path.expanduser(ticket_dir)
+    ticket_dir = Path(ticket_dir).expanduser()
     return {"KRB5CCNAME": f"DIR:{ticket_dir}"}
 
 
@@ -176,11 +174,13 @@ class CredentialManager:
         )
 
     def add_login_from_file(self, service: str, file: str):
-        if not os.path.isfile(os.getcwd() + "/" + file + ".py"):
+        cwd = Path.cwd()
+        file_path = cwd / f"{file}.py"
+        if not file_path.is_file():
             self.log.error(f"Couldn't find file {file} in PWD")
             raise FileNotFoundError(f"Couldn't find file {file} in PWD")
 
-        sys.path.append(os.getcwd())
+        sys.path.append(str(cwd))
         i = __import__(file, fromlist=[""])
         self.add_login(service, i.user, i.password)
         self.log.info(f"Added login data from file: {file}")
@@ -235,7 +235,7 @@ class CERNSessionHandler:
 
     @staticmethod
     def __get_elisa_kerberos_cache_path():
-        return Path(os.path.expanduser("/tmp/.nanorc_elisakerbcache"))
+        return Path("/tmp/.nanorc_elisakerbcache")
 
     def elisa_user_is_authenticated(self):
         elisa_user = credentials.get_login("elisa")
@@ -249,8 +249,8 @@ class CERNSessionHandler:
         elisa_user = credentials.get_login("elisa")
         elisa_kerb_cache = CERNSessionHandler.__get_elisa_kerberos_cache_path()
 
-        if not os.path.isdir(elisa_kerb_cache):
-            os.mkdir(elisa_kerb_cache)
+        if not elisa_kerb_cache.is_dir():
+            elisa_kerb_cache.mkdir(mode=0o700)
 
         if self.elisa_user_is_authenticated():
             # we're authenticated, stop here
