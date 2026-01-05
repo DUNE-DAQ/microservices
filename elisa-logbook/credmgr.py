@@ -48,11 +48,6 @@ def new_kerberos_ticket(
             env=env,
         )
 
-        if p.poll() is not None and p.returncode != 0:
-            raise RuntimeError(
-                f"Could not execute kinit {user}@{realm}\n{stdout_data[-1].decode()}"
-            )
-
         if password is None:
             print(f"Password for {user}@{realm}:")
             try:
@@ -62,8 +57,13 @@ def new_kerberos_ticket(
                 print()
                 return False
 
-        stdout_data = p.communicate(password.encode())
-        print(stdout_data[-1].decode())
+        stdout_data, stderr_data = p.communicate(password.encode())
+
+        # Display stderr if present (where kinit typically sends output)
+        if stderr_data:
+            print(stderr_data.decode())
+        elif stdout_data:
+            print(stdout_data.decode())
 
         if not password_provided:
             password = None
@@ -71,8 +71,9 @@ def new_kerberos_ticket(
         success = p.returncode == 0
 
         if not success and password_provided:
+            error_msg = stderr_data.decode() if stderr_data else stdout_data.decode()
             raise RuntimeError(
-                f"Authentication error for {user}@{realm}. The password provided (likely in configuration file) is incorrect"
+                f"Authentication error for {user}@{realm}. The password provided (likely in configuration file) is incorrect\n{error_msg}"
             )
 
     return True
@@ -168,7 +169,7 @@ class CredentialManager:
         self.authentications = []
         self.user = None
 
-    def add_login(self, service: str, user: str, password: str, realm: str):
+    def add_login(self, service: str, user: str, password: str, realm: str = "CERN.CH"):
         self.authentications.append(
             ServiceAccountWithKerberos(service, user, password, realm)
         )
