@@ -1,13 +1,13 @@
-import logging, copy, os, tempfile
-from flask import Flask
-from credmgr import credentials
-from credmgr import CERNSessionHandler
+import copy
+import logging
+import tempfile
 
 from elisa_client_api.elisa import Elisa
-from elisa_client_api.searchCriteria import SearchCriteria
+from elisa_client_api.exception import ElisaError
 from elisa_client_api.messageInsert import MessageInsert
 from elisa_client_api.messageReply import MessageReply
-from elisa_client_api.exception import *
+
+from credmgr import credentials
 
 
 class ElisaLogbook:
@@ -26,10 +26,10 @@ class ElisaLogbook:
         self.session_handler = handler
 
     def start_new_thread(
-        self, subject: str, body: str, command: str, author: str, systems: [str]
+        self, subject: str, body: str, command: str, author: str, systems: list[str]
     ):
         elisa_arg = copy.deepcopy(self.elisa_arguments)
-        elisa_user = credentials.get_login("elisa")
+        credentials.get_login("elisa")
 
         with tempfile.NamedTemporaryFile() as tf:
             try:
@@ -60,9 +60,9 @@ class ElisaLogbook:
             self.log.info(f"ELisA logbook: Sent message (ID{answer.id})")
             return answer.id
 
-    def reply(self, body: str, command: str, author: str, systems: [str], id: int):
+    def reply(self, body: str, command: str, author: str, systems: list[str], id: int):
         elisa_arg = copy.deepcopy(self.elisa_arguments)
-        elisa_user = credentials.get_login("elisa")
+        credentials.get_login("elisa")
 
         with tempfile.NamedTemporaryFile() as tf:
             try:

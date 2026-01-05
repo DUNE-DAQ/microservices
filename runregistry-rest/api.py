@@ -13,15 +13,19 @@ __emails__ = [
     "tiago.alves20@imperial.ac.uk",
 ]
 
+import datetime as dt
 import io
 import os
+import urllib
+import urllib.parse
 
 import flask
 from flask_caching import Cache
 from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import desc, event
-import re
+from sqlalchemy import desc
+
+from authentication import auth
 
 __all__ = ["app", "api", "db"]
 
@@ -45,14 +49,12 @@ cache = Cache(app)
 db = SQLAlchemy(app)
 api = Api(app)
 
-import datetime as dt
-import urllib
-from urllib.parse import urlparse
+from database import (
+    RunRegistryConfigs,  # noqa:E402 avoid circular import
+    RunRegistryMeta,  # noqa:E402 avoid circular import
+)
 
-from authentication import auth
-from database import RunRegistryConfigs, RunRegistryMeta
-
-PARSED_URI = urlparse(app.config["SQLALCHEMY_DATABASE_URI"])
+PARSED_URI = urllib.parse.urlparse(app.config["SQLALCHEMY_DATABASE_URI"])
 DB_TYPE = PARSED_URI.scheme
 
 os.makedirs(app.config["UPLOAD_PATH"], exist_ok=True)
@@ -77,7 +79,7 @@ def cache_key():
     key = (
         flask.request.path
         + "?"
-        + urllib.urlencode(
+        + urllib.parse.urlencode(
             [(k, v) for k in sorted(args) for v in sorted(args.getlist(k))]
         )
     )
