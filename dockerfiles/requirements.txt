@@ -1,15 +1,15 @@
-Flask==2.2.5
-Flask-Caching==2.0.2
-Flask-HTTPAuth==4.6.0
-Flask-RESTful==0.3.9
-Flask-SQLAlchemy==3.0.5
-click==8.1.2
+Flask==2.3.3
+Flask-Caching==2.3.1
+Flask-HTTPAuth==4.8.0
+Flask-RESTful==0.3.10
+Flask-SQLAlchemy==3.1.1
+click==8.3.1
 gunicorn[gevent]==23.0.0
-influxdb==5.3.1
-kafka-python==2.0.2
-protobuf==4.24.3
+influxdb==5.3.2
+kafka-python==2.3.0
+protobuf==4.25.8
 psycopg2-binary==2.9.7
-sh==2.0.7
+sh==2.2.2
 sqlalchemy[oracle-oracledb,postgresql-psycopgbinary]==2.0.45
 
 # elisa requires this but doesn't list the requirement
