@@ -19,7 +19,7 @@ import flask
 from authentication import auth
 from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import func
+from sqlalchemy import func, select
 
 __all__ = ["app", "api", "db"]
 
@@ -57,7 +57,7 @@ class getRunNumber(Resource):
     def get(self):
         print("getNewRunNumber: no args")
         try:
-            max_run_number = db.session.query(func.max(RunNumber.rn)).scalar()
+            max_run_number = db.session.execute(select(func.max(RunNumber.rn))).scalar()
             # maybe find consumers to see if we can drop the extra nesting
             print(f"getRunNumber: result {[[[max_run_number]]]}")
             return flask.make_response(flask.jsonify([[[max_run_number]]]))
@@ -83,7 +83,7 @@ class getNewtRunNumber(Resource):
             current_max_run = None
             with db.session.begin():
                 current_max_run = (
-                    db.session.query(func.max(RunNumber.rn)).scalar()
+                    db.session.execute(select(func.max(RunNumber.rn))).scalar()
                     or app.config["RUN_START"]
                 ) + 1
                 run = RunNumber(rn=current_max_run)
@@ -109,7 +109,9 @@ class updateStopTimestamp(Resource):
         try:
             run = None
             with db.session.begin():
-                run = db.session.query(RunNumber).filter_by(rn=runNum).one()
+                run = db.session.execute(
+                    select(RunNumber).filter_by(rn=runNum)
+                ).scalar_one()
                 run.stop_time = utc_now()
             print(f"updateStopTimestamp: result {[run.start_time, run.stop_time]}")
             return flask.make_response(
