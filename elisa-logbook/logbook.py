@@ -4,18 +4,16 @@ __version__ = "1.1.0"
 __maintainer__ = "Jonathan Hancock"
 __email__ = "jonathan.hancock@cern.ch"
 
-import os
-import argparse
-import re
 import json
-from urllib import response
+import os
+
+from flask import Flask, jsonify, make_response, request
+from flask_caching import Cache
+from flask_restful import Api
 
 from authentication import auth
-from credmgr import credentials, CERNSessionHandler
+from credmgr import CERNSessionHandler, credentials
 from elisa import ElisaLogbook
-from flask import Flask, request, jsonify, make_response
-from flask_restful import Api
-from flask_caching import Cache
 
 # Sets up the app and processes command line inputs
 app = Flask(__name__)
@@ -30,6 +28,7 @@ hardware_string = "Please choose from one of the following options:"
 for key in keylist:
     hardware_string += " "
     hardware_string += key
+
 
 # We use environment variables to pass data
 def get_required_env(name: str) -> str:
@@ -75,7 +74,7 @@ def index():
 def Fmessage_on_start():
     try:
         run_number = int(request.json["run_num"])
-    except:
+    except (ValueError, TypeError, KeyError):
         error = "Run number is not an integer!"
         return error, 400
 
@@ -178,7 +177,7 @@ def new_message():
             author=request.json["author"],
             systems=sys_list,
         )
-    except Exception as e:
+    except Exception:
         import traceback
 
         traceback.print_exc()
@@ -225,7 +224,7 @@ def reply_to_message():
             systems=sys_list,
             id=request.json["id"],
         )
-    except Exception as e:
+    except Exception:
         import traceback
 
         traceback.print_exc()

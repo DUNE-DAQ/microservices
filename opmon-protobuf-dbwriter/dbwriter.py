@@ -4,20 +4,16 @@
 #  received with this code.
 #
 
-import kafkaopmon.OpMonSubscriber as opmon_sub
-import google.protobuf.json_format as pb_json
-from google.protobuf.timestamp_pb2 import Timestamp
-import opmonlib.opmon_entry_pb2 as opmon_schema
-
-from influxdb import InfluxDBClient
-import influxdb
-from functools import partial
-import json
-import click
 import logging
 import queue
 import threading
+from functools import partial
 
+import click
+import influxdb
+import kafkaopmon.OpMonSubscriber as opmon_sub
+import opmonlib.opmon_entry_pb2 as opmon_schema
+from influxdb import InfluxDBClient
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
@@ -181,11 +177,12 @@ def send_batch(batch: list, influx: InfluxDBClient = None):
         if influx:
             try:
                 influx.write_points(batch)
-            except influxdb.exceptions.InfluxDBClientError as e:
-                logging.error(e)
-            except Exception as e:
-                logging.error("Something went wrong: json batch not sent")
-                logging.error("Details: {}".format(str(e)))
+            except influxdb.exceptions.InfluxDBClientError:
+                logging.exception("InfluxDB client error occurred")
+            except (ConnectionError, TimeoutError):
+                logging.exception("Network error while sending batch")
+            except Exception:
+                logging.exception("Something went wrong: json batch not sent")
         else:
             print(batch)
 
