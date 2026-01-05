@@ -49,16 +49,6 @@ PARSED_URI = urlparse(app.config["SQLALCHEMY_DATABASE_URI"])
 DB_TYPE = PARSED_URI.scheme
 
 
-@app.before_first_request
-def register_event_handlers():
-    @event.listens_for(db.engine, "handle_error")
-    def handle_exception(context):
-        if not context.is_disconnect and re.match(
-            r"^(?:DPI-1001|DPI-4011)", str(context.original_exception)
-        ):
-            context.is_disconnect = True
-
-
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30016//runnumber/get
 @api.resource("/runnumber/get")
 class getRunNumber(Resource):
