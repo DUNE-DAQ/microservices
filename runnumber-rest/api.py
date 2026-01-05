@@ -13,14 +13,14 @@ __emails__ = [
     "tiago.alves20@imperial.ac.uk",
 ]
 
-import datetime as dt
 import os
+import datetime as dt
 
 import flask
-from authentication import auth
 from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import func, select
+from sqlalchemy import func, event, select
+import re
 
 __all__ = ["app", "api", "db"]
 
@@ -33,16 +33,29 @@ app.config.update(
     DEPLOYMENT_ENV=os.environ.get("DEPLOYMENT_ENV", "DEV"),
     RUN_START=int(os.getenv("RUN_START", "1000")),
     SQLALCHEMY_ECHO=False,
-    SQLALCHEMY_ENGINE_OPTIONS={"pool_pre_ping": True, "pool_recycle": 3600},
+        SQLALCHEMY_ENGINE_OPTIONS={"pool_pre_ping": True, "pool_recycle": 3600},
 )
 
 uri = app.config["SQLALCHEMY_DATABASE_URI"]
 db = SQLAlchemy(app)
 api = Api(app)
 
+from urllib.parse import urlparse
 
-from database import RunNumber  # noqa:E402 avoid circular import
+from authentication import auth
+from database import RunNumber
 
+PARSED_URI = urlparse(app.config["SQLALCHEMY_DATABASE_URI"])
+DB_TYPE = PARSED_URI.scheme
+
+@app.before_first_request
+def register_event_handlers():
+    @event.listens_for(db.engine, "handle_error")
+    def handle_exception(context):
+        if not context.is_disconnect and re.match(
+            r"^(?:DPI-1001|DPI-4011)", str(context.original_exception)
+        ):
+            context.is_disconnect = True
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30016//runnumber/get
 @api.resource("/runnumber/get")
@@ -116,9 +129,7 @@ class updateStopTimestamp(Resource):
                 run = db.session.execute(stmt).scalar_one()
                 run.stop_time = dt.datetime.utcnow()
             print(f"updateStopTimestamp: result {[run.start_time, run.stop_time]}")
-            return flask.make_response(
-                flask.jsonify([[[run.start_time, run.stop_time]]])
-            )
+            return flask.make_response(flask.jsonify([[[run.start_time, run.stop_time]]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
