@@ -64,16 +64,6 @@ if not os.access(app.config["UPLOAD_PATH"], os.W_OK):
     )
 
 
-@app.before_first_request
-def register_event_handlers():
-    @event.listens_for(db.engine, "handle_error")
-    def handle_exception(context):
-        if not context.is_disconnect and re.match(
-            r"^(?:DPI-1001|DPI-4011)", str(context.original_exception)
-        ):
-            context.is_disconnect = True
-
-
 def cache_key():
     args = flask.request.args
     key = (
