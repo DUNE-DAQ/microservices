@@ -23,7 +23,7 @@ import flask
 from flask_caching import Cache
 from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import desc
+from sqlalchemy import desc, select
 
 from authentication import auth
 
@@ -87,18 +87,15 @@ class getRunMeta(Resource):
     @auth.login_required
     def get(self, runNum):
         try:
-            result = (
-                db.session.query(
-                    RunRegistryMeta.run_number,
-                    RunRegistryMeta.start_time,
-                    RunRegistryMeta.stop_time,
-                    RunRegistryMeta.detector_id,
-                    RunRegistryMeta.run_type,
-                    RunRegistryMeta.software_version,
-                )
-                .filter(RunRegistryMeta.run_number == runNum)
-                .one()
-            )
+            stmt = select(
+                RunRegistryMeta.run_number,
+                RunRegistryMeta.start_time,
+                RunRegistryMeta.stop_time,
+                RunRegistryMeta.detector_id,
+                RunRegistryMeta.run_type,
+                RunRegistryMeta.software_version,
+            ).filter(RunRegistryMeta.run_number == runNum)
+            result = db.session.execute(stmt).one()
             print(f"getRunMeta: result {result}")
             result = list(result)
             column_names = RunRegistryMeta.__table__.columns.keys()
@@ -123,8 +120,8 @@ class getRunMetaLast(Resource):
     @auth.login_required
     def get(self, amount):
         try:
-            result = (
-                db.session.query(
+            stmt = (
+                select(
                     RunRegistryMeta.run_number,
                     RunRegistryMeta.start_time,
                     RunRegistryMeta.stop_time,
@@ -134,8 +131,8 @@ class getRunMetaLast(Resource):
                 )
                 .order_by(desc(RunRegistryMeta.run_number))
                 .limit(amount)
-                .all()
             )
+            result = db.session.execute(stmt).all()
             print(f"getRunMetaLast: result {result}")
             result = [list(row) for row in result]
             column_names = RunRegistryMeta.__table__.columns.keys()
@@ -161,16 +158,14 @@ class getRunBlob(Resource):
     def get(self, runNum):
         print(f"getRunBlob: arg {runNum}")
         try:
-            blob = (
-                db.session.query(RunRegistryConfigs.configuration)
-                .filter(RunRegistryConfigs.run_number == runNum)
-                .scalar()
+            stmt_blob = select(RunRegistryConfigs.configuration).filter(
+                RunRegistryConfigs.run_number == runNum
             )
-            filename = (
-                db.session.query(RunRegistryMeta.filename)
-                .filter(RunRegistryMeta.run_number == runNum)
-                .scalar()
+            blob = db.session.execute(stmt_blob).scalar()
+            stmt_filename = select(RunRegistryMeta.filename).filter(
+                RunRegistryMeta.run_number == runNum
             )
+            filename = db.session.execute(stmt_filename).scalar()
             print("returning " + filename)
             if DB_TYPE == "postgresql":
                 resp = flask.make_response(bytes(blob))
@@ -264,9 +259,8 @@ class updateStopTimestamp(Resource):
         try:
             run = None
             with db.session.begin():
-                run = (
-                    db.session.query(RunRegistryMeta).filter_by(run_number=runNum).one()
-                )
+                stmt = select(RunRegistryMeta).filter_by(run_number=runNum)
+                run = db.session.execute(stmt).scalar_one()
                 run.stop_time = dt.datetime.utcnow()
             print(f"updateStopTimestamp: result {[run.start_time, run.stop_time]}")
             return flask.make_response(
