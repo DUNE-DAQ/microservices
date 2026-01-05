@@ -1,9 +1,9 @@
-import sys, os
 import logging
-from getpass import getpass
+import os
 import subprocess
-import logging
-import tempfile
+import sys
+from getpass import getpass
+from pathlib import Path
 
 
 def which(program):
@@ -33,15 +33,13 @@ def env_for_kerberos(ticket_dir):
 
 
 def new_kerberos_ticket(
-    user: str, realm: str, password: str = None, ticket_dir: str = "~/"
+    user: str, realm: str, password: str | None = None, ticket_dir: str = "~/"
 ):
     env = env_for_kerberos(ticket_dir)
     success = False
     password_provided = password is not None
 
     while not success:
-        import subprocess
-
         p = subprocess.Popen(
             ["kinit", f"{user}@{realm}"],
             stdout=subprocess.PIPE,
@@ -58,8 +56,6 @@ def new_kerberos_ticket(
         if password is None:
             print(f"Password for {user}@{realm}:")
             try:
-                from getpass import getpass
-
                 password = getpass()
 
             except KeyboardInterrupt:
@@ -83,15 +79,12 @@ def new_kerberos_ticket(
 
 
 def get_kerberos_user(silent=False, ticket_dir: str = "~/"):
-    import logging
-
     log = logging.getLogger("get_kerberos_user")
 
     env = env_for_kerberos(ticket_dir)
     args = [
         "klist"
     ]  # on my mac, I can specify --json and that gives everything nicely in json format... but...
-    import subprocess
 
     proc = subprocess.run(args, capture_output=True, text=True, env=env)
     raw_kerb_info = proc.stdout.split("\n")
@@ -114,8 +107,6 @@ def get_kerberos_user(silent=False, ticket_dir: str = "~/"):
 
 
 def check_kerberos_credentials(against_user: str, silent=False, ticket_dir: str = "~/"):
-    import logging
-
     log = logging.getLogger("check_kerberos_credentials")
 
     env = env_for_kerberos(ticket_dir)
@@ -126,7 +117,7 @@ def check_kerberos_credentials(against_user: str, silent=False, ticket_dir: str 
         if kerb_user:
             log.info(f"Detected kerberos ticket for user: '{kerb_user}'")
         else:
-            log.info(f"No kerberos ticket found")
+            log.info("No kerberos ticket found")
 
     if not kerb_user:
         if not silent:
@@ -137,8 +128,6 @@ def check_kerberos_credentials(against_user: str, silent=False, ticket_dir: str 
             log.info("Another user is logged in")
         return False
     else:
-        import subprocess
-
         ticket_is_valid = subprocess.call(["klist", "-s"], env=env) == 0
         if not silent and not ticket_is_valid:
             log.info("Kerberos ticket is expired")
@@ -151,6 +140,7 @@ class ServiceAccountWithKerberos:
         self.username = username
         self.password = password
         self.realm = realm
+        self.log = logging.getLogger(self.__class__.__name__)
 
     def generate_cern_sso_cookie(self, website, kerberos_directory, output_directory):
         env = {"KRB5CCNAME": f"DIR:{kerberos_directory}"}
@@ -160,14 +150,14 @@ class ServiceAccountWithKerberos:
         executable = sh.Command("auth-get-sso-cookie")
 
         try:
-            proc = executable(
+            executable(
                 "-u", website, "-o", output_directory, _env=env, _new_session=False
             )
         except sh.ErrorReturnCode as error:
             self.log.error(error)
             raise RuntimeError(
                 f"Couldn't get SSO cookie! {error.stdout=} {error.stderr=}"
-            ) from e
+            ) from error
 
         return output_directory
 
@@ -176,6 +166,7 @@ class CredentialManager:
     def __init__(self):
         self.log = logging.getLogger(self.__class__.__name__)
         self.authentications = []
+        self.user = None
 
     def add_login(self, service: str, user: str, password: str, realm: str):
         self.authentications.append(
@@ -185,7 +176,7 @@ class CredentialManager:
     def add_login_from_file(self, service: str, file: str):
         if not os.path.isfile(os.getcwd() + "/" + file + ".py"):
             self.log.error(f"Couldn't find file {file} in PWD")
-            raise
+            raise FileNotFoundError(f"Couldn't find file {file} in PWD")
 
         sys.path.append(os.getcwd())
         i = __import__(file, fromlist=[""])
@@ -211,9 +202,8 @@ class CredentialManager:
                 return
 
     def new_kerberos_ticket(self):
-        success = False
         for a in self.authentications:
-            if a.user == self.user:
+            if a.username == self.user:
                 password = a.password
                 break
 
@@ -225,7 +215,6 @@ class CredentialManager:
         )
         stdout_data = p.communicate(password.encode())
         print(stdout_data[-1].decode())
-        success = p.returncode == 0
         return True
 
 
@@ -234,8 +223,6 @@ credentials = CredentialManager()
 
 class CERNSessionHandler:
     def __init__(self, username: str):
-        import logging
-
         self.log = logging.getLogger(self.__class__.__name__)
         self.elisa_username = username
 
@@ -244,9 +231,6 @@ class CERNSessionHandler:
 
     @staticmethod
     def __get_elisa_kerberos_cache_path():
-        import os
-        from pathlib import Path
-
         return Path(os.path.expanduser("/tmp/.nanorc_elisakerbcache"))
 
     def elisa_user_is_authenticated(self):
@@ -260,7 +244,6 @@ class CERNSessionHandler:
     def authenticate_elisa_user(self):
         elisa_user = credentials.get_login("elisa")
         elisa_kerb_cache = CERNSessionHandler.__get_elisa_kerberos_cache_path()
-        import os
 
         if not os.path.isdir(elisa_kerb_cache):
             os.mkdir(elisa_kerb_cache)
