@@ -81,12 +81,11 @@ def Fmessage_on_start():
 
     try:
         file_path = app.config["PATH"] + f"_{run_number}_{request.json['run_type']}.txt"
-        f = open(file_path, "w")
-        f.write(
-            f"-- User {request.json['author']} started a run {run_number}, of type {request.json['run_type']} --\n"
-        )
-        f.write(request.json["author"] + ": " + request.json["message"] + "\n")
-        f.close()
+        with open(file_path, "w") as f:
+            f.write(
+                f"-- User {request.json['author']} started a run {run_number}, of type {request.json['run_type']} --\n"
+            )
+            f.write(request.json["author"] + ": " + request.json["message"] + "\n")
         rstring = "Logfile started at " + file_path + "\n"
         return rstring, 201
     except Exception as e:
@@ -105,14 +104,13 @@ def Fadd_message():
     except Exception as e:
         return str(e), 400
 
-    if os.path.exists(file_path):
-        f = open(file_path, "a")
-    else:
+    if not os.path.exists(file_path):
         error = "File not found!"
         return error, 404
 
-    f.write(request.json["author"] + ": " + request.json["message"] + "\n")
-    f.close()
+    with open(file_path, "a") as f:
+        f.write(request.json["author"] + ": " + request.json["message"] + "\n")
+
     rstring = "Logfile updated at " + file_path + "\n"
     return rstring, 200
 
@@ -129,17 +127,16 @@ def Fmessage_on_stop():
     except Exception as e:
         return str(e), 400
 
-    if os.path.exists(file_path):
-        f = open(file_path, "a")
-    else:
+    if not os.path.exists(file_path):
         error = "File not found!"
         return error, 404
 
-    f.write(
-        f"-- User {request.json['author']} stopped the run {request.json['run_num']}, of type {request.json['run_type']} --\n"
-    )
-    f.write(request.json["author"] + ": " + request.json["message"] + "\n")
-    f.close()
+    with open(file_path, "a") as f:
+        f.write(
+            f"-- User {request.json['author']} stopped the run {request.json['run_num']}, of type {request.json['run_type']} --\n"
+        )
+        f.write(request.json["author"] + ": " + request.json["message"] + "\n")
+
     rstring = "Log stopped at " + file_path + "\n"
     return rstring, 200
 
