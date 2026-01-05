@@ -13,7 +13,6 @@ __emails__ = [
     "tiago.alves20@imperial.ac.uk",
 ]
 
-import datetime as dt
 import io
 import os
 import urllib.parse
@@ -51,6 +50,7 @@ api = Api(app)
 from database import (
     RunRegistryConfigs,  # noqa:E402 avoid circular import
     RunRegistryMeta,  # noqa:E402 avoid circular import
+    utc_now,  # noqa:E402 avoid circular import
 )
 
 PARSED_URI = urllib.parse.urlparse(app.config["SQLALCHEMY_DATABASE_URI"])
@@ -266,7 +266,7 @@ class updateStopTimestamp(Resource):
                 run = (
                     db.session.query(RunRegistryMeta).filter_by(run_number=runNum).one()
                 )
-                run.stop_time = dt.datetime.utcnow()
+                run.stop_time = utc_now()
             print(f"updateStopTimestamp: result {[run.start_time, run.stop_time]}")
             return flask.make_response(
                 flask.jsonify([[[run.start_time, run.stop_time]]])
