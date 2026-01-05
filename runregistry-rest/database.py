@@ -2,7 +2,7 @@ import datetime as dt
 
 from api import db
 
-__all__ = ["RunRegistryConfig", "RunRegistryMeta"]
+__all__ = ["RunRegistryConfigs", "RunRegistryMeta"]
 
 
 class RunRegistryMeta(db.Model):

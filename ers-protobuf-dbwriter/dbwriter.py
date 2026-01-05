@@ -23,7 +23,7 @@ from sqlalchemy import (
     create_engine,
     inspect,
 )
-from sqlalchemy.exc import OperationalError, SQLAlchemyError, ProgrammingError
+from sqlalchemy.exc import OperationalError, ProgrammingError, SQLAlchemyError
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 MAX_RETRIES = 3
@@ -89,7 +89,7 @@ def cli(
     except SQLAlchemyError:
         logging.exception("Failed to connect to database")
         logging.fatal("Connection to the database failed, aborting...")
-        exit()
+        sys.exit(1)
 
     check_tables(engine=engine)
 
