@@ -4,6 +4,7 @@ import subprocess
 import sys
 from getpass import getpass
 from pathlib import Path
+from typing import Optional
 
 
 def which(program):
@@ -33,7 +34,7 @@ def env_for_kerberos(ticket_dir):
 
 
 def new_kerberos_ticket(
-    user: str, realm: str, password: str | None = None, ticket_dir: str = "~/"
+    user: str, realm: str, password: Optional[str] = None, ticket_dir: str = "~/"
 ):
     env = env_for_kerberos(ticket_dir)
     success = False
@@ -184,21 +185,20 @@ class CredentialManager:
         self.add_login(service, i.user, i.password)
         self.log.info(f"Added login data from file: {file}")
 
-    def get_login(self, service: str, user: str):
-        for auth in self.authentications:
-            if service == auth.service and user == auth.user:
-                return auth
-        self.log.error(f"Couldn't find login for service: {service}, user: {user}")
-
-    def get_login(self, service: str):
+    def get_login(self, service: str, user: Optional[str] = None):
         for auth in self.authentications:
             if service == auth.service:
-                return auth
-        self.log.error(f"Couldn't find login for service: {service}")
+                if user is None or user == auth.username:
+                    return auth
+
+        if user:
+            self.log.error(f"Couldn't find login for service: {service}, user: {user}")
+        else:
+            self.log.error(f"Couldn't find login for service: {service}")
 
     def rm_login(self, service: str, user: str):
         for auth in self.authentications:
-            if service == auth.service and user == auth.user:
+            if service == auth.service and user == auth.username:
                 self.authentications.remove(auth)
                 return
 
