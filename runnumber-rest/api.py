@@ -13,14 +13,14 @@ __emails__ = [
     "tiago.alves20@imperial.ac.uk",
 ]
 
-import os
 import datetime as dt
+import os
 
 import flask
+from authentication import auth
 from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import func, event
-import re
+from sqlalchemy import func
 
 __all__ = ["app", "api", "db"]
 
@@ -40,13 +40,8 @@ uri = app.config["SQLALCHEMY_DATABASE_URI"]
 db = SQLAlchemy(app)
 api = Api(app)
 
-from urllib.parse import urlparse
 
-from authentication import auth
-from database import RunNumber
-
-PARSED_URI = urlparse(app.config["SQLALCHEMY_DATABASE_URI"])
-DB_TYPE = PARSED_URI.scheme
+from database import RunNumber  # noqa:E402 avoid circular import
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30016//runnumber/get
