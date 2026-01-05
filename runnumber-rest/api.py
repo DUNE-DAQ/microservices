@@ -13,7 +13,6 @@ __emails__ = [
     "tiago.alves20@imperial.ac.uk",
 ]
 
-import datetime as dt
 import os
 
 import flask
@@ -41,7 +40,7 @@ db = SQLAlchemy(app)
 api = Api(app)
 
 
-from database import RunNumber  # noqa:E402 avoid circular import
+from database import RunNumber, utc_now  # noqa:E402 avoid circular import
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30016//runnumber/get
@@ -111,7 +110,7 @@ class updateStopTimestamp(Resource):
             run = None
             with db.session.begin():
                 run = db.session.query(RunNumber).filter_by(rn=runNum).one()
-                run.stop_time = dt.datetime.utcnow()
+                run.stop_time = utc_now()
             print(f"updateStopTimestamp: result {[run.start_time, run.stop_time]}")
             return flask.make_response(
                 flask.jsonify([[[run.start_time, run.stop_time]]])
