@@ -184,21 +184,20 @@ class CredentialManager:
         self.add_login(service, i.user, i.password)
         self.log.info(f"Added login data from file: {file}")
 
-    def get_login(self, service: str, user: str):
-        for auth in self.authentications:
-            if service == auth.service and user == auth.user:
-                return auth
-        self.log.error(f"Couldn't find login for service: {service}, user: {user}")
-
-    def get_login(self, service: str):
+    def get_login(self, service: str, user: str | None = None):
         for auth in self.authentications:
             if service == auth.service:
-                return auth
-        self.log.error(f"Couldn't find login for service: {service}")
+                if user is None or user == auth.username:
+                    return auth
+
+        if user:
+            self.log.error(f"Couldn't find login for service: {service}, user: {user}")
+        else:
+            self.log.error(f"Couldn't find login for service: {service}")
 
     def rm_login(self, service: str, user: str):
         for auth in self.authentications:
-            if service == auth.service and user == auth.user:
+            if service == auth.service and user == auth.username:
                 self.authentications.remove(auth)
                 return
 
