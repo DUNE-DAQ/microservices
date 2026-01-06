@@ -61,7 +61,7 @@ spec:
               value: ers-protobuf-dbwriter
             - name: ERS_DBWRITER_DB_TABLENAME
               value: ERSstream
-            - name: ERS_DBWRITER_DB_URI
+            - name: DATABASE_URI
               valueFrom:
                 secretKeyRef:
                   key: uri
