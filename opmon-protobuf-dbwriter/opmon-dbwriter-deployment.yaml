@@ -53,22 +53,17 @@ spec:
               value: opmon-protobuf-dbwriter
             - name: OPMON_DBWRITER_KAFKA_BOOTSTRAP_SERVER
               value: dune-daq.kafka.svc.cluster.local:9092
-            - name: OPMON_DBWRITER_INFLUX_USER
-              value: user
-            - name: OPMON_DBWRITER_INFLUX_PASSWORD
-              value: pass
-            - name: OPMON_DBWRITER_INFLUX_HOST
-              value: opmon-influxdb.opmon.svc
-            - name: OPMON_DBWRITER_INFLUX_PORT
-              value: "8086"
             - name: OPMON_DBWRITER_KAFKA_GROUP
               value: opmon-protobuf-dbwriter
             - name: OPMON_DBWRITER_SUBSCRIBER_TIMEOUT_MS
               value: "5000"
             - name: OPMON_DBWRITER_TOPIC
               value: opmon_stream
-            - name: OPMON_DBWRITER_TABLE
-              value: opmon_protobuf_v1
+            - name: DATABASE_URI
+              valueFrom:
+                secretKeyRef:
+                  key: uri
+                  name: influxdbv1-readwrite-password
             - name: OPMON_DBWRITER_BATCH_SIZE_MS
               value: "800"
           resources:

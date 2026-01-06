@@ -11,7 +11,7 @@
 #######################################
 function ensure_required_variables() {
     local vars_as_string="${1}"
-    local -a sensitive_vars=("USERNAME" "PASSWORD" "TOKEN" "SECRET" "KEY" "PASS" "API_KEY")
+    local -a sensitive_vars=("USERNAME" "PASSWORD" "DATABASE_URI")
     local -a vars
     local var
     local missing_variable=false

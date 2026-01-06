@@ -8,17 +8,13 @@ if [[ ! -f ../entrypoint_functions.sh ]]; then
 fi
 source ../entrypoint_functions.sh
 
-ensure_required_variables "OPMON_DBWRITER_KAFKA_BOOTSTRAP_SERVER OPMON_DBWRITER_KAFKA_GROUP OPMON_DBWRITER_SUBSCRIBER_TIMEOUT_MS OPMON_DBWRITER_TOPIC OPMON_DBWRITER_INFLUX_HOST OPMON_DBWRITER_INFLUX_PORT OPMON_DBWRITER_TABLE OPMON_DBWRITER_BATCH_SIZE_MS OPMON_DBWRITER_INFLUX_USER OPMON_DBWRITER_INFLUX_PASSWORD"
+ensure_required_variables "OPMON_DBWRITER_KAFKA_BOOTSTRAP_SERVER OPMON_DBWRITER_KAFKA_GROUP OPMON_DBWRITER_SUBSCRIBER_TIMEOUT_MS OPMON_DBWRITER_TOPIC DATABASE_URI OPMON_DBWRITER_BATCH_SIZE_MS"
 
 exec python3 ./dbwriter.py --subscriber-bootstrap "${OPMON_DBWRITER_KAFKA_BOOTSTRAP_SERVER}" \
     --subscriber-group "${OPMON_DBWRITER_KAFKA_GROUP}" \
     --subscriber-timeout "${OPMON_DBWRITER_SUBSCRIBER_TIMEOUT_MS}" \
     --subscriber-topic "${OPMON_DBWRITER_TOPIC}" \
-    --influxdb-address "${OPMON_DBWRITER_INFLUX_HOST}" \
-    --influxdb-port "${OPMON_DBWRITER_INFLUX_PORT}" \
-    --influxdb-name "${OPMON_DBWRITER_TABLE}" \
-    --influxdb-username "${OPMON_DBWRITER_INFLUX_USER}" \
-    --influxdb-password "${OPMON_DBWRITER_INFLUX_PASSWORD}" \
+    --influxdb-uri "${DATABASE_URI}" \
     --influxdb-timeout "${OPMON_DBWRITER_BATCH_SIZE_MS}" \
     --influxdb-create True \
     --debug False
