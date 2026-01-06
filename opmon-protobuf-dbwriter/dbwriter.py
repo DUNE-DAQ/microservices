@@ -8,6 +8,7 @@ import logging
 import queue
 import threading
 from functools import partial
+from urllib.parse import urlparse
 
 import click
 import influxdb
@@ -47,19 +48,10 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 )
 # influx options
 @click.option(
-    "--influxdb-address",
+    "--influxdb-uri",
     type=click.STRING,
-    default="monkafka.cern.ch",
-    help="address of the influx db",
-)
-@click.option(
-    "--influxdb-port", type=click.INT, default=31002, help="port of the influxdb"
-)
-@click.option(
-    "--influxdb-name",
-    type=click.STRING,
-    default="test_influx",
-    help="Table name destination inside influxdb",
+    default="influxdb://localhost:8086/test_influx",
+    help="URI of the InfluxDB server (e.g., influxdb://user:pass@host:port/dbname)",
 )
 @click.option(
     "--influxdb-create",
@@ -73,31 +65,15 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
     default=500,
     help="Size in ms of the batches sent to influx",
 )
-@click.option(
-    "--influxdb-username",
-    type=click.STRING,
-    default=None,
-    help="Username to acces influxdb",
-)
-@click.option(
-    "--influxdb-password",
-    type=click.STRING,
-    default=None,
-    help="Password to acces influxdb",
-)
 @click.option("--debug", type=click.BOOL, default=True, help="Set debug print levels")
 def cli(
     subscriber_bootstrap,
     subscriber_group,
     subscriber_timeout,
     subscriber_topic,
-    influxdb_address,
-    influxdb_port,
-    influxdb_name,
+    influxdb_uri,
     influxdb_create,
     influxdb_timeout,
-    influxdb_username,
-    influxdb_password,
     debug,
 ):
     logging.basicConfig(
@@ -106,12 +82,14 @@ def cli(
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    kwargs = dict()
-    if influxdb_username:
-        kwargs["username"] = influxdb_username
-    if influxdb_password:
-        kwargs["password"] = influxdb_password
-    influx = InfluxDBClient(host=influxdb_address, port=influxdb_port, **kwargs)
+    # Create InfluxDB client using from_dsn for URI-based connection
+    # The from_dsn method extracts database name from the URI path
+    influx = InfluxDBClient.from_dsn(influxdb_uri)
+
+    # Extract database name from URI using urlparse
+    parsed_uri = urlparse(influxdb_uri)
+    influxdb_name = parsed_uri.path.lstrip("/") if parsed_uri.path else "test_influx"
+
     db_list = influx.get_list_database()
     logging.info("Available DBs: %s", db_list)
     if {"name": influxdb_name} not in db_list:
