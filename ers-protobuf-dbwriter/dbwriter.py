@@ -143,29 +143,34 @@ def process_chain(chain, engine, issues_table):
             # ProgrammingError covers missing tables/columns, schema issues
             logging.exception(f"Programming error on attempt {attempt}")
 
-            if table_recreated:
-                # Already tried recreating, this is a persistent schema issue
-                logging.error("Table already recreated, schema issue persists")
-                if attempt >= MAX_RETRIES:
-                    logging.error("Failed to deliver issue after all retry attempts")
-                    logging.error(pb_json.MessageToJson(chain))
-                    raise
-                # Wait a bit before retrying
-                time.sleep(0.1 * attempt)
-                continue
+            if not table_recreated:
+                logging.warning(
+                    "Schema/table issue detected, recreating table (one-time)"
+                )
+                try:
+                    clean_database(issues_table, engine)
+                    issues_table.metadata.create_all(engine)
+                    table_recreated = True
+                    continue  # retry after recreation
+                except Exception:
+                    logging.exception("Failed to recreate table")
+                    if attempt >= MAX_RETRIES:
+                        logging.error(
+                            "Failed to deliver issue after all retry attempts"
+                        )
+                        logging.error(pb_json.MessageToJson(chain))
+                        raise
+                    continue
 
-            # First time seeing this error - try recreating table
-            logging.warning("Schema/table issue detected, recreating table (one-time)")
-            try:
-                clean_database(issues_table, engine)
-                issues_table.metadata.create_all(engine)
-                table_recreated = True
-            except Exception:
-                logging.exception("Failed to recreate table")
-                if attempt >= MAX_RETRIES:
-                    logging.error("Failed to deliver issue after all retry attempts")
-                    logging.error(pb_json.MessageToJson(chain))
-                    raise
+            # Table already recreated → persistent schema problem
+            logging.error("Table already recreated, schema issue persists")
+            if attempt >= MAX_RETRIES:
+                logging.error("Failed to deliver issue after all retry attempts")
+                logging.error(pb_json.MessageToJson(chain))
+                raise
+
+            # Exponential backoff for transient issues, but never more than 1s
+            time.sleep(min(0.1 * (2**attempt), 5.0))
             continue
 
         except OperationalError:
@@ -177,8 +182,8 @@ def process_chain(chain, engine, issues_table):
                 logging.error(pb_json.MessageToJson(chain))
                 raise
 
-            # Exponential backoff for transient issues
-            time.sleep(0.1 * (2 ** (attempt - 1)))
+            # Exponential backoff for transient issues, but never more than 1s
+            time.sleep(min(0.1 * (2**attempt), 5.0))
             continue
 
         except SQLAlchemyError:
