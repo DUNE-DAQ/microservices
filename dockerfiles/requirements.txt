@@ -1,16 +1,16 @@
 Flask>=3.0,<4.0
-Flask-Caching==2.3.1
-Flask-HTTPAuth==4.8.0
-Flask-RESTful==0.3.10
-Flask-SQLAlchemy==3.1.1
-click==8.3.1
-gunicorn[gevent]==23.0.0
-influxdb==5.3.2
-kafka-python==2.3.0
-protobuf==4.25.8
-sh==2.2.2
-sqlalchemy[oracle-oracledb,postgresql-psycopgbinary]==2.0.45
+Flask-Caching>=2.3,<2.4
+Flask-HTTPAuth>=4.8,<4.9
+Flask-RESTful>=0.3,<0.4
+Flask-SQLAlchemy>=3.1,<3.2
+click>=8.3,<8.4
+gunicorn[gevent]>=23.0,<24.0
+influxdb>=5.3,<5.4
+kafka-python>=2.3,<2.4
+protobuf>=4.25,<5.0
+sh>=2.2,<2.3
+sqlalchemy[oracle-oracledb,postgresql-psycopgbinary]>=2.0.45,<2.1
 
 # elisa requires this but doesn't list the requirement
 # since it is called via subprocess/sh
-auth-get-sso-cookie==2.2.0
+auth-get-sso-cookie>=2.2,<2.3
