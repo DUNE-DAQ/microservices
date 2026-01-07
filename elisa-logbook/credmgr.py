@@ -196,6 +196,7 @@ class CredentialManager:
             raise ValueError(f"Couldn't find login for service: {service}, user: {user}")
         else:
             self.log.error(f"Couldn't find login for service: {service}")
+            raise ValueError(f"Couldn't find login for service: {service}")
 
     def rm_login(self, service: str, user: str):
         for auth in self.authentications:
