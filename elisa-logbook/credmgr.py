@@ -193,6 +193,7 @@ class CredentialManager:
 
         if user:
             self.log.error(f"Couldn't find login for service: {service}, user: {user}")
+            raise ValueError(f"Couldn't find login for service: {service}, user: {user}")
         else:
             self.log.error(f"Couldn't find login for service: {service}")
 
