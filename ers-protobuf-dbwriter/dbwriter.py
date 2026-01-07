@@ -169,7 +169,7 @@ def process_chain(chain, engine, issues_table):
                 logging.error(pb_json.MessageToJson(chain))
                 raise
 
-            # Exponential backoff for transient issues, but never more than 1s
+            # Exponential backoff for transient issues, but never a huge number
             time.sleep(min(0.1 * (2**attempt), 5.0))
             continue
 
@@ -182,7 +182,7 @@ def process_chain(chain, engine, issues_table):
                 logging.error(pb_json.MessageToJson(chain))
                 raise
 
-            # Exponential backoff for transient issues, but never more than 1s
+            # Exponential backoff for transient issues, but never a huge number
             time.sleep(min(0.1 * (2**attempt), 5.0))
             continue
 
@@ -206,7 +206,7 @@ def process_chain(chain, engine, issues_table):
     # but include as a safety fallback
     logging.error("Failed to deliver issue after all retry attempts")
     logging.error(pb_json.MessageToJson(chain))
-    return False
+    raise RuntimeError("Failed to deliver issue after all retry attempts")
 
 
 def process_issue(issue, session, connection, issues_table):
@@ -240,6 +240,7 @@ def process_issue(issue, session, connection, issues_table):
     ins = issues_table.insert().values(**values)
     logging.debug(str(ins))
     connection.execute(ins)
+    connection.commit()
 
 
 def clean_database(issues_table, engine):
