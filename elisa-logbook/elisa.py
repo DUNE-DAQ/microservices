@@ -2,12 +2,11 @@ import copy
 import logging
 import tempfile
 
+from credmgr import credentials
 from elisa_client_api.elisa import Elisa
 from elisa_client_api.exception import ElisaError
 from elisa_client_api.messageInsert import MessageInsert
 from elisa_client_api.messageReply import MessageReply
-
-from credmgr import credentials
 
 
 class ElisaLogbook:
@@ -53,9 +52,9 @@ class ElisaLogbook:
                 answer = elisa_inst.insertMessage(message)
 
             except ElisaError as ex:
-                self.log.error(f"ELisA logbook: {str(ex)}")
+                self.log.error(f"ELisA logbook: {ex!s}")
                 self.log.error(answer)
-                raise ex
+                raise
 
             self.log.info(f"ELisA logbook: Sent message (ID{answer.id})")
             return answer.id
@@ -85,9 +84,9 @@ class ElisaLogbook:
                 answer = elisa_inst.replyToMessage(message)
 
             except ElisaError as ex:
-                self.log.error(f"ELisA logbook: {str(ex)}")
+                self.log.error(f"ELisA logbook: {ex!s}")
                 self.log.error(answer)
-                raise ex
+                raise
 
             self.log.info(
                 f"ELisA logbook: Sent message (ID{answer.id}), replying to ID{id}"

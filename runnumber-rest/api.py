@@ -21,7 +21,7 @@ from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func, select
 
-__all__ = ["app", "api", "db"]
+__all__ = ["api", "app", "db"]
 
 app = flask.Flask(__name__)
 
@@ -124,7 +124,7 @@ class updateStopTimestamp(Resource):
 
 @app.route("/")
 def index():
-    root_text = f"""
+    return f"""
     <!DOCTYPE html>
     <html>
     <body>
@@ -166,4 +166,3 @@ def index():
     </body>
     </html>
     """
-    return root_text

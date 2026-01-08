@@ -6,14 +6,14 @@ __email__ = "jonathan.hancock@cern.ch"
 
 import json
 import os
-
-from flask import Flask, jsonify, make_response, request
-from flask_caching import Cache
-from flask_restful import Api
+import traceback
 
 from authentication import auth
 from credmgr import CERNSessionHandler, credentials
 from elisa import ElisaLogbook
+from flask import Flask, jsonify, make_response, request
+from flask_caching import Cache
+from flask_restful import Api
 
 # Sets up the app and processes command line inputs
 app = Flask(__name__)
@@ -175,8 +175,6 @@ def new_message():
             systems=sys_list,
         )
     except Exception:
-        import traceback
-
         traceback.print_exc()
         stack = traceback.format_exc().split("\n")
         resp = make_response(jsonify(stacktrace=stack))
@@ -222,8 +220,6 @@ def reply_to_message():
             id=request.json["id"],
         )
     except Exception:
-        import traceback
-
         traceback.print_exc()
         stack = traceback.format_exc().split("\n")
         resp = make_response(jsonify(stacktrace=stack))

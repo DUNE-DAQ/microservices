@@ -116,24 +116,23 @@ def process_chain(chain, engine, issues_table):
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:
-            with engine.connect() as connection:
-                with connection.begin():
-                    # Process all causes in reverse order
-                    for cause in reversed(chain.causes):
-                        process_issue(
-                            issue=cause,
-                            session=chain.session,
-                            connection=connection,
-                            issues_table=issues_table,
-                        )
-
-                    # Process final issue
+            with engine.connect() as connection, connection.begin():
+                # Process all causes in reverse order
+                for cause in reversed(chain.causes):
                     process_issue(
-                        issue=chain.final,
+                        issue=cause,
                         session=chain.session,
                         connection=connection,
                         issues_table=issues_table,
                     )
+
+                # Process final issue
+                process_issue(
+                    issue=chain.final,
+                    session=chain.session,
+                    connection=connection,
+                    issues_table=issues_table,
+                )
 
             # Success - exit the retry loop
             logging.debug(f"Entry sent successfully after {attempt} attempt(s)")
@@ -156,17 +155,19 @@ def process_chain(chain, engine, issues_table):
                     logging.exception("Failed to recreate table")
                     if attempt >= MAX_RETRIES:
                         logging.error(
-                            "Failed to deliver issue after all retry attempts"
+                            "Failed to deliver issue after all retry attempts. Chain:\n%s",
+                            pb_json.MessageToJson(chain),
                         )
-                        logging.error(pb_json.MessageToJson(chain))
                         raise
                     continue
 
             # Table already recreated → persistent schema problem
-            logging.error("Table already recreated, schema issue persists")
+            logging.exception("Table already recreated, schema issue persists")
             if attempt >= MAX_RETRIES:
-                logging.error("Failed to deliver issue after all retry attempts")
-                logging.error(pb_json.MessageToJson(chain))
+                logging.error(
+                    "Failed to deliver issue after all retry attempts. Chain:\n%s",
+                    pb_json.MessageToJson(chain),
+                )
                 raise
 
             # Exponential backoff for transient issues, but never a huge number
@@ -178,8 +179,10 @@ def process_chain(chain, engine, issues_table):
             logging.exception(f"Operational error on attempt {attempt}")
 
             if attempt >= MAX_RETRIES:
-                logging.error("Failed to deliver issue after all retry attempts")
-                logging.error(pb_json.MessageToJson(chain))
+                logging.error(
+                    "Failed to deliver issue after all retry attempts. Chain:\n%s",
+                    pb_json.MessageToJson(chain),
+                )
                 raise
 
             # Exponential backoff for transient issues, but never a huge number
@@ -190,16 +193,20 @@ def process_chain(chain, engine, issues_table):
             # Catch-all for other SQLAlchemy errors
             logging.exception(f"SQLAlchemy error on attempt {attempt}")
             if attempt >= MAX_RETRIES:
-                logging.error("Failed to deliver issue after all retry attempts")
-                logging.error(pb_json.MessageToJson(chain))
+                logging.error(
+                    "Failed to deliver issue after all retry attempts. Chain:\n%s",
+                    pb_json.MessageToJson(chain),
+                )
                 raise
             continue
 
         except Exception:
             # Unexpected errors shouldn't be retried
-            logging.exception(f"Unexpected error on attempt {attempt}")
-            logging.error("Failed to deliver issue due to unexpected error")
-            logging.error(pb_json.MessageToJson(chain))
+            logging.exception(
+                "Unexpected error on attempt %d\nFailed to deliver issue due to unexpected error\nChain:\n%s",
+                attempt,
+                pb_json.MessageToJson(chain),
+            )
             raise
 
     # This should never be reached due to the raise in MAX_RETRIES checks,

@@ -18,14 +18,13 @@ import os
 import urllib.parse
 
 import flask
+from authentication import auth
 from flask_caching import Cache
 from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import desc, select
 
-from authentication import auth
-
-__all__ = ["app", "api", "db"]
+__all__ = ["api", "app", "db"]
 
 app = flask.Flask(__name__)
 
@@ -48,10 +47,10 @@ db = SQLAlchemy(app)
 api = Api(app)
 
 from database import (
-    RunRegistryConfigs,  # noqa:E402 avoid circular import
-    RunRegistryMeta,  # noqa:E402 avoid circular import
-    utc_now,  # noqa:E402 avoid circular import
-)
+    RunRegistryConfigs,
+    RunRegistryMeta,
+    utc_now,
+)  # noqa:E402 avoid circular import
 
 PARSED_URI = urllib.parse.urlparse(app.config["SQLALCHEMY_DATABASE_URI"])
 DB_TYPE = PARSED_URI.scheme
@@ -65,14 +64,13 @@ if not os.access(app.config["UPLOAD_PATH"], os.W_OK):
 
 def cache_key():
     args = flask.request.args
-    key = (
+    return (
         flask.request.path
         + "?"
         + urllib.parse.urlencode(
             [(k, v) for k in sorted(args) for v in sorted(args.getlist(k))]
         )
     )
-    return key
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-017:30015/runregistry/getRunMeta/2
@@ -273,7 +271,7 @@ class updateStopTimestamp(Resource):
 
 @app.route("/")
 def index():
-    root_text = f"""
+    return f"""
     <!DOCTYPE html>
     <html>
     <body>
@@ -338,5 +336,3 @@ def index():
     </body>
     </html>
     """
-
-    return root_text
