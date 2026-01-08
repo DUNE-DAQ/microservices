@@ -67,9 +67,10 @@ def sanitize_run_type(run_type: str) -> str:
     """
     Sanitize run_type to prevent path traversal attacks.
     Only allows alphanumeric characters, hyphens, and underscores.
+    The first character must be alphanumeric to avoid interpretation as command-line flags.
     """
-    if not run_type or not re.match(r'^[a-zA-Z0-9_-]+$', run_type):
-        raise ValueError("Invalid run_type: must contain only alphanumeric characters, hyphens, or underscores")
+    if not run_type or not re.match(r'^[a-zA-Z0-9][a-zA-Z0-9_-]*$', run_type):
+        raise ValueError("Invalid run_type: must start with alphanumeric and contain only alphanumeric characters, hyphens, or underscores")
     return run_type
 
 
