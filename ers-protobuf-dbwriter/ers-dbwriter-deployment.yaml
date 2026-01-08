@@ -55,36 +55,16 @@ spec:
               value: ers-protobuf-dbwriter
             - name: ERS_DBWRITER_KAFKA_BOOTSTRAP_SERVER
               value: dune-daq.kafka.svc.cluster.local:9092
-            - name: ERS_TABLE_NAME
-              value: ERSstream
             - name: ERS_DBWRITER_KAFKA_TIMEOUT_MS
               value: "500"
             - name: ERS_DBWRITER_KAFKA_GROUP
               value: ers-protobuf-dbwriter
-            - name: ERS_DBWRITER_HOST
+            - name: ERS_DBWRITER_DB_TABLENAME
+              value: ERSstream
+            - name: ERS_DBWRITER_DB_URI
               valueFrom:
                 secretKeyRef:
-                  key: host
-                  name: ers-postgresql-svcbind-custom-user
-            - name: ERS_DBWRITER_PORT
-              valueFrom:
-                secretKeyRef:
-                  key: port
-                  name: ers-postgresql-svcbind-custom-user
-            - name: ERS_DBWRITER_USER
-              valueFrom:
-                secretKeyRef:
-                  key: username
-                  name: ers-postgresql-svcbind-custom-user
-            - name: ERS_DBWRITER_PASS
-              valueFrom:
-                secretKeyRef:
-                  key: password
-                  name: ers-postgresql-svcbind-custom-user
-            - name: ERS_DBWRITER_NAME
-              valueFrom:
-                secretKeyRef:
-                  key: database
+                  key: uri
                   name: ers-postgresql-svcbind-custom-user
           resources:
             limits:

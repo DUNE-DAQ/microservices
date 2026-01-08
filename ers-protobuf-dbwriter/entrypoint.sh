@@ -8,15 +8,11 @@ if [[ ! -f ../entrypoint_functions.sh ]]; then
 fi
 source ../entrypoint_functions.sh
 
-ensure_required_variables "ERS_DBWRITER_HOST ERS_DBWRITER_PORT ERS_DBWRITER_USER ERS_DBWRITER_PASS ERS_DBWRITER_NAME ERS_DBWRITER_KAFKA_BOOTSTRAP_SERVER ERS_TABLE_NAME ERS_DBWRITER_KAFKA_TIMEOUT_MS ERS_DBWRITER_KAFKA_GROUP"
+ensure_required_variables "ERS_DBWRITER_KAFKA_BOOTSTRAP_SERVER ERS_DBWRITER_KAFKA_TIMEOUT_MS ERS_DBWRITER_KAFKA_GROUP ERS_DBWRITER_DB_URI ERS_DBWRITER_DB_TABLENAME"
 
-python3 ./dbwriter.py --subscriber-bootstrap ${ERS_DBWRITER_KAFKA_BOOTSTRAP_SERVER} \
-    --subscriber-group ${ERS_DBWRITER_KAFKA_GROUP} \
-    --subscriber-timeout ${ERS_DBWRITER_KAFKA_TIMEOUT_MS} \
-    --db-address ${ERS_DBWRITER_HOST} \
-    --db-port ${ERS_DBWRITER_PORT} \
-    --db-user ${ERS_DBWRITER_USER} \
-    --db-password ${ERS_DBWRITER_PASS} \
-    --db-name ${ERS_DBWRITER_NAME} \
-    --db-table ${ERS_TABLE_NAME} \
-    --debug False
+python3 ./dbwriter.py --subscriber-bootstrap "${ERS_DBWRITER_KAFKA_BOOTSTRAP_SERVER}" \
+                      --subscriber-group "${ERS_DBWRITER_KAFKA_GROUP}" \
+                      --subscriber-timeout "${ERS_DBWRITER_KAFKA_TIMEOUT_MS}" \
+                      --db-uri "${ERS_DBWRITER_DB_URI}" \
+                      --db-table "${ERS_DBWRITER_DB_TABLENAME}" \
+                      --debug False
