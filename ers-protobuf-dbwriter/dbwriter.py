@@ -4,8 +4,8 @@
 #  received with this code.
 #
 
-import json
 import logging
+import re
 import sys
 import time
 from functools import partial
@@ -27,6 +27,7 @@ from sqlalchemy.exc import OperationalError, ProgrammingError, SQLAlchemyError
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 MAX_RETRIES = 3
+logger = logging.getLogger(__name__)
 
 
 @click.command(context_settings=CONTEXT_SETTINGS)
@@ -75,6 +76,10 @@ def cli(
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", db_table):
+        logger.fatal("Invalid --db-table name; use letters/numbers/underscore only")
+        sys.exit(2)
+
     metadata = MetaData()
     try:
         engine = create_engine(
@@ -84,11 +89,10 @@ def cli(
             pool_pre_ping=True,
             pool_recycle=3600,
         )
-        with engine.connect() as _conn:
-            issues_table = create_database_table(metadata, db_table, engine)
+        issues_table = create_database_table(metadata, db_table, engine)
     except SQLAlchemyError:
-        logging.exception("Failed to connect to database")
-        logging.fatal("Connection to the database failed, aborting...")
+        logger.exception("Failed to connect to database")
+        logger.fatal("Connection to the database failed, aborting...")
         sys.exit(1)
 
     check_tables(engine=engine)
@@ -110,41 +114,40 @@ def cli(
 
 def process_chain(chain, engine, issues_table):
     """Process a chain of issues and persist to database with retry logic"""
-    logging.debug(chain)
+    logger.debug(chain)
 
     table_recreated = False  # Track if we've already recreated the table
 
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             with engine.connect() as connection:
-                with connection.begin():
-                    # Process all causes in reverse order
-                    for cause in reversed(chain.causes):
-                        process_issue(
-                            issue=cause,
-                            session=chain.session,
-                            connection=connection,
-                            issues_table=issues_table,
-                        )
-
-                    # Process final issue
+                # Process all causes in reverse order
+                for cause in reversed(chain.causes):
                     process_issue(
-                        issue=chain.final,
+                        issue=cause,
                         session=chain.session,
                         connection=connection,
                         issues_table=issues_table,
                     )
 
+                # Process final issue
+                process_issue(
+                    issue=chain.final,
+                    session=chain.session,
+                    connection=connection,
+                    issues_table=issues_table,
+                )
+
             # Success - exit the retry loop
-            logging.debug(f"Entry sent successfully after {attempt} attempt(s)")
+            logger.debug(f"Entry sent successfully after {attempt} attempt(s)")
             return True
 
         except ProgrammingError:
             # ProgrammingError covers missing tables/columns, schema issues
-            logging.exception(f"Programming error on attempt {attempt}")
+            logger.exception(f"Programming error on attempt {attempt}")
 
             if not table_recreated:
-                logging.warning(
+                logger.warning(
                     "Schema/table issue detected, recreating table (one-time)"
                 )
                 try:
@@ -153,20 +156,22 @@ def process_chain(chain, engine, issues_table):
                     table_recreated = True
                     continue  # retry after recreation
                 except Exception:
-                    logging.exception("Failed to recreate table")
+                    logger.exception("Failed to recreate table")
                     if attempt >= MAX_RETRIES:
-                        logging.error(
-                            "Failed to deliver issue after all retry attempts"
+                        logger.error( # noqa:TRY400
+                            "Failed to deliver issue after all retry attempts. Chain:\n%s",
+                            pb_json.MessageToJson(chain),
                         )
-                        logging.error(pb_json.MessageToJson(chain))
                         raise
                     continue
 
             # Table already recreated → persistent schema problem
-            logging.error("Table already recreated, schema issue persists")
+            logger.exception("Table already recreated, schema issue persists")
             if attempt >= MAX_RETRIES:
-                logging.error("Failed to deliver issue after all retry attempts")
-                logging.error(pb_json.MessageToJson(chain))
+                logger.error( # noqa:TRY400
+                    "Failed to deliver issue after all retry attempts. Chain:\n%s",
+                    pb_json.MessageToJson(chain),
+                )
                 raise
 
             # Exponential backoff for transient issues, but never a huge number
@@ -175,11 +180,13 @@ def process_chain(chain, engine, issues_table):
 
         except OperationalError:
             # OperationalError covers connection issues, locks, timeouts
-            logging.exception(f"Operational error on attempt {attempt}")
+            logger.exception(f"Operational error on attempt {attempt}")
 
             if attempt >= MAX_RETRIES:
-                logging.error("Failed to deliver issue after all retry attempts")
-                logging.error(pb_json.MessageToJson(chain))
+                logger.error( # noqa:TRY400
+                    "Failed to deliver issue after all retry attempts. Chain:\n%s",
+                    pb_json.MessageToJson(chain),
+                )
                 raise
 
             # Exponential backoff for transient issues, but never a huge number
@@ -188,24 +195,28 @@ def process_chain(chain, engine, issues_table):
 
         except SQLAlchemyError:
             # Catch-all for other SQLAlchemy errors
-            logging.exception(f"SQLAlchemy error on attempt {attempt}")
+            logger.exception(f"SQLAlchemy error on attempt {attempt}")
             if attempt >= MAX_RETRIES:
-                logging.error("Failed to deliver issue after all retry attempts")
-                logging.error(pb_json.MessageToJson(chain))
+                logger.error( # noqa:TRY400
+                    "Failed to deliver issue after all retry attempts. Chain:\n%s",
+                    pb_json.MessageToJson(chain),
+                )
                 raise
             continue
 
         except Exception:
             # Unexpected errors shouldn't be retried
-            logging.exception(f"Unexpected error on attempt {attempt}")
-            logging.error("Failed to deliver issue due to unexpected error")
-            logging.error(pb_json.MessageToJson(chain))
+            logger.exception(
+                "Unexpected error on attempt %d\nFailed to deliver issue due to unexpected error\nChain:\n%s",
+                attempt,
+                pb_json.MessageToJson(chain),
+            )
             raise
 
     # This should never be reached due to the raise in MAX_RETRIES checks,
     # but include as a safety fallback
-    logging.error("Failed to deliver issue after all retry attempts")
-    logging.error(pb_json.MessageToJson(chain))
+    logger.error("Failed to deliver issue after all retry attempts")
+    logger.error(pb_json.MessageToJson(chain))
     raise RuntimeError("Failed to deliver issue after all retry attempts")
 
 
@@ -238,20 +249,20 @@ def process_issue(issue, session, connection, issues_table):
     values["params"] = str(issue.parameters)
 
     ins = issues_table.insert().values(**values)
-    logging.debug(str(ins))
+    logger.debug(str(ins))
     connection.execute(ins)
     connection.commit()
 
 
 def clean_database(issues_table, engine):
     issues_table.drop(engine, checkfirst=True)
-    logging.debug(f"Dropped table {issues_table.name}")
+    logger.debug(f"Dropped table {issues_table.name}")
 
 
 def check_tables(engine):
     inspector = inspect(engine)
     tables = inspector.get_table_names()
-    logging.info(f"Tables: {tables}")
+    logger.info(f"Tables: {tables}")
     return tables
 
 
@@ -280,8 +291,8 @@ def create_database_table(metadata, table_name, engine):
     )
 
     metadata.create_all(engine, checkfirst=True)
-    logging.info("Database is ready")
-    logging.debug(f"Created table {table_name}")
+    logger.info("Database is ready")
+    logger.debug(f"Created table {table_name}")
     return issues_table
 
 

@@ -17,11 +17,11 @@ import os
 
 import flask
 from authentication import auth
+from database import RunNumber, db, utc_now
 from flask_restful import Api, Resource
-from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func, select
 
-__all__ = ["app", "api", "db"]
+__all__ = ["api", "app", "db"]
 
 app = flask.Flask(__name__)
 
@@ -36,11 +36,8 @@ app.config.update(
 )
 
 uri = app.config["SQLALCHEMY_DATABASE_URI"]
-db = SQLAlchemy(app)
+db.init_app(app)
 api = Api(app)
-
-
-from database import RunNumber, utc_now  # noqa:E402 avoid circular import
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30016//runnumber/get
@@ -55,7 +52,7 @@ class getRunNumber(Resource):
 
     @auth.login_required
     def get(self):
-        print("getNewRunNumber: no args")
+        print("getRunNumber: no args")
         try:
             max_run_number = db.session.execute(select(func.max(RunNumber.rn))).scalar()
             # maybe find consumers to see if we can drop the extra nesting
@@ -124,7 +121,7 @@ class updateStopTimestamp(Resource):
 
 @app.route("/")
 def index():
-    root_text = f"""
+    return f"""
     <!DOCTYPE html>
     <html>
     <body>
@@ -166,4 +163,3 @@ def index():
     </body>
     </html>
     """
-    return root_text

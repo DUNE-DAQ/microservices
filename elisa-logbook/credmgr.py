@@ -12,7 +12,7 @@ def which(program):
     def is_exe(fpath):
         return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
 
-    fpath, fname = os.path.split(program)
+    fpath, _fname = os.path.split(program)
     if fpath:
         if is_exe(program):
             print("Found1", program)
@@ -29,8 +29,7 @@ def which(program):
 
 def env_for_kerberos(ticket_dir):
     ticket_dir = os.path.expanduser(ticket_dir)
-    env = {"KRB5CCNAME": f"DIR:{ticket_dir}"}
-    return env
+    return {"KRB5CCNAME": f"DIR:{ticket_dir}"}
 
 
 def new_kerberos_ticket(
@@ -88,7 +87,7 @@ def get_kerberos_user(silent=False, ticket_dir: str = "~/"):
         "klist"
     ]  # on my mac, I can specify --json and that gives everything nicely in json format... but...
 
-    proc = subprocess.run(args, capture_output=True, text=True, env=env)
+    proc = subprocess.run(args, check=False, capture_output=True, text=True, env=env)
     raw_kerb_info = proc.stdout.split("\n")
 
     if not silent:
@@ -125,15 +124,14 @@ def check_kerberos_credentials(against_user: str, silent=False, ticket_dir: str 
         if not silent:
             log.info("No kerberos ticket")
         return False
-    elif kerb_user != against_user:  # we enforce the user is the same
+    if kerb_user != against_user:  # we enforce the user is the same
         if not silent:
             log.info("Another user is logged in")
         return False
-    else:
-        ticket_is_valid = subprocess.call(["klist", "-s"], env=env) == 0
-        if not silent and not ticket_is_valid:
-            log.info("Kerberos ticket is expired")
-        return ticket_is_valid
+    ticket_is_valid = subprocess.call(["klist", "-s"], env=env) == 0
+    if not silent and not ticket_is_valid:
+        log.info("Kerberos ticket is expired")
+    return ticket_is_valid
 
 
 class ServiceAccountWithKerberos:
@@ -147,7 +145,7 @@ class ServiceAccountWithKerberos:
     def generate_cern_sso_cookie(self, website, kerberos_directory, output_directory):
         env = {"KRB5CCNAME": f"DIR:{kerberos_directory}"}
 
-        import sh
+        import sh  # noqa:PLC0415
 
         executable = sh.Command("auth-get-sso-cookie")
 
@@ -156,7 +154,9 @@ class ServiceAccountWithKerberos:
                 "-u", website, "-o", output_directory, _env=env, _new_session=False
             )
         except sh.ErrorReturnCode as error:
-            self.log.error(error)
+            self.log.exception(
+                f"Couldn't get SSO cookie! {error.stdout=} {error.stderr=}"
+            )
             raise RuntimeError(
                 f"Couldn't get SSO cookie! {error.stdout=} {error.stderr=}"
             ) from error
@@ -193,10 +193,11 @@ class CredentialManager:
 
         if user:
             self.log.error(f"Couldn't find login for service: {service}, user: {user}")
-            raise ValueError(f"Couldn't find login for service: {service}, user: {user}")
-        else:
-            self.log.error(f"Couldn't find login for service: {service}")
-            raise ValueError(f"Couldn't find login for service: {service}")
+            raise ValueError(
+                f"Couldn't find login for service: {service}, user: {user}"
+            )
+        self.log.error(f"Couldn't find login for service: {service}")
+        raise ValueError(f"Couldn't find login for service: {service}")
 
     def rm_login(self, service: str, user: str):
         for auth in self.authentications:
