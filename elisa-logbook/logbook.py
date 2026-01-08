@@ -6,7 +6,9 @@ __email__ = "jonathan.hancock@cern.ch"
 
 import json
 import os
+import re
 import traceback
+from pathlib import Path
 
 from authentication import auth
 from credmgr import CERNSessionHandler, credentials
@@ -21,7 +23,7 @@ cache = Cache(app)
 api = Api(app)
 
 # Converts the config json into a dictionary, and gets a list of the keys
-with open("elisaconf.json") as json_file:
+with Path("elisaconf.json").open() as json_file:
     elisaconf = json.load(json_file)
 keylist = elisaconf.keys()
 hardware_string = "Please choose from one of the following options:"
@@ -48,7 +50,7 @@ try:
 except KeyError as exc:
     raise KeyError(f"{hard_var} is not a valid choice!{hardware_string}") from exc
 
-os.makedirs(app.config["PATH"], exist_ok=True)
+Path(app.config["PATH"]).mkdir(parents=True, exist_ok=True)
 if not os.access(app.config["PATH"], os.W_OK):
     raise PermissionError(
         f"Error: Permission denied to access the file at {app.config['PATH']}"
@@ -58,6 +60,19 @@ credentials.add_login("elisa", app.config["USER"], app.config["PASSWORD"], "CERN
 cern_auth = CERNSessionHandler(username=app.config["USER"])
 
 logbook = ElisaLogbook(app.config["HARDWARECONF"], cern_auth)
+
+
+# Helper function to sanitize run_type to prevent path traversal
+def sanitize_run_type(run_type: str) -> str:
+    """
+    Sanitize run_type to prevent path traversal attacks.
+    Only allows alphanumeric characters, hyphens, and underscores.
+    """
+    if not run_type or not re.match(r'^[a-zA-Z0-9_-]+$', run_type):
+        raise ValueError("Invalid run_type: must contain only alphanumeric characters, hyphens, or underscores")
+    return run_type
+
+
 # Main app
 # The general principle is to replace the methods of each class with API methods
 # The first type of logging is fileLogbook, which writes logs to a given file in the current working directory.
@@ -79,13 +94,24 @@ def Fmessage_on_start():
         return error, 400
 
     try:
-        file_path = app.config["PATH"] + f"_{run_number}_{request.json['run_type']}.txt"
-        with open(file_path, "w") as f:
+        # Security: Sanitize run_type to prevent path traversal
+        run_type = sanitize_run_type(request.json["run_type"])
+        
+        base_path = Path(app.config["PATH"])
+        file_path = base_path / f"_{run_number}_{run_type}.txt"
+        
+        # Security: Verify the resolved path is within the base directory
+        try:
+            file_path.resolve().relative_to(base_path.resolve())
+        except ValueError:
+            return "Invalid file path", 400
+        
+        with file_path.open("w") as f:
             f.write(
-                f"-- User {request.json['author']} started a run {run_number}, of type {request.json['run_type']} --\n"
+                f"-- User {request.json['author']} started a run {run_number}, of type {run_type} --\n"
             )
             f.write(request.json["author"] + ": " + request.json["message"] + "\n")
-        rstring = "Logfile started at " + file_path + "\n"
+        rstring = "Logfile started at " + str(file_path) + "\n"
         return rstring, 201
     except Exception as e:
         return str(e), 400
@@ -96,21 +122,28 @@ def Fmessage_on_start():
 @auth.login_required
 def Fadd_message():
     try:
-        file_path = (
-            app.config["PATH"]
-            + f"_{request.json['run_num']}_{request.json['run_type']}.txt"
-        )
+        # Security: Sanitize run_type to prevent path traversal
+        run_type = sanitize_run_type(request.json["run_type"])
+        
+        base_path = Path(app.config["PATH"])
+        file_path = base_path / f"_{request.json['run_num']}_{run_type}.txt"
+        
+        # Security: Verify the resolved path is within the base directory
+        try:
+            file_path.resolve().relative_to(base_path.resolve())
+        except ValueError:
+            return "Invalid file path", 400
     except Exception as e:
         return str(e), 400
 
-    if not os.path.exists(file_path):
+    if not file_path.exists():
         error = "File not found!"
         return error, 404
 
-    with open(file_path, "a") as f:
+    with file_path.open("a") as f:
         f.write(request.json["author"] + ": " + request.json["message"] + "\n")
 
-    rstring = "Logfile updated at " + file_path + "\n"
+    rstring = "Logfile updated at " + str(file_path) + "\n"
     return rstring, 200
 
 
@@ -119,24 +152,32 @@ def Fadd_message():
 @auth.login_required
 def Fmessage_on_stop():
     try:
-        file_path = (
-            app.config["PATH"]
-            + f"_{request.json['run_num']}_{request.json['run_type']}.txt"
-        )
+        # Security: Sanitize run_type to prevent path traversal
+        run_type = sanitize_run_type(request.json["run_type"])
+        run_num = request.json['run_num']
+        
+        base_path = Path(app.config["PATH"])
+        file_path = base_path / f"_{run_num}_{run_type}.txt"
+        
+        # Security: Verify the resolved path is within the base directory
+        try:
+            file_path.resolve().relative_to(base_path.resolve())
+        except ValueError:
+            return "Invalid file path", 400
     except Exception as e:
         return str(e), 400
 
-    if not os.path.exists(file_path):
+    if not file_path.exists():
         error = "File not found!"
         return error, 404
 
-    with open(file_path, "a") as f:
+    with file_path.open("a") as f:
         f.write(
-            f"-- User {request.json['author']} stopped the run {request.json['run_num']}, of type {request.json['run_type']} --\n"
+            f"-- User {request.json['author']} stopped the run {run_num}, of type {run_type} --\n"
         )
         f.write(request.json["author"] + ": " + request.json["message"] + "\n")
 
-    rstring = "Log stopped at " + file_path + "\n"
+    rstring = "Log stopped at " + str(file_path) + "\n"
     return rstring, 200
 
 

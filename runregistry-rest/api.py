@@ -16,6 +16,7 @@ __emails__ = [
 import io
 import os
 import urllib.parse
+from pathlib import Path
 
 import flask
 from authentication import auth
@@ -55,7 +56,7 @@ from database import (
 PARSED_URI = urllib.parse.urlparse(app.config["SQLALCHEMY_DATABASE_URI"])
 DB_TYPE = PARSED_URI.scheme
 
-os.makedirs(app.config["UPLOAD_PATH"], exist_ok=True)
+Path(app.config["UPLOAD_PATH"]).mkdir(parents=True, exist_ok=True)
 if not os.access(app.config["UPLOAD_PATH"], os.W_OK):
     raise PermissionError(
         f"Error: Permission denied to access the file at {app.config['UPLOAD_PATH']}"
@@ -186,8 +187,7 @@ class insertRun(Resource):
 
     @auth.login_required
     def post(self):
-        filename = ""
-        local_file_name = None
+        local_file_path = None
         try:
             # Ensure form fields
             run_number = flask.request.form.get("run_num")
@@ -199,22 +199,34 @@ class insertRun(Resource):
                 return flask.make_response("Missing required form fields", 400)
 
             filename = uploaded_file.filename
-            if (
-                not filename
-                or os.path.splitext(filename)[1] not in app.config["UPLOAD_EXTENSIONS"]
-            ):
+            if not filename:
+                return flask.make_response("Invalid file or extension", 400)
+            
+            # Security: Sanitize filename to prevent path traversal
+            filename_path = Path(filename)
+            safe_filename = filename_path.name  # Get only the filename, remove any directory components
+            
+            if safe_filename != filename or filename_path.suffix not in app.config["UPLOAD_EXTENSIONS"]:
                 return flask.make_response("Invalid file or extension", 400)
 
-            local_file_name = os.path.join(app.config["UPLOAD_PATH"], filename)
-            if os.path.isfile(local_file_name):
+            upload_dir = Path(app.config["UPLOAD_PATH"])
+            local_file_path = upload_dir / safe_filename
+            
+            # Security: Verify the resolved path is within the upload directory
+            try:
+                local_file_path.resolve().relative_to(upload_dir.resolve())
+            except ValueError:
+                return flask.make_response("Invalid file path", 400)
+            
+            if local_file_path.is_file():
                 return flask.make_response(
                     "File with the same name is already being processed. Try again later.",
                     400,
                 )
 
-            uploaded_file.save(local_file_name)
+            uploaded_file.save(str(local_file_path))
 
-            with open(local_file_name, "rb") as file_in:
+            with local_file_path.open("rb") as file_in:
                 data = io.BytesIO(file_in.read())
 
             with db.session.begin():
@@ -222,7 +234,7 @@ class insertRun(Resource):
                     run_number=run_number,
                     detector_id=det_id,
                     run_type=run_type,
-                    filename=filename,
+                    filename=safe_filename,
                     software_version=software_version,
                 )
                 run_config = RunRegistryConfigs(
@@ -232,14 +244,14 @@ class insertRun(Resource):
                 db.session.add(run_meta)
                 db.session.add(run_config)
 
-            resp_data = [run_number, det_id, run_type, software_version, filename]
+            resp_data = [run_number, det_id, run_type, software_version, safe_filename]
             return flask.make_response(flask.jsonify([[[resp_data]]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
             return flask.make_response(str(err_obj), 400)
         finally:
-            if local_file_name and os.path.exists(local_file_name):
-                os.remove(local_file_name)
+            if local_file_path and local_file_path.exists():
+                local_file_path.unlink()
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-017:30015/runregistry/updateStopTime/<int:runNum>
