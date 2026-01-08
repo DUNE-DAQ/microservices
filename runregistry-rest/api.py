@@ -203,10 +203,14 @@ class insertRun(Resource):
                 return flask.make_response("Invalid file or extension", 400)
             
             # Security: Sanitize filename to prevent path traversal
+            # Check for directory separators or parent directory references
+            if '/' in filename or '\\' in filename or '..' in filename:
+                return flask.make_response("Invalid filename: path separators not allowed", 400)
+            
             filename_path = Path(filename)
             safe_filename = filename_path.name  # Get only the filename, remove any directory components
             
-            if safe_filename != filename or filename_path.suffix not in app.config["UPLOAD_EXTENSIONS"]:
+            if filename_path.suffix not in app.config["UPLOAD_EXTENSIONS"]:
                 return flask.make_response("Invalid file or extension", 400)
 
             upload_dir = Path(app.config["UPLOAD_PATH"])

@@ -238,7 +238,7 @@ class CERNSessionHandler:
 
     @staticmethod
     def __get_elisa_kerberos_cache_path():
-        return Path("/tmp/.nanorc_elisakerbcache").expanduser()
+        return Path("/tmp/.nanorc_elisakerbcache")
 
     def elisa_user_is_authenticated(self):
         elisa_user = credentials.get_login("elisa")
