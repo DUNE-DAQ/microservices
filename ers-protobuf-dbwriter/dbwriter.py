@@ -123,20 +123,22 @@ def process_chain(chain, engine, issues_table):
             with engine.connect() as connection:
                 # Process all causes in reverse order
                 for cause in reversed(chain.causes):
+                    with connection.begin():
+                        process_issue(
+                            issue=cause,
+                            session=chain.session,
+                            connection=connection,
+                            issues_table=issues_table,
+                        )
+
+                # Process final issue
+                with connection.begin():
                     process_issue(
-                        issue=cause,
+                        issue=chain.final,
                         session=chain.session,
                         connection=connection,
                         issues_table=issues_table,
                     )
-
-                # Process final issue
-                process_issue(
-                    issue=chain.final,
-                    session=chain.session,
-                    connection=connection,
-                    issues_table=issues_table,
-                )
 
             # Success - exit the retry loop
             logger.debug(f"Entry sent successfully after {attempt} attempt(s)")
@@ -158,7 +160,7 @@ def process_chain(chain, engine, issues_table):
                 except Exception:
                     logger.exception("Failed to recreate table")
                     if attempt >= MAX_RETRIES:
-                        logger.error( # noqa:TRY400
+                        logger.error(  # noqa:TRY400
                             "Failed to deliver issue after all retry attempts. Chain:\n%s",
                             pb_json.MessageToJson(chain),
                         )
@@ -168,14 +170,14 @@ def process_chain(chain, engine, issues_table):
             # Table already recreated → persistent schema problem
             logger.exception("Table already recreated, schema issue persists")
             if attempt >= MAX_RETRIES:
-                logger.error( # noqa:TRY400
+                logger.error(  # noqa:TRY400
                     "Failed to deliver issue after all retry attempts. Chain:\n%s",
                     pb_json.MessageToJson(chain),
                 )
                 raise
 
             # Exponential backoff for transient issues, but never a huge number
-            time.sleep(min(0.1 * (2**attempt), 5.0))
+            time.sleep(min(0.5 * (2**attempt), 5.0))
             continue
 
         except OperationalError:
@@ -183,25 +185,28 @@ def process_chain(chain, engine, issues_table):
             logger.exception(f"Operational error on attempt {attempt}")
 
             if attempt >= MAX_RETRIES:
-                logger.error( # noqa:TRY400
+                logger.error(  # noqa:TRY400
                     "Failed to deliver issue after all retry attempts. Chain:\n%s",
                     pb_json.MessageToJson(chain),
                 )
                 raise
 
             # Exponential backoff for transient issues, but never a huge number
-            time.sleep(min(0.1 * (2**attempt), 5.0))
+            time.sleep(min(0.5 * (2**attempt), 5.0))
             continue
 
         except SQLAlchemyError:
             # Catch-all for other SQLAlchemy errors
             logger.exception(f"SQLAlchemy error on attempt {attempt}")
             if attempt >= MAX_RETRIES:
-                logger.error( # noqa:TRY400
+                logger.error(  # noqa:TRY400
                     "Failed to deliver issue after all retry attempts. Chain:\n%s",
                     pb_json.MessageToJson(chain),
                 )
                 raise
+
+            # Exponential backoff for transient issues, but never a huge number
+            time.sleep(min(0.5 * (2**attempt), 5.0))
             continue
 
         except Exception:
@@ -211,6 +216,7 @@ def process_chain(chain, engine, issues_table):
                 attempt,
                 pb_json.MessageToJson(chain),
             )
+            # Do not backoff here!
             raise
 
     # This should never be reached due to the raise in MAX_RETRIES checks,
@@ -251,7 +257,6 @@ def process_issue(issue, session, connection, issues_table):
     ins = issues_table.insert().values(**values)
     logger.debug(str(ins))
     connection.execute(ins)
-    connection.commit()
 
 
 def clean_database(issues_table, engine):
