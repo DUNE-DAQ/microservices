@@ -29,6 +29,7 @@ from database import (
 from flask_caching import Cache
 from flask_restful import Api, Resource
 from sqlalchemy import desc, select
+from sqlalchemy.exc import NoResultFound
 
 __all__ = ["api", "app", "db"]
 
@@ -102,9 +103,11 @@ class getRunMeta(Resource):
             )  # Don't like this but only way to stay consistent with Oracle
             cnu = [name.upper() for name in column_names]
             return flask.make_response(flask.jsonify(cnu, [[*result]]))
+        except NoResultFound:
+            return flask.make_response(flask.jsonify({"error": "Run not found"}), 404)
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
-            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
+            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}), 500)
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-017:30015/runregistry/getRunMetaLast/100
@@ -140,7 +143,7 @@ class getRunMetaLast(Resource):
             cnu = [name.upper() for name in column_names]
             return flask.make_response(flask.jsonify(cnu, [*result]))
         except Exception as err_obj:
-            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
+            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}), 500)
 
 
 # $ curl -u fooUsr:barPass -X GET -O -J np04-srv-017:30015/runregistry/getRunBlob/2
@@ -160,21 +163,30 @@ class getRunBlob(Resource):
                 RunRegistryConfigs.run_number == runNum
             )
             blob = db.session.execute(stmt_blob).scalar()
+            if blob is None:
+                print(f"No blob found for {runNum}")
+                return flask.make_response(flask.jsonify({"error": "Configuration not found"}), 404)
+
             stmt_filename = select(RunRegistryMeta.filename).filter(
                 RunRegistryMeta.run_number == runNum
             )
             filename = db.session.execute(stmt_filename).scalar()
+            if not filename:
+                print(f"No filename found for {runNum}")
+                return flask.make_response(flask.jsonify({"error": "Filename not found"}), 404)
+
             print("returning " + filename)
+
             if DB_TYPE == "postgresql":
                 resp = flask.make_response(bytes(blob))
             else:
                 resp = flask.make_response(blob)
             resp.headers["Content-Type"] = "application/octet-stream"
             resp.headers["Content-Disposition"] = f"attachment; filename={filename}"
+            return resp
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
-            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
-        return resp
+            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}), 500)
 
 
 # $ curl -u fooUsr:barPass -F "run_num=1000" -F "det_id=foo" -F "run_type=bar" -F "software_version=dunedaq-vX.Y.Z" -F "file=@sspconf.tar.gz" -X POST np04-srv-017:30015/runregistry/insertRun/
@@ -190,7 +202,11 @@ class insertRun(Resource):
         local_file_path = None
         try:
             # Ensure form fields
-            run_number = flask.request.form.get("run_num")
+            try:
+                run_number = int(flask.request.form.get("run_num"))
+            except (KeyError,ValueError):
+                return flask.make_response("Invalid run_num (must be integer)", 400)
+
             det_id = flask.request.form.get("det_id")
             run_type = flask.request.form.get("run_type")
             software_version = flask.request.form.get("software_version")
@@ -254,7 +270,7 @@ class insertRun(Resource):
             return flask.make_response(flask.jsonify([[[resp_data]]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
-            return flask.make_response(str(err_obj), 400)
+            return flask.make_response(str(err_obj), 500)
         finally:
             if local_file_path and local_file_path.exists():
                 local_file_path.unlink()
@@ -282,9 +298,11 @@ class updateStopTimestamp(Resource):
             return flask.make_response(
                 flask.jsonify([[[run.start_time, run.stop_time]]])
             )
+        except NoResultFound:
+            return flask.make_response(flask.jsonify({"error": "Run not found"}), 404)
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
-            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
+            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}), 500)
 
 
 @app.route("/")
