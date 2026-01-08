@@ -162,9 +162,14 @@ def Fadd_message():
 @auth.login_required
 def Fmessage_on_stop():
     try:
+        run_num = int(request.json["run_num"])
+    except (ValueError, TypeError, KeyError):
+        error = "Run number is not an integer!"
+        return error, 400
+
+    try:
         # Security: Sanitize run_type to prevent path traversal
         run_type = sanitize_run_type(request.json["run_type"])
-        run_num = request.json["run_num"]
 
         base_path = Path(app.config["PATH"])
         file_path = base_path / f"_{run_num}_{run_type}.txt"
