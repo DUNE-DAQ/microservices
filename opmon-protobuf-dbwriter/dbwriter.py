@@ -17,6 +17,7 @@ import opmonlib.opmon_entry_pb2 as opmon_schema
 from influxdb import InfluxDBClient
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
+logger = logging.getLogger(__name__)
 
 
 @click.command(context_settings=CONTEXT_SETTINGS)
@@ -93,12 +94,12 @@ def cli(
         raise ValueError("No database name in URI")
 
     db_list = influx.get_list_database()
-    logging.info("Available DBs: %s", db_list)
+    logger.info("Available DBs: %s", db_list)
     if {"name": influxdb_name} not in db_list:
-        logging.warning("%s DB not available", influxdb_name)
+        logger.warning("%s DB not available", influxdb_name)
         if influxdb_create:
             influx.create_database(influxdb_name)
-            logging.info("New list of DBs: %s", influx.get_list_database())
+            logger.info("New list of DBs: %s", influx.get_list_database())
 
     influx.switch_database(influxdb_name)
 
@@ -125,7 +126,7 @@ def cli(
 
 
 def consume(q: queue.Queue, timeout_ms, influx: InfluxDBClient = None):
-    logging.info("Starting consumer thread")
+    logger.info("Starting consumer thread")
     batch = []
     batch_ms = 0
     while True:
@@ -145,7 +146,7 @@ def consume(q: queue.Queue, timeout_ms, influx: InfluxDBClient = None):
                 batch_ms = entry.ms
 
         except queue.Empty:
-            logging.debug("Queue is empty")
+            logger.debug("Queue is empty")
             send_batch(batch, influx)
             batch = []
             batch_ms = 0
@@ -153,16 +154,16 @@ def consume(q: queue.Queue, timeout_ms, influx: InfluxDBClient = None):
 
 def send_batch(batch: list, influx: InfluxDBClient = None):
     if len(batch) > 0:
-        logging.info("Sending %s points", len(batch))
+        logger.info("Sending %s points", len(batch))
         if influx:
             try:
                 influx.write_points(batch)
             except influxdb.exceptions.InfluxDBClientError:
-                logging.exception("InfluxDB client error occurred")
+                logger.exception("InfluxDB client error occurred")
             except (ConnectionError, TimeoutError):
-                logging.exception("Network error while sending batch")
+                logger.exception("Network error while sending batch")
             except Exception:
-                logging.exception("Something went wrong: json batch not sent")
+                logger.exception("Something went wrong: json batch not sent")
         else:
             print(batch)
 

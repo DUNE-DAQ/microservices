@@ -1,8 +1,10 @@
 import datetime
 
-from api import db
+from flask_sqlalchemy import SQLAlchemy
 
-__all__ = ["RunNumber", "utc_now"]
+__all__ = ["RunNumber", "db", "utc_now"]
+
+db = SQLAlchemy()
 
 
 def utc_now():
