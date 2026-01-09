@@ -1,28 +1,11 @@
 import logging
 import os
+import shutil
 import subprocess
 import sys
 from getpass import getpass
 from pathlib import Path
 from typing import Optional
-
-
-def which(program):
-    # based on https://stackoverflow.com/a/377028
-    def is_exe(fpath):
-        return Path(fpath).is_file() and os.access(fpath, os.X_OK)
-
-    fpath, _fname = os.path.split(program)
-    if fpath:
-        if is_exe(program):
-            return program
-    else:
-        for path in os.environ.get("PATH", "").split(os.pathsep):
-            exe_file = Path(path) / program
-            if is_exe(exe_file):
-                return str(exe_file)
-
-    return None
 
 
 def env_for_kerberos(ticket_dir):
@@ -33,13 +16,19 @@ def env_for_kerberos(ticket_dir):
 def new_kerberos_ticket(
     user: str, realm: str, password: Optional[str] = None, ticket_dir: str = "~/"
 ):
+    kinit_path = shutil.which("kinit")
+    if kinit_path is None:
+        raise RuntimeError(
+            "kinit binary not found in PATH. Please ensure Kerberos client tools are installed."
+        )
+
     env = env_for_kerberos(ticket_dir)
     success = False
     password_provided = password is not None
 
     while not success:
         p = subprocess.Popen(
-            ["kinit", f"{user}@{realm}"],
+            [kinit_path, f"{user}@{realm}"],
             stdout=subprocess.PIPE,
             stdin=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -80,9 +69,15 @@ def new_kerberos_ticket(
 def get_kerberos_user(silent=False, ticket_dir: str = "~/"):
     log = logging.getLogger("get_kerberos_user")
 
+    klist_path = shutil.which("klist")
+    if klist_path is None:
+        raise RuntimeError(
+            "klist binary not found in PATH. Please ensure Kerberos client tools are installed."
+        )
+
     env = env_for_kerberos(ticket_dir)
     args = [
-        "klist"
+        klist_path
     ]  # on my mac, I can specify --json and that gives everything nicely in json format... but...
 
     proc = subprocess.run(args, check=False, capture_output=True, text=True, env=env)
@@ -108,6 +103,12 @@ def get_kerberos_user(silent=False, ticket_dir: str = "~/"):
 def check_kerberos_credentials(against_user: str, silent=False, ticket_dir: str = "~/"):
     log = logging.getLogger("check_kerberos_credentials")
 
+    klist_path = shutil.which("klist")
+    if klist_path is None:
+        raise RuntimeError(
+            "klist binary not found in PATH. Please ensure Kerberos client tools are installed."
+        )
+
     env = env_for_kerberos(ticket_dir)
 
     kerb_user = get_kerberos_user(silent=silent, ticket_dir=ticket_dir)
@@ -126,7 +127,7 @@ def check_kerberos_credentials(against_user: str, silent=False, ticket_dir: str 
         if not silent:
             log.info("Another user is logged in")
         return False
-    ticket_is_valid = subprocess.call(["klist", "-s"], env=env) == 0
+    ticket_is_valid = subprocess.call([klist_path, "-s"], env=env) == 0
     if not silent and not ticket_is_valid:
         log.info("Kerberos ticket is expired")
     return ticket_is_valid
@@ -141,11 +142,17 @@ class ServiceAccountWithKerberos:
         self.log = logging.getLogger(self.__class__.__name__)
 
     def generate_cern_sso_cookie(self, website, kerberos_directory, output_directory):
+        auth_get_sso_cookie_path = shutil.which("auth-get-sso-cookie")
+        if auth_get_sso_cookie_path is None:
+            raise RuntimeError(
+                "auth-get-sso-cookie binary not found in PATH. Please ensure CERN SSO tools are installed."
+            )
+
         env = {"KRB5CCNAME": f"DIR:{kerberos_directory}"}
 
         import sh  # noqa:PLC0415
 
-        executable = sh.Command("auth-get-sso-cookie")
+        executable = sh.Command(auth_get_sso_cookie_path)
 
         try:
             executable(
@@ -206,13 +213,19 @@ class CredentialManager:
                 return
 
     def new_kerberos_ticket(self):
+        kinit_path = which("kinit")
+        if kinit_path is None:
+            raise RuntimeError(
+                "kinit binary not found in PATH. Please ensure Kerberos client tools are installed."
+            )
+
         for a in self.authentications:
             if a.username == self.user:
                 password = a.password
                 break
 
         p = subprocess.Popen(
-            ["kinit", self.user + "@CERN.CH"],
+            [kinit_path, self.user + "@CERN.CH"],
             stdout=subprocess.PIPE,
             stdin=subprocess.PIPE,
             stderr=subprocess.PIPE,
