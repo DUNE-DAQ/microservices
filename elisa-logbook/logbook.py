@@ -9,6 +9,7 @@ import os
 import re
 import traceback
 from pathlib import Path
+from typing import Optional
 
 from authentication import auth
 from credmgr import CERNSessionHandler, credentials
@@ -34,15 +35,15 @@ for key in keylist:
 
 
 # We use environment variables to pass data
-def get_required_env(name: str) -> str:
-    value = os.getenv(name)
+def get_required_env(name: str, default: Optional[str] = None) -> str:
+    value = os.getenv(name, default)
     if not value:
         raise RuntimeError(f"Required environment variable {name} is not set")
-    return value.rstrip("\n")
+    return value
 
 
 hard_var = get_required_env("HARDWARE")
-app.config["PATH"] = os.getenv("APP_DATA", "./logfiles").rstrip("\n")
+app.config["PATH"] = get_required_env("APP_DATA", "./logfiles")
 app.config["USER"] = get_required_env("USERNAME")
 app.config["PASSWORD"] = get_required_env("PASSWORD")
 
