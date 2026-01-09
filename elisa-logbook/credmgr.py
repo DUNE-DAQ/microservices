@@ -44,7 +44,7 @@ def new_kerberos_ticket(
                 print()
                 return False
 
-        stdout_data, stderr_data = p.communicate(password.encode())
+        stdout_data, stderr_data = p.communicate((password + "\n").encode())
 
         # Display stderr if present (where kinit typically sends output)
         if stderr_data:
@@ -213,26 +213,28 @@ class CredentialManager:
                 return
 
     def new_kerberos_ticket(self):
-        kinit_path = which("kinit")
-        if kinit_path is None:
-            raise RuntimeError(
-                "kinit binary not found in PATH. Please ensure Kerberos client tools are installed."
-            )
+        if self.user is None:
+            self.log.error("No user set in CredentialManager")
+            return False
 
-        for a in self.authentications:
-            if a.username == self.user:
-                password = a.password
-                break
-
-        p = subprocess.Popen(
-            [kinit_path, self.user + "@CERN.CH"],
-            stdout=subprocess.PIPE,
-            stdin=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+        auth = next(
+            (a for a in self.authentications if a.username == self.user),
+            None
         )
-        stdout_data = p.communicate(password.encode())
-        print(stdout_data[-1].decode())
-        return True
+
+        if auth is None:
+            self.log.error(f"No authentication found for user: {self.user}")
+            return False
+
+        try:
+            return new_kerberos_ticket(
+                user=auth.username,
+                realm=auth.realm,
+                password=auth.password
+            )
+        except Exception:
+            self.log.exception("Failed to create Kerberos ticket")
+            return False
 
 
 credentials = CredentialManager()
