@@ -7,6 +7,7 @@ DATABASE_URI - URI for sqlalchemy to use
 DEBUG - set to TRUE for flask debugging
 DEPLOYMENT_ENV - set to the environment you are deploying to, default is DEV
 """
+
 import os
 
 from api import app, db
