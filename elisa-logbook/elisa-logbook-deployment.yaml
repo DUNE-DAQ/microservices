@@ -68,6 +68,25 @@ spec:
                   name: elisa-logbook-secret
             - name: APP_DATA
               value: /opt/data
+          ports:
+            - containerPort: 5005
+              name: http
+              protocol: TCP
+          startupProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
           resources:
             limits:
               memory: 1Gi
