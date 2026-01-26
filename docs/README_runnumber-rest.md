@@ -1,16 +1,12 @@
 # Installation steps
-You need the following package (from the "CERN Only" repository) installed on the host:
-```
-oracle-instantclient12.1-devel
-oracle-instantclient-tnsnames.ora
-```
-
-Then, create the virtual environment:
+Create the virtual environment:
 ```
 python3 -m venv env
 source env/bin/activate
 python -m pip install -r requirements.txt
 ```
+
+For NP04 this uses the pure python Oracle thin client.
 
 # Running the server
 Once in venv:
