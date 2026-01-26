@@ -1,9 +1,9 @@
 FROM docker.io/almalinux:10
 
-ARG ERSVERSION=v1.5.2  # For issue.proto from ers
-ARG ERSKAFKAVERSION=v1.5.4  # For ERSSubscriber.py from erskafka
-ARG OPMONLIBVERSION=v2.0.0  # For opmon_entry.proto from opmonlib
-ARG KAFKAOPMONVERSION=v2.0.0  # For OpMonSubscriber.py from kafkaopmon
+ARG ERSVERSION=coredaq-v5.5.0         # For issue.proto from ers
+ARG ERSKAFKAVERSION=coredaq-v5.5.0    # For ERSSubscriber.py from erskafka
+ARG OPMONLIBVERSION=coredaq-v5.5.0    # For opmon_entry.proto from opmonlib
+ARG KAFKAOPMONVERSION=coredaq-v5.5.0  # For OpMonSubscriber.py from kafkaopmon
 
 ARG VENV_PATH=/opt/venv
 ENV \

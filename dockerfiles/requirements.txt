@@ -7,7 +7,7 @@ click>=8.3,<8.4
 gunicorn[gevent]>=23.0,<24.0
 influxdb>=5.3,<5.4
 kafka-python>=2.3,<2.4
-protobuf>=4.25,<5.0
+protobuf>=6.33,<7.0
 sh>=2.2,<2.3
 sqlalchemy[oracle-oracledb,postgresql-psycopgbinary]>=2.0,<2.1
 
