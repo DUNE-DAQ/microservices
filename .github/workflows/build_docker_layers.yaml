@@ -8,41 +8,12 @@ on:
   pull_request:
     branches:
       - develop
-    paths:
-      - 'dockerfiles/requirements.txt'
-      - 'dockerfiles/Dockerfile.dependencies'
-      - 'dockerfiles/Dockerfile'
-      - '.github/workflows/build_docker_layers.yaml'
-  workflow_dispatch:
-    inputs:
-      force_rebuild_dependencies:
-        description: 'Force rebuild of dependencies image'
-        required: false
-        type: boolean
-        default: false
 jobs:
   build-dependencies:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-    # Only build dependencies:
-    #   if manually triggered with force flag
-    #   on tag push
-    #   on push to default branch AND dependency files changed
-    if: |
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.force_rebuild_dependencies == 'true') ||
-      github.ref_type == 'tag' ||
-      (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
-        github.event.head_commit != null &&
-        (
-          contains(github.event.head_commit.modified, 'dockerfiles/requirements.txt') ||
-          contains(github.event.head_commit.added, 'dockerfiles/requirements.txt') ||
-          contains(github.event.head_commit.modified, 'dockerfiles/Dockerfile.dependencies') ||
-          contains(github.event.head_commit.added, 'dockerfiles/Dockerfile.dependencies') ||
-          contains(github.event.head_commit.modified, 'dockerfiles/Dockerfile') ||
-          contains(github.event.head_commit.added, 'dockerfiles/Dockerfile')
-        ))
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -81,11 +52,8 @@ jobs:
     permissions:
       contents: read
       packages: write
-    # Always run, but depend on dependencies job if it ran
-    needs: [build-dependencies]
-    if: |
-      always() &&
-      (needs.build-dependencies.result == 'success' || needs.build-dependencies.result == 'skipped')
+    needs:
+      - build-dependencies
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
