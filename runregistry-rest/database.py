@@ -1,8 +1,15 @@
-import datetime as dt
+import datetime
 
-from api import db
+from flask_sqlalchemy import SQLAlchemy
 
-__all__ = ["RunRegistryConfig", "RunRegistryMeta"]
+__all__ = ["RunRegistryConfigs", "RunRegistryMeta", "db", "utc_now"]
+
+db = SQLAlchemy()
+
+
+def utc_now():
+    # Returns naive UTC datetime matching your existing schema (no timezone)
+    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
 
 
 class RunRegistryMeta(db.Model):
@@ -10,7 +17,7 @@ class RunRegistryMeta(db.Model):
         "run_number", db.Integer, primary_key=True, autoincrement=True, nullable=False
     )
     start_time = db.Column(
-        "start_time", db.TIMESTAMP(6), nullable=False, default=dt.datetime.utcnow
+        "start_time", db.TIMESTAMP(6), nullable=False, default=utc_now
     )
     stop_time = db.Column("stop_time", db.TIMESTAMP(6), nullable=True)
     detector_id = db.Column("detector_id", db.String(40))

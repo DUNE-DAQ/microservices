@@ -15,22 +15,30 @@ __emails__ = [
 
 import io
 import os
+import urllib.parse
+from pathlib import Path
 
 import flask
+from authentication import auth
+from database import (
+    RunRegistryConfigs,
+    RunRegistryMeta,
+    db,
+    utc_now,
+)
 from flask_caching import Cache
 from flask_restful import Api, Resource
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import desc, event
-import re
+from sqlalchemy import desc, select
+from sqlalchemy.exc import NoResultFound
 
-__all__ = ["app", "api", "db"]
+__all__ = ["api", "app", "db"]
 
 app = flask.Flask(__name__)
 
 app.config.update(
     MAX_CONTENT_LENGTH=32 * 1000 * 1000,
     UPLOAD_EXTENSIONS={".gz", ".tgz"},
-    UPLOAD_PATH="",
+    UPLOAD_PATH=os.environ.get("APP_DATA", "uploads"),
     CACHE_TYPE="simple",
     SQLALCHEMY_DATABASE_URI=os.environ.get(
         "DATABASE_URI", "sqlite:////tmp/test.sqlite"
@@ -42,40 +50,29 @@ app.config.update(
 )
 
 cache = Cache(app)
-db = SQLAlchemy(app)
+db.init_app(app)
 api = Api(app)
 
-import datetime as dt
-import urllib
-from urllib.parse import urlparse
 
-from authentication import auth
-from database import RunRegistryConfigs, RunRegistryMeta
-
-PARSED_URI = urlparse(app.config["SQLALCHEMY_DATABASE_URI"])
+PARSED_URI = urllib.parse.urlparse(app.config["SQLALCHEMY_DATABASE_URI"])
 DB_TYPE = PARSED_URI.scheme
 
-
-@app.before_first_request
-def register_event_handlers():
-    @event.listens_for(db.engine, "handle_error")
-    def handle_exception(context):
-        if not context.is_disconnect and re.match(
-            r"^(?:DPI-1001|DPI-4011)", str(context.original_exception)
-        ):
-            context.is_disconnect = True
+Path(app.config["UPLOAD_PATH"]).mkdir(parents=True, exist_ok=True)
+if not os.access(app.config["UPLOAD_PATH"], os.W_OK):
+    raise PermissionError(
+        f"Error: Permission denied to access the file at {app.config['UPLOAD_PATH']}"
+    )
 
 
 def cache_key():
     args = flask.request.args
-    key = (
+    return (
         flask.request.path
         + "?"
-        + urllib.urlencode(
+        + urllib.parse.urlencode(
             [(k, v) for k in sorted(args) for v in sorted(args.getlist(k))]
         )
     )
-    return key
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-017:30015/runregistry/getRunMeta/2
@@ -89,18 +86,15 @@ class getRunMeta(Resource):
     @auth.login_required
     def get(self, runNum):
         try:
-            result = (
-                db.session.query(
-                    RunRegistryMeta.run_number,
-                    RunRegistryMeta.start_time,
-                    RunRegistryMeta.stop_time,
-                    RunRegistryMeta.detector_id,
-                    RunRegistryMeta.run_type,
-                    RunRegistryMeta.software_version,
-                )
-                .filter(RunRegistryMeta.run_number == runNum)
-                .one()
-            )
+            stmt = select(
+                RunRegistryMeta.run_number,
+                RunRegistryMeta.start_time,
+                RunRegistryMeta.stop_time,
+                RunRegistryMeta.detector_id,
+                RunRegistryMeta.run_type,
+                RunRegistryMeta.software_version,
+            ).filter(RunRegistryMeta.run_number == runNum)
+            result = db.session.execute(stmt).one()
             print(f"getRunMeta: result {result}")
             result = list(result)
             column_names = RunRegistryMeta.__table__.columns.keys()
@@ -109,9 +103,11 @@ class getRunMeta(Resource):
             )  # Don't like this but only way to stay consistent with Oracle
             cnu = [name.upper() for name in column_names]
             return flask.make_response(flask.jsonify(cnu, [[*result]]))
+        except NoResultFound:
+            return flask.make_response(flask.jsonify({"error": "Run not found"}), 404)
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
-            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
+            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}), 500)
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-017:30015/runregistry/getRunMetaLast/100
@@ -125,8 +121,8 @@ class getRunMetaLast(Resource):
     @auth.login_required
     def get(self, amount):
         try:
-            result = (
-                db.session.query(
+            stmt = (
+                select(
                     RunRegistryMeta.run_number,
                     RunRegistryMeta.start_time,
                     RunRegistryMeta.stop_time,
@@ -136,8 +132,8 @@ class getRunMetaLast(Resource):
                 )
                 .order_by(desc(RunRegistryMeta.run_number))
                 .limit(amount)
-                .all()
             )
+            result = db.session.execute(stmt).all()
             print(f"getRunMetaLast: result {result}")
             result = [list(row) for row in result]
             column_names = RunRegistryMeta.__table__.columns.keys()
@@ -147,7 +143,7 @@ class getRunMetaLast(Resource):
             cnu = [name.upper() for name in column_names]
             return flask.make_response(flask.jsonify(cnu, [*result]))
         except Exception as err_obj:
-            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
+            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}), 500)
 
 
 # $ curl -u fooUsr:barPass -X GET -O -J np04-srv-017:30015/runregistry/getRunBlob/2
@@ -163,17 +159,24 @@ class getRunBlob(Resource):
     def get(self, runNum):
         print(f"getRunBlob: arg {runNum}")
         try:
-            blob = (
-                db.session.query(RunRegistryConfigs.configuration)
-                .filter(RunRegistryConfigs.run_number == runNum)
-                .scalar()
+            stmt_blob = select(RunRegistryConfigs.configuration).filter(
+                RunRegistryConfigs.run_number == runNum
             )
-            filename = (
-                db.session.query(RunRegistryMeta.filename)
-                .filter(RunRegistryMeta.run_number == runNum)
-                .scalar()
+            blob = db.session.execute(stmt_blob).scalar()
+            if blob is None:
+                print(f"No blob found for {runNum}")
+                return flask.make_response(flask.jsonify({"error": "Configuration not found"}), 404)
+
+            stmt_filename = select(RunRegistryMeta.filename).filter(
+                RunRegistryMeta.run_number == runNum
             )
+            filename = db.session.execute(stmt_filename).scalar()
+            if not filename:
+                print(f"No filename found for {runNum}")
+                return flask.make_response(flask.jsonify({"error": "Filename not found"}), 404)
+
             print("returning " + filename)
+
             if DB_TYPE == "postgresql":
                 resp = flask.make_response(bytes(blob))
             else:
@@ -183,7 +186,7 @@ class getRunBlob(Resource):
             return resp
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
-            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
+            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}), 500)
 
 
 # $ curl -u fooUsr:barPass -F "run_num=1000" -F "det_id=foo" -F "run_type=bar" -F "software_version=dunedaq-vX.Y.Z" -F "file=@sspconf.tar.gz" -X POST np04-srv-017:30015/runregistry/insertRun/
@@ -196,11 +199,14 @@ class insertRun(Resource):
 
     @auth.login_required
     def post(self):
-        filename = ""
-        local_file_name = None
+        local_file_path = None
         try:
             # Ensure form fields
-            run_number = flask.request.form.get("run_num")
+            try:
+                run_number = int(flask.request.form.get("run_num"))
+            except (KeyError,ValueError):
+                return flask.make_response("Invalid run_num (must be integer)", 400)
+
             det_id = flask.request.form.get("det_id")
             run_type = flask.request.form.get("run_type")
             software_version = flask.request.form.get("software_version")
@@ -209,22 +215,40 @@ class insertRun(Resource):
                 return flask.make_response("Missing required form fields", 400)
 
             filename = uploaded_file.filename
-            if (
-                not filename
-                or os.path.splitext(filename)[1] not in app.config["UPLOAD_EXTENSIONS"]
-            ):
+            if not filename:
                 return flask.make_response("Invalid file or extension", 400)
 
-            local_file_name = os.path.join(app.config["UPLOAD_PATH"], filename)
-            if os.path.isfile(local_file_name):
+            # Security: Sanitize filename to prevent path traversal
+            # Defense in depth: reject obviously malicious filenames early
+            if "/" in filename or "\\" in filename or ".." in filename:
+                return flask.make_response(
+                    "Invalid filename: path separators not allowed", 400
+                )
+
+            filename_path = Path(filename)
+            safe_filename = filename_path.name  # Extract only the filename component
+
+            if filename_path.suffix not in app.config["UPLOAD_EXTENSIONS"]:
+                return flask.make_response("Invalid file or extension", 400)
+
+            upload_dir = Path(app.config["UPLOAD_PATH"])
+            local_file_path = upload_dir / safe_filename
+
+            # Security: Verify the resolved path is within the upload directory
+            try:
+                local_file_path.resolve().relative_to(upload_dir.resolve())
+            except ValueError:
+                return flask.make_response("Invalid file path", 400)
+
+            if local_file_path.is_file():
                 return flask.make_response(
                     "File with the same name is already being processed. Try again later.",
                     400,
                 )
 
-            uploaded_file.save(local_file_name)
+            uploaded_file.save(str(local_file_path))
 
-            with open(local_file_name, "rb") as file_in:
+            with local_file_path.open("rb") as file_in:
                 data = io.BytesIO(file_in.read())
 
             with db.session.begin():
@@ -232,7 +256,7 @@ class insertRun(Resource):
                     run_number=run_number,
                     detector_id=det_id,
                     run_type=run_type,
-                    filename=filename,
+                    filename=safe_filename,
                     software_version=software_version,
                 )
                 run_config = RunRegistryConfigs(
@@ -242,14 +266,14 @@ class insertRun(Resource):
                 db.session.add(run_meta)
                 db.session.add(run_config)
 
-            resp_data = [run_number, det_id, run_type, software_version, filename]
+            resp_data = [run_number, det_id, run_type, software_version, safe_filename]
             return flask.make_response(flask.jsonify([[[resp_data]]]))
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
-            return flask.make_response(str(err_obj), 400)
+            return flask.make_response(str(err_obj), 500)
         finally:
-            if local_file_name and os.path.exists(local_file_name):
-                os.remove(local_file_name)
+            if local_file_path and local_file_path.exists():
+                local_file_path.unlink()
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-017:30015/runregistry/updateStopTime/<int:runNum>
@@ -266,22 +290,24 @@ class updateStopTimestamp(Resource):
         try:
             run = None
             with db.session.begin():
-                run = (
-                    db.session.query(RunRegistryMeta).filter_by(run_number=runNum).one()
-                )
-                run.stop_time = dt.datetime.utcnow()
+                run = db.session.execute(
+                    select(RunRegistryMeta).filter_by(run_number=runNum)
+                ).scalar_one()
+                run.stop_time = utc_now()
             print(f"updateStopTimestamp: result {[run.start_time, run.stop_time]}")
             return flask.make_response(
                 flask.jsonify([[[run.start_time, run.stop_time]]])
             )
+        except NoResultFound:
+            return flask.make_response(flask.jsonify({"error": "Run not found"}), 404)
         except Exception as err_obj:
             print(f"Exception:{err_obj}")
-            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
+            return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}), 500)
 
 
 @app.route("/")
 def index():
-    root_text = f"""
+    return f"""
     <!DOCTYPE html>
     <html>
     <body>
@@ -346,5 +372,3 @@ def index():
     </body>
     </html>
     """
-
-    return root_text

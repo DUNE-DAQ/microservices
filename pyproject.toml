@@ -1,0 +1,48 @@
+[project]
+name = "microservices"
+requires-python = ">=3.9"
+
+[tool.ruff.lint]
+extend-select = [
+  "A",     # detect shadowed builtins
+  "ARG",   # unused-arguments
+  "ASYNC", # async
+  "B",     # flake8-bugbear
+  "C4",    # Catch incorrect use of comprehensions, dict, list, etc
+  "COM",   # enforce trailing comma rules
+  "DTZ",   # require strict timezone manipulation with datetime
+  "E",     # PyCodeStyle errors
+  "F",     # Pyflakes rules
+  "FBT",   # detect boolean traps
+  "G",     # Better usage of built-in logging
+  "I",     # isort - Import sorting
+  "ICN",   # Use common import conventions
+  "ISC",   # Good use of string concatenation
+  "LOG",   # Checks for issues using the standard library logging module.
+  "N",     # enforce naming conventions, e.g. ClassName vs function_name
+  "PL",    # pylint
+  "PTH",   # Use pathlib instead of os.path
+  "PYI",   # Linting rules for type annotations.
+  "Q",     # Linting rules for quotes
+  "RET",   # Good return practices
+  "RUF",   # Ruff specific lint rules
+  "S",     # bandit
+  "SIM",   # flake8-simplify
+  "TC",    # Enforce importing certain types in a TYPE_CHECKING block
+  "TCH",   # Move type only imports to type-checking condition.
+  "TID",   # Helps you write tidier imports.
+  "TRY",   # tryceratops - track exception handling
+  "UP",    # pyupgrade - Warn if certain things can changed due to newer Python versions
+  "W"      # PyCodeStyle warnings
+]
+ignore = [
+  "COM812", # de-dupe trailing commas
+  "SIM108", # ternary is ugly
+  "S101",   # test cases use assert
+  "E501",   # some lines are just super long
+  "N801",   # names are what they are
+  "N803",   # names are what they are
+  "N813",   # names are what they are
+  "TRY003", # long messages are handy
+  "G004"    # messages are fine as is
+]

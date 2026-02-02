@@ -1,0 +1,70 @@
+FROM docker.io/almalinux:10
+
+ARG ERSVERSION=coredaq-v5.5.0         # For issue.proto from ers
+ARG ERSKAFKAVERSION=coredaq-v5.5.0    # For ERSSubscriber.py from erskafka
+ARG OPMONLIBVERSION=coredaq-v5.5.0    # For opmon_entry.proto from opmonlib
+ARG KAFKAOPMONVERSION=coredaq-v5.5.0  # For OpMonSubscriber.py from kafkaopmon
+
+ARG VENV_PATH=/opt/venv
+ENV \
+    APP_ROOT=/opt/app                 \
+    APP_DATA=/opt/data                \
+    HOME=/opt/app                     \
+    PYTHONPYCACHEPREFIX=/tmp/pycache  \
+    PYTHONUNBUFFERED=1                \
+    PIP_NO_CACHE_DIR=1
+
+ENV PATH="${VENV_PATH}/bin:$PATH"
+
+RUN mkdir -p ${APP_ROOT} ${APP_DATA} ${VENV_PATH} && chmod 1777 ${APP_DATA}
+WORKDIR ${APP_ROOT}
+
+# Install base python bits
+# Install required devel bits
+RUN yum clean expire-cache \
+    && yum -y install curl git python3-pip python3-pip-wheel \
+    && yum -y install make gcc python3-devel protobuf-compiler protobuf-devel krb5-devel libffi-devel libpq-devel postgresql \
+    && yum clean all
+
+# setup venv
+RUN python3 -m venv ${VENV_PATH} \
+    && ${VENV_PATH}/bin/pip install --no-cache-dir --upgrade pip \
+    && rm -rf /root/.cache ${HOME}/.cache ${VENV_PATH}/pip-selfcheck.json
+
+COPY requirements.txt ${VENV_PATH}/
+RUN ${VENV_PATH}/bin/pip install --no-cache-dir -r ${VENV_PATH}/requirements.txt \
+    && rm -rf /root/.cache ${HOME}/.cache ${VENV_PATH}/pip-selfcheck.json ${VENV_PATH}/requirements.txt
+
+# setup protobuf schemas
+RUN echo "Installing https://raw.githubusercontent.com/DUNE-DAQ/ers/${ERSVERSION}/schema/ers/issue.proto" \
+    && curl -fSL -O https://raw.githubusercontent.com/DUNE-DAQ/ers/$ERSVERSION/schema/ers/issue.proto \
+    && mkdir -p ${VENV_PATH}/ers \
+    && touch ${VENV_PATH}/ers/__init__.py \
+    && protoc --python_out=${VENV_PATH}/ers issue.proto \
+    && rm -f issue.proto \
+    && echo "Installing https://raw.githubusercontent.com/DUNE-DAQ/opmonlib/${OPMONLIBVERSION}/schema/opmonlib/opmon_entry.proto" \
+    && curl -fSL -O https://raw.githubusercontent.com/DUNE-DAQ/opmonlib/$OPMONLIBVERSION/schema/opmonlib/opmon_entry.proto \
+    && mkdir -p ${VENV_PATH}/opmonlib \
+    && touch ${VENV_PATH}/opmonlib/__init__.py \
+    && protoc --python_out=${VENV_PATH}/opmonlib -I${APP_ROOT} opmon_entry.proto \
+    && rm -f opmon_entry.proto
+
+# fetch ERS python bindings
+RUN mkdir -p ${VENV_PATH}/erskafka \
+    && touch ${VENV_PATH}/erskafka/__init__.py \
+    && echo "Installing https://raw.githubusercontent.com/DUNE-DAQ/erskafka/$ERSKAFKAVERSION/python/erskafka/ERSSubscriber.py" \
+    && curl -fSL https://raw.githubusercontent.com/DUNE-DAQ/erskafka/$ERSKAFKAVERSION/python/erskafka/ERSSubscriber.py -o ${VENV_PATH}/erskafka/ERSSubscriber.py \
+    && mkdir -p ${VENV_PATH}/kafkaopmon \
+    && touch ${VENV_PATH}/kafkaopmon/__init__.py \
+    && echo "Installing https://raw.githubusercontent.com/DUNE-DAQ/kafkaopmon/${KAFKAOPMONVERSION}/python/kafkaopmon/OpMonSubscriber.py" \
+    && curl -fSL https://raw.githubusercontent.com/DUNE-DAQ/kafkaopmon/$KAFKAOPMONVERSION/python/kafkaopmon/OpMonSubscriber.py -o ${VENV_PATH}/kafkaopmon/OpMonSubscriber.py
+
+# elisa_client_api and CERN kerberos needed by the logbook microservice at NP04
+COPY cern.repo /etc/yum.repos.d/
+RUN yum clean expire-cache \
+    && yum -y install krb5-workstation cern-krb5-conf \
+    && yum clean all
+
+RUN git clone --depth 1 -b develop https://github.com/DUNE-DAQ/elisa_client_api.git \
+    && ${VENV_PATH}/bin/pip install --no-cache-dir ./elisa_client_api \
+    && rm -rf /root/.cache ${HOME}/.cache ${VENV_PATH}/pip-selfcheck.json elisa_client_api

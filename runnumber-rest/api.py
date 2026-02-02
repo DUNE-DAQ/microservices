@@ -14,15 +14,14 @@ __emails__ = [
 ]
 
 import os
-import datetime as dt
 
 import flask
+from authentication import auth
+from database import RunNumber, db, utc_now
 from flask_restful import Api, Resource
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import func, event
-import re
+from sqlalchemy import func, select
 
-__all__ = ["app", "api", "db"]
+__all__ = ["api", "app", "db"]
 
 app = flask.Flask(__name__)
 
@@ -37,26 +36,8 @@ app.config.update(
 )
 
 uri = app.config["SQLALCHEMY_DATABASE_URI"]
-db = SQLAlchemy(app)
+db.init_app(app)
 api = Api(app)
-
-from urllib.parse import urlparse
-
-from authentication import auth
-from database import RunNumber
-
-PARSED_URI = urlparse(app.config["SQLALCHEMY_DATABASE_URI"])
-DB_TYPE = PARSED_URI.scheme
-
-
-@app.before_first_request
-def register_event_handlers():
-    @event.listens_for(db.engine, "handle_error")
-    def handle_exception(context):
-        if not context.is_disconnect and re.match(
-            r"^(?:DPI-1001|DPI-4011)", str(context.original_exception)
-        ):
-            context.is_disconnect = True
 
 
 # $ curl -u fooUsr:barPass -X GET np04-srv-021:30016//runnumber/get
@@ -71,9 +52,9 @@ class getRunNumber(Resource):
 
     @auth.login_required
     def get(self):
-        print("getNewRunNumber: no args")
+        print("getRunNumber: no args")
         try:
-            max_run_number = db.session.query(func.max(RunNumber.rn)).scalar()
+            max_run_number = db.session.execute(select(func.max(RunNumber.rn))).scalar()
             # maybe find consumers to see if we can drop the extra nesting
             print(f"getRunNumber: result {[[[max_run_number]]]}")
             return flask.make_response(flask.jsonify([[[max_run_number]]]))
@@ -99,7 +80,7 @@ class getNewtRunNumber(Resource):
             current_max_run = None
             with db.session.begin():
                 current_max_run = (
-                    db.session.query(func.max(RunNumber.rn)).scalar()
+                    db.session.execute(select(func.max(RunNumber.rn))).scalar()
                     or app.config["RUN_START"]
                 ) + 1
                 run = RunNumber(rn=current_max_run)
@@ -125,8 +106,10 @@ class updateStopTimestamp(Resource):
         try:
             run = None
             with db.session.begin():
-                run = db.session.query(RunNumber).filter_by(rn=runNum).one()
-                run.stop_time = dt.datetime.utcnow()
+                run = db.session.execute(
+                    select(RunNumber).filter_by(rn=runNum)
+                ).scalar_one()
+                run.stop_time = utc_now()
             print(f"updateStopTimestamp: result {[run.start_time, run.stop_time]}")
             return flask.make_response(
                 flask.jsonify([[[run.start_time, run.stop_time]]])
@@ -138,7 +121,7 @@ class updateStopTimestamp(Resource):
 
 @app.route("/")
 def index():
-    root_text = f"""
+    return f"""
     <!DOCTYPE html>
     <html>
     <body>
@@ -180,4 +163,3 @@ def index():
     </body>
     </html>
     """
-    return root_text

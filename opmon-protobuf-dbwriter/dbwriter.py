@@ -4,22 +4,20 @@
 #  received with this code.
 #
 
-import kafkaopmon.OpMonSubscriber as opmon_sub
-import google.protobuf.json_format as pb_json
-from google.protobuf.timestamp_pb2 import Timestamp
-import opmonlib.opmon_entry_pb2 as opmon_schema
-
-from influxdb import InfluxDBClient
-import influxdb
-from functools import partial
-import json
-import click
 import logging
 import queue
 import threading
+from functools import partial
+from urllib.parse import urlparse
 
+import click
+import influxdb
+import kafkaopmon.OpMonSubscriber as opmon_sub
+import opmonlib.opmon_entry_pb2 as opmon_schema
+from influxdb import InfluxDBClient
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
+logger = logging.getLogger(__name__)
 
 
 @click.command(context_settings=CONTEXT_SETTINGS)
@@ -51,19 +49,10 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 )
 # influx options
 @click.option(
-    "--influxdb-address",
+    "--influxdb-uri",
     type=click.STRING,
-    default="monkafka.cern.ch",
-    help="address of the influx db",
-)
-@click.option(
-    "--influxdb-port", type=click.INT, default=31002, help="port of the influxdb"
-)
-@click.option(
-    "--influxdb-name",
-    type=click.STRING,
-    default="test_influx",
-    help="Table name destination inside influxdb",
+    default="influxdb://localhost:8086/test_influx",
+    help="URI of the InfluxDB server (e.g., influxdb://user:pass@host:port/dbname)",
 )
 @click.option(
     "--influxdb-create",
@@ -77,31 +66,15 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
     default=500,
     help="Size in ms of the batches sent to influx",
 )
-@click.option(
-    "--influxdb-username",
-    type=click.STRING,
-    default=None,
-    help="Username to acces influxdb",
-)
-@click.option(
-    "--influxdb-password",
-    type=click.STRING,
-    default=None,
-    help="Password to acces influxdb",
-)
 @click.option("--debug", type=click.BOOL, default=True, help="Set debug print levels")
 def cli(
     subscriber_bootstrap,
     subscriber_group,
     subscriber_timeout,
     subscriber_topic,
-    influxdb_address,
-    influxdb_port,
-    influxdb_name,
+    influxdb_uri,
     influxdb_create,
     influxdb_timeout,
-    influxdb_username,
-    influxdb_password,
     debug,
 ):
     logging.basicConfig(
@@ -110,19 +83,23 @@ def cli(
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    kwargs = dict()
-    if influxdb_username:
-        kwargs["username"] = influxdb_username
-    if influxdb_password:
-        kwargs["password"] = influxdb_password
-    influx = InfluxDBClient(host=influxdb_address, port=influxdb_port, **kwargs)
+    # Create InfluxDB client using from_dsn for URI-based connection
+    # The from_dsn method extracts database name from the URI path
+    influx = InfluxDBClient.from_dsn(influxdb_uri)
+
+    # Extract database name from URI using urlparse
+    parsed_uri = urlparse(influxdb_uri)
+    influxdb_name = parsed_uri.path.lstrip("/")
+    if influxdb_name is None or influxdb_name == "":
+        raise ValueError("No database name in URI")
+
     db_list = influx.get_list_database()
-    logging.info("Available DBs: %s", db_list)
+    logger.info("Available DBs: %s", db_list)
     if {"name": influxdb_name} not in db_list:
-        logging.warning("%s DB not available", influxdb_name)
+        logger.warning("%s DB not available", influxdb_name)
         if influxdb_create:
             influx.create_database(influxdb_name)
-            logging.info("New list of DBs: %s", influx.get_list_database())
+            logger.info("New list of DBs: %s", influx.get_list_database())
 
     influx.switch_database(influxdb_name)
 
@@ -149,7 +126,7 @@ def cli(
 
 
 def consume(q: queue.Queue, timeout_ms, influx: InfluxDBClient = None):
-    logging.info("Starting consumer thread")
+    logger.info("Starting consumer thread")
     batch = []
     batch_ms = 0
     while True:
@@ -169,7 +146,7 @@ def consume(q: queue.Queue, timeout_ms, influx: InfluxDBClient = None):
                 batch_ms = entry.ms
 
         except queue.Empty:
-            logging.debug("Queue is empty")
+            logger.debug("Queue is empty")
             send_batch(batch, influx)
             batch = []
             batch_ms = 0
@@ -177,15 +154,16 @@ def consume(q: queue.Queue, timeout_ms, influx: InfluxDBClient = None):
 
 def send_batch(batch: list, influx: InfluxDBClient = None):
     if len(batch) > 0:
-        logging.info("Sending %s points", len(batch))
+        logger.info("Sending %s points", len(batch))
         if influx:
             try:
                 influx.write_points(batch)
-            except influxdb.exceptions.InfluxDBClientError as e:
-                logging.error(e)
-            except Exception as e:
-                logging.error("Something went wrong: json batch not sent")
-                logging.error("Details: {}".format(str(e)))
+            except influxdb.exceptions.InfluxDBClientError:
+                logger.exception("InfluxDB client error occurred")
+            except (ConnectionError, TimeoutError):
+                logger.exception("Network error while sending batch")
+            except Exception:
+                logger.exception("Something went wrong: json batch not sent")
         else:
             print(batch)
 

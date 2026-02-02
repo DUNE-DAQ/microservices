@@ -1,23 +1,45 @@
+#!/bin/bash
+#######################################
+# Validates that required environment variables are defined
+# Arguments:
+#   Space-separated string of variable names
+# Example usage:
+#   ensure_required_variables "USER HOME PASSWORD API_TOKEN"
+# Returns:
+#   0 if all variables are defined
+#   3 if any variables are missing
+#######################################
 function ensure_required_variables() {
+    local vars_as_string="${1}"
+    local -a vars
+    local var
+    local missing_variable=0
 
-    vars_as_string=$1
+    # Parse the space-separated variable names
+    IFS=' ' read -ra vars <<<"${vars_as_string}"
 
-    IFS=' ' read -ra vars <<<"$vars_as_string"
+    echo "Checking for required environment variables..."
+    echo "----------------------------------------------"
 
-    missing_variable=false
-
+    # Check each variable
     for var in "${vars[@]}"; do
-
-        if [[ -v $var ]]; then
-            echo "$var is defined as \"${!var}\"."
+        # Verify if variable is defined
+        if [[ -n "${var}" && -n "${!var-}" ]]; then
+            echo "  ${var} is defined"
         else
-            echo "$var needs to be defined as an environment variable."
-            missing_variable=true
+            echo "  XXX ${var} is NOT defined or empty"
+            missing_variable=1
         fi
     done
 
-    if $missing_variable; then
-        echo "One or more required environment variables is undefined; exiting..." >&2
+    echo "----------------------------------------------"
+
+    # Exit if any variables are missing
+    if [[ "${missing_variable}" -ne 0 ]]; then
+        echo "ERROR: One or more required environment variables are undefined" >&2
+        echo "Please define the missing variables and try again" >&2
         exit 3
     fi
+
+    return 0
 }

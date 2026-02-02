@@ -4,11 +4,11 @@ metadata:
   annotations:
     kluctl.io/skip-delete-if-tags: "true"
   labels:
-    pod-security.kubernetes.io/audit: baseline
+    pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/audit-version: latest
-    pod-security.kubernetes.io/enforce: baseline # unified image runs as root :(
+    pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/enforce-version: latest
-    pod-security.kubernetes.io/warn: baseline
+    pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/warn-version: latest
   name: opmon
 ---
@@ -17,6 +17,7 @@ kind: Deployment
 metadata:
   labels:
     app.kubernetes.io/app: opmon-protobuf-dbwriter
+    app.kubernetes.io/name: opmon-protobuf-dbwriter
     app.kubernetes.io/component: opmon-protobuf-dbwriter
   name: opmonstream-dbwriter
   namespace: opmon
@@ -24,12 +25,14 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: opmon-protobuf-dbwriter
+      app.kubernetes.io/app: opmon-protobuf-dbwriter
+      app.kubernetes.io/name: opmon-protobuf-dbwriter
+      app.kubernetes.io/component: opmon-protobuf-dbwriter
   template:
     metadata:
       labels:
-        app: opmon-protobuf-dbwriter
         app.kubernetes.io/app: opmon-protobuf-dbwriter
+        app.kubernetes.io/name: opmon-protobuf-dbwriter
         app.kubernetes.io/component: opmon-protobuf-dbwriter
     spec:
       affinity:
@@ -40,6 +43,7 @@ spec:
                   - key: node-role.kubernetes.io/worker
                     operator: Exists
       automountServiceAccountToken: false
+      hostUsers: false
       containers:
         - image: ghcr.io/dune-daq/microservices:mroda-opmon_protobuf ## TBC
           imagePullPolicy: Always
@@ -49,36 +53,42 @@ spec:
               value: opmon-protobuf-dbwriter
             - name: OPMON_DBWRITER_KAFKA_BOOTSTRAP_SERVER
               value: dune-daq.kafka.svc.cluster.local:9092
-            - name: OPMON_DBWRITER_INFLUX_USER
-              value: user
-            - name: OPMON_DBWRITER_INFLUX_PASSWORD
-              value: pass
-            - name: OPMON_DBWRITER_INFLUX_HOST
-              value: opmon-influxdb.opmon.svc
-            - name: OPMON_DBWRITER_INFLUX_PORT
-              value: "8086"
             - name: OPMON_DBWRITER_KAFKA_GROUP
               value: opmon-protobuf-dbwriter
             - name: OPMON_DBWRITER_SUBSCRIBER_TIMEOUT_MS
               value: "5000"
             - name: OPMON_DBWRITER_TOPIC
               value: opmon_stream
-            - name: OPMON_DBWRITER_TABLE
-              value: opmon_protobuf_v1
+            - name: DATABASE_URI
+              valueFrom:
+                secretKeyRef:
+                  key: uri
+                  name: influxdbv1-readwrite-password
             - name: OPMON_DBWRITER_BATCH_SIZE_MS
               value: "800"
           resources:
             limits:
               memory: 1Gi
             requests:
-              memory: 8Mi
+              cpu: 100m
+              memory: 64Mi
           securityContext:
+            runAsUser: 11000
+            runAsGroup: 11000
+            runAsNonRoot: true
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            seccompProfile:
+              type: RuntimeDefault
             capabilities:
               drop:
                 - ALL
-            runAsGroup: 11000
-            seccompProfile:
-              type: RuntimeDefault
+          volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
+      volumes:
+        - name: tmp-volume
+          emptyDir:
+            sizeLimit: 256Mi
       securityContext:
         fsGroup: 11000

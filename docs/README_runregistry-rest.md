@@ -1,27 +1,18 @@
 # Installation steps
-For Oracle, you need the following packages installed on the host.
-
-```
-oracle-instantclient12.1-devel
-```
-
-Then, create the virtual environment:
+Create the virtual environment:
 ```
 python3 -m venv env
 source env/bin/activate
 python -m pip install -r requirements.txt
 ```
 
+For NP04 this uses the pure python Oracle thin client.
+
 # Running the server
 Once in venv:
 ```
-python rest.py
+python3 rest.py
 ```
-or, to use Postgres:
-```
-python rest.py -p
-```
-
 # Authentication
 You need the file `credentials.py` in the same directory as `backend.py`, this file needs to be of the form:
 ```

@@ -4,11 +4,11 @@ metadata:
   annotations:
     kluctl.io/skip-delete-if-tags: "true"
   labels:
-    pod-security.kubernetes.io/audit: baseline
+    pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/audit-version: latest
-    pod-security.kubernetes.io/enforce: baseline # unified image runs as root :(
+    pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/enforce-version: latest
-    pod-security.kubernetes.io/warn: baseline
+    pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/warn-version: latest
   name: runservices
 ---
@@ -19,6 +19,7 @@ kind: Deployment
 metadata:
   labels:
     app.kubernetes.io/app: runregistry-rest
+    app.kubernetes.io/name: runregistry-rest
     app.kubernetes.io/component: runregistry-rest
   name: runregistry-rest
   namespace: runservices
@@ -26,11 +27,13 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/app: runregistry-rest
+      app.kubernetes.io/name: runregistry-rest
       app.kubernetes.io/component: runregistry-rest
   template:
     metadata:
       labels:
         app.kubernetes.io/app: runregistry-rest
+        app.kubernetes.io/name: runregistry-rest
         app.kubernetes.io/component: runregistry-rest
     spec:
       affinity:
@@ -41,6 +44,7 @@ spec:
                   - key: node-role.kubernetes.io/worker
                     operator: Exists
       automountServiceAccountToken: false
+      hostUsers: false
       containers:
         - image: ghcr.io/dune-daq/microservices:latest
           imagePullPolicy: Always
@@ -48,6 +52,8 @@ spec:
           env:
             - name: MICROSERVICE
               value: runregistry-rest
+            - name: APP_DATA
+              value: /opt/data
             - name: DATABASE_URI
               valueFrom:
                 secretKeyRef:
@@ -57,28 +63,52 @@ spec:
             - containerPort: 5005
               protocol: TCP
               name: http
+          startupProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
           resources:
             limits:
               memory: 1Gi
             requests:
-              memory: 8Mi
+              cpu: 100m
+              memory: 64Mi
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
           securityContext:
+            runAsUser: 11000
+            runAsGroup: 11000
+            runAsNonRoot: true
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            seccompProfile:
+              type: RuntimeDefault
             capabilities:
               drop:
                 - ALL
-            runAsGroup: 11000
-            seccompProfile:
-              type: RuntimeDefault
           volumeMounts:
-            - mountPath: /microservices/runregistry-rest/uploads
-              name: uploads-volume
-      volumes: # persistance is not required at this time
-        - name: uploads-volume
+            - mountPath: /opt/data
+              name: data-volume
+            - name: tmp-volume
+              mountPath: /tmp
+      volumes: # persistence is not required at this time
+        - name: data-volume
           emptyDir:
             sizeLimit: 10Gi
+        - name: tmp-volume
+          emptyDir:
+            sizeLimit: 256Mi
       securityContext:
         fsGroup: 11000
 ---
@@ -87,6 +117,7 @@ kind: Service
 metadata:
   labels:
     app.kubernetes.io/app: runregistry-rest
+    app.kubernetes.io/name: runregistry-rest
     app.kubernetes.io/component: runregistry-rest
   name: runregistry-rest
   namespace: runservices
@@ -98,5 +129,6 @@ spec:
       targetPort: http
   selector:
     app.kubernetes.io/app: runregistry-rest
+    app.kubernetes.io/name: runregistry-rest
     app.kubernetes.io/component: runregistry-rest
   type: ClusterIP

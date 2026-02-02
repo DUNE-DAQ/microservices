@@ -9,7 +9,6 @@ The script can be run locally which can be useful to debug or start up quickly. 
 ```
 python3 dbwriter.py
 ```
-Passing the appropriate variables. 
+Passing the appropriate variables.
 As this script requires opmonlibs and kafkaopmon, it has to be launched by a developing envirnoment.
 It can run at the same time locally and in kubernetes.
-

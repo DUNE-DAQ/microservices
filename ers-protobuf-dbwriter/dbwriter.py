@@ -1,20 +1,33 @@
-# @file dbwriter.py Writing ERS schemas info to PostgreSQL database
+# @file dbwriter.py Writing ERS schemas info to database using SQLAlchemy
 #  This is part of the DUNE DAQ software, copyright 2020.
 #  Licensing/copyright details are in the COPYING file that you should have
 #  received with this code.
 #
 
-import erskafka.ERSSubscriber as erssub
-import ers.issue_pb2 as ersissue
-import google.protobuf.json_format as pb_json
-from functools import partial
-import psycopg2
-import json
-import click
 import logging
+import re
+import sys
+import time
+from functools import partial
 
+import click
+import erskafka.ERSSubscriber as erssub
+import google.protobuf.json_format as pb_json
+from sqlalchemy import (
+    BigInteger,
+    Column,
+    Integer,
+    MetaData,
+    Table,
+    Text,
+    create_engine,
+    inspect,
+)
+from sqlalchemy.exc import OperationalError, ProgrammingError, SQLAlchemyError
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
+MAX_RETRIES = 3
+logger = logging.getLogger(__name__)
 
 
 @click.command(context_settings=CONTEXT_SETTINGS)
@@ -22,7 +35,7 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
     "--subscriber-bootstrap",
     type=click.STRING,
     default="monkafka.cern.ch:30092",
-    help="boostrap server and port of the ERSSubscriber",
+    help="bootstrap server and port of the ERSSubscriber",
 )
 @click.option(
     "--subscriber-group",
@@ -37,45 +50,23 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
     help="timeout in ms used in the ERSSubscriber",
 )
 @click.option(
-    "--db-address",
+    "--db-uri",
     required=True,
     type=click.STRING,
-    help="address of the PostgreSQL db",
-)
-@click.option(
-    "--db-port", required=True, type=click.STRING, help="port of the PostgreSQL db"
-)
-@click.option(
-    "--db-user",
-    required=True,
-    type=click.STRING,
-    help="user for login to the PostgreSQL db",
-)
-@click.option(
-    "--db-password",
-    required=True,
-    type=click.STRING,
-    help="password for login to the PostgreSQL db",
-)
-@click.option(
-    "--db-name", required=True, type=click.STRING, help="name of the PostgreSQL db"
+    help="SQLAlchemy database URI (e.g., postgresql://user:pass@host:port/dbname)",
 )
 @click.option(
     "--db-table",
     required=True,
     type=click.STRING,
-    help="name of table used in the PostgreSQL db",
+    help="name of table used in the database",
 )
 @click.option("--debug", type=click.BOOL, default=True, help="Set debug print levels")
 def cli(
     subscriber_bootstrap,
     subscriber_group,
     subscriber_timeout,
-    db_address,
-    db_port,
-    db_user,
-    db_password,
-    db_name,
+    db_uri,
     db_table,
     debug,
 ):
@@ -85,37 +76,28 @@ def cli(
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", db_table):
+        logger.fatal("Invalid --db-table name; use letters/numbers/underscore only")
+        sys.exit(2)
+
+    metadata = MetaData()
     try:
-        con = psycopg2.connect(
-            host=db_address,
-            port=db_port,
-            user=db_user,
-            password=db_password,
-            dbname=db_name,
+        engine = create_engine(
+            db_uri,
+            pool_size=5,
+            max_overflow=10,
+            pool_pre_ping=True,
+            pool_recycle=3600,
         )
-    except Exception as e:
-        logging.error(e)
-        logging.fatal("Connection to the database failed, aborting...")
-        exit()
+        issues_table = create_database_table(metadata, db_table, engine)
+    except SQLAlchemyError:
+        logger.exception("Failed to connect to database")
+        logger.fatal("Connection to the database failed, aborting...")
+        sys.exit(1)
 
-    global table_name
-    table_name = '"' + db_table + '"'
+    check_tables(engine=engine)
 
-    cur = con.cursor()
-
-    try:  # try to make sure tables exist
-        create_database(cursor=cur, connection=con)
-    except:
-        con.rollback()
-        logging.info("Database was already created")
-    else:
-        logging.info("Database creation: Success")
-    finally:
-        logging.info("Database is ready")
-
-    check_tables(cursor=cur, connection=con)
-
-    subscriber_conf = json.loads("{}")
+    subscriber_conf = {}
     subscriber_conf["bootstrap"] = subscriber_bootstrap
     subscriber_conf["timeout"] = subscriber_timeout
     if subscriber_group:
@@ -123,138 +105,200 @@ def cli(
 
     sub = erssub.ERSSubscriber(subscriber_conf)
 
-    callback_function = partial(process_chain, cursor=cur, connection=con)
+    callback_function = partial(process_chain, engine=engine, issues_table=issues_table)
 
-    sub.add_callback(name="postgres", function=callback_function)
+    sub.add_callback(name="database", function=callback_function)
 
     sub.start()
 
 
-def process_chain(chain, cursor, connection):
-    logging.debug(chain)
+def process_chain(chain, engine, issues_table):
+    """Process a chain of issues and persist to database with retry logic"""
+    logger.debug(chain)
 
-    counter = 0
-    success = False
-    while not success:
-        counter += 1
+    table_recreated = False  # Track if we've already recreated the table
+
+    for attempt in range(1, MAX_RETRIES + 1):
         try:
-            for cause in reversed(chain.causes):
-                process_issue(issue=cause, session=chain.session, cursor=cursor)
+            with engine.connect() as connection:
+                # Process all causes in reverse order
+                for cause in reversed(chain.causes):
+                    with connection.begin():
+                        process_issue(
+                            issue=cause,
+                            session=chain.session,
+                            connection=connection,
+                            issues_table=issues_table,
+                        )
 
-            process_issue(issue=chain.final, session=chain.session, cursor=cursor)
-            connection.commit()
-        except psycopg2.errors.UndefinedTable as e:
-            logging.error(e)
-            logging.error(
-                "Table was undefined yet it was supposed to be defined at this point"
+                # Process final issue
+                with connection.begin():
+                    process_issue(
+                        issue=chain.final,
+                        session=chain.session,
+                        connection=connection,
+                        issues_table=issues_table,
+                    )
+
+            # Success - exit the retry loop
+            logger.debug(f"Entry sent successfully after {attempt} attempt(s)")
+            return True
+
+        except ProgrammingError:
+            # ProgrammingError covers missing tables/columns, schema issues
+            logger.exception(f"Programming error on attempt {attempt}")
+
+            if not table_recreated:
+                logger.warning(
+                    "Schema/table issue detected, recreating table (one-time)"
+                )
+                try:
+                    clean_database(issues_table, engine)
+                    issues_table.metadata.create_all(engine)
+                    table_recreated = True
+                    continue  # retry after recreation
+                except Exception:
+                    logger.exception("Failed to recreate table")
+                    if attempt >= MAX_RETRIES:
+                        logger.error(  # noqa:TRY400
+                            "Failed to deliver issue after all retry attempts. Chain:\n%s",
+                            pb_json.MessageToJson(chain),
+                        )
+                        raise
+                    continue
+
+            # Table already recreated → persistent schema problem
+            logger.exception("Table already recreated, schema issue persists")
+            if attempt >= MAX_RETRIES:
+                logger.error(  # noqa:TRY400
+                    "Failed to deliver issue after all retry attempts. Chain:\n%s",
+                    pb_json.MessageToJson(chain),
+                )
+                raise
+
+            # Exponential backoff for transient issues, but never a huge number
+            time.sleep(min(0.5 * (2**attempt), 5.0))
+            continue
+
+        except OperationalError:
+            # OperationalError covers connection issues, locks, timeouts
+            logger.exception(f"Operational error on attempt {attempt}")
+
+            if attempt >= MAX_RETRIES:
+                logger.error(  # noqa:TRY400
+                    "Failed to deliver issue after all retry attempts. Chain:\n%s",
+                    pb_json.MessageToJson(chain),
+                )
+                raise
+
+            # Exponential backoff for transient issues, but never a huge number
+            time.sleep(min(0.5 * (2**attempt), 5.0))
+            continue
+
+        except SQLAlchemyError:
+            # Catch-all for other SQLAlchemy errors
+            logger.exception(f"SQLAlchemy error on attempt {attempt}")
+            if attempt >= MAX_RETRIES:
+                logger.error(  # noqa:TRY400
+                    "Failed to deliver issue after all retry attempts. Chain:\n%s",
+                    pb_json.MessageToJson(chain),
+                )
+                raise
+
+            # Exponential backoff for transient issues, but never a huge number
+            time.sleep(min(0.5 * (2**attempt), 5.0))
+            continue
+
+        except Exception:
+            # Unexpected errors shouldn't be retried
+            logger.exception(
+                "Unexpected error on attempt %d\nFailed to deliver issue due to unexpected error\nChain:\n%s",
+                attempt,
+                pb_json.MessageToJson(chain),
             )
-            connection.rollback()
-            create_database(cursor=cursor, connection=connection)
-        except psycopg2.errors.UndefinedColumn as e:
-            logging.warning(e)
-            connection.rollback()
-            clean_database(cursor=cursor, connection=connection)
-            create_database(cursor=cursor, connection=connection)
-        except Exception as e:
-            logging.error("Something unexpected happened")
-            logging.error(e)
+            # Do not backoff here!
+            raise
 
-        else:
-            success = True
-            logging.debug(f"Entry sent after {counter} attempts")
-
-        if counter > 2:
-            if not success:
-                logging.error("Issue failed to be delivered")
-                logging.error(pb_json.MessageToJson(chain))
-            break
+    # This should never be reached due to the raise in MAX_RETRIES checks,
+    # but include as a safety fallback
+    logger.error("Failed to deliver issue after all retry attempts")
+    logger.error(pb_json.MessageToJson(chain))
+    raise RuntimeError("Failed to deliver issue after all retry attempts")
 
 
-def process_issue(issue, session, cursor):
-    fields = []
-    values = []
+def process_issue(issue, session, connection, issues_table):
+    values = {}
 
     ## top level info
-    add_entry("session", session, fields, values)
-    add_entry("issue_name", issue.name, fields, values)
-    add_entry("severity", issue.severity, fields, values)
-    add_entry("time", issue.time, fields, values)
+    values["session"] = str(session)
+    values["issue_name"] = str(issue.name)
+    values["severity"] = str(issue.severity)
+    values["time"] = issue.time
 
     ## context related info
-    add_entry("cwd", issue.context.cwd, fields, values)
-    add_entry("file_name", issue.context.file_name, fields, values)
-    add_entry("function_name", issue.context.function_name, fields, values)
-    add_entry("host_name", issue.context.host_name, fields, values)
-    add_entry("line_number", issue.context.line_number, fields, values)
-    add_entry("package_name", issue.context.package_name, fields, values)
+    values["cwd"] = str(issue.context.cwd)
+    values["file_name"] = str(issue.context.file_name)
+    values["function_name"] = str(issue.context.function_name)
+    values["host_name"] = str(issue.context.host_name)
+    values["line_number"] = issue.context.line_number
+    values["package_name"] = str(issue.context.package_name)
 
-    add_entry("process_id", issue.context.process_id, fields, values)
-    add_entry("thread_id", issue.context.thread_id, fields, values)
-    add_entry("user_id", issue.context.user_id, fields, values)
-    add_entry("user_name", issue.context.user_name, fields, values)
-    add_entry("application_name", issue.context.application_name, fields, values)
+    values["process_id"] = issue.context.process_id
+    values["thread_id"] = issue.context.thread_id
+    values["user_id"] = issue.context.user_id
+    values["user_name"] = str(issue.context.user_name)
+    values["application_name"] = str(issue.context.application_name)
 
     # heavy information
-    add_entry("inheritance", "/".join(issue.inheritance), fields, values)
-    add_entry("message", issue.message, fields, values)
-    add_entry("params", issue.parameters, fields, values)
+    values["inheritance"] = "/".join(issue.inheritance)
+    values["message"] = str(issue.message)
+    values["params"] = str(issue.parameters)
 
-    command = f"INSERT INTO {table_name} ({','.join(fields)}) VALUES ({('%s, ' * len(values))[:-2]});"
-
-    logging.debug(command)
-    cursor.execute(command, values)
-
-
-def add_entry(field, value, fields, values):
-    fields.append(field)
-    values.append(str(value))
+    ins = issues_table.insert().values(**values)
+    logger.debug(str(ins))
+    connection.execute(ins)
 
 
-def clean_database(cursor, connection):
-    command = f"DROP TABLE {table_name} ;"
-
-    logging.debug(command)
-    cursor.execute(command)
-    connection.commit()
+def clean_database(issues_table, engine):
+    issues_table.drop(engine, checkfirst=True)
+    logger.debug(f"Dropped table {issues_table.name}")
 
 
-def check_tables(cursor, connection):
-    command = """SELECT relname FROM pg_class WHERE relkind='r'
-                  AND relname !~ '^(pg_|sql_)';"""
-
-    logging.debug(command)
-    cursor.execute(command)
-    tables = [i[0] for i in cursor.fetchall()]  # A list() of tables.
-    logging.info(f"Tables: {tables}")
+def check_tables(engine):
+    inspector = inspect(engine)
+    tables = inspector.get_table_names()
+    logger.info(f"Tables: {tables}")
     return tables
 
 
-def create_database(cursor, connection):
-    command = f"CREATE TABLE {table_name} ("
-    command += """
-                session             TEXT, 
-                issue_name          TEXT,
-                inheritance         TEXT,
-                message             TEXT,
-                params              TEXT,
-                severity            TEXT,
-                time                BIGINT,
-                cwd                 TEXT,
-                file_name           TEXT,
-                function_name       TEXT,
-                host_name           TEXT,
-                package_name        TEXT,
-                user_name           TEXT,
-                application_name    TEXT,
-                user_id             INT,
-                process_id          INT,
-                thread_id           INT,
-                line_number         INT
-               ); """
+def create_database_table(metadata, table_name, engine):
+    issues_table = Table(
+        table_name,
+        metadata,
+        Column("session", Text),
+        Column("issue_name", Text),
+        Column("inheritance", Text),
+        Column("message", Text),
+        Column("params", Text),
+        Column("severity", Text),
+        Column("time", BigInteger),
+        Column("cwd", Text),
+        Column("file_name", Text),
+        Column("function_name", Text),
+        Column("host_name", Text),
+        Column("package_name", Text),
+        Column("user_name", Text),
+        Column("application_name", Text),
+        Column("user_id", Integer),
+        Column("process_id", Integer),
+        Column("thread_id", Integer),
+        Column("line_number", Integer),
+    )
 
-    logging.debug(command)
-    cursor.execute(command)
-    connection.commit()
+    metadata.create_all(engine, checkfirst=True)
+    logger.info("Database is ready")
+    logger.debug(f"Created table {table_name}")
+    return issues_table
 
 
 if __name__ == "__main__":

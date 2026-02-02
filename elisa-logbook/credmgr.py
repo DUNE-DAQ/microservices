@@ -1,73 +1,56 @@
-import sys, os
 import logging
-from getpass import getpass
+import os
+import shutil
 import subprocess
-import logging
-import tempfile
-
-
-def which(program):
-    # https://stackoverflow.com/a/377028
-    def is_exe(fpath):
-        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
-
-    fpath, fname = os.path.split(program)
-    if fpath:
-        if is_exe(program):
-            print("Found1", program)
-            return program
-    else:
-        for path in os.environ.get("PATH", "").split(os.pathsep):
-            exe_file = os.path.join(path, program)
-            if is_exe(exe_file):
-                print("Found2", program)
-                return exe_file
-
-    return None
+import sys
+from getpass import getpass
+from pathlib import Path
+from typing import Optional
 
 
 def env_for_kerberos(ticket_dir):
-    ticket_dir = os.path.expanduser(ticket_dir)
-    env = {"KRB5CCNAME": f"DIR:{ticket_dir}"}
-    return env
+    ticket_dir = Path(ticket_dir).expanduser()
+    return {"KRB5CCNAME": f"DIR:{ticket_dir}"}
 
 
 def new_kerberos_ticket(
-    user: str, realm: str, password: str = None, ticket_dir: str = "~/"
+    user: str, realm: str, password: Optional[str] = None, ticket_dir: str = "~/"
 ):
+    kinit_path = shutil.which("kinit")
+    if kinit_path is None:
+        raise RuntimeError(
+            "kinit binary not found in PATH. Please ensure Kerberos client tools are installed."
+        )
+
     env = env_for_kerberos(ticket_dir)
     success = False
     password_provided = password is not None
 
     while not success:
-        import subprocess
-
         p = subprocess.Popen(
-            ["kinit", f"{user}@{realm}"],
+            [kinit_path, f"{user}@{realm}"],
             stdout=subprocess.PIPE,
             stdin=subprocess.PIPE,
             stderr=subprocess.PIPE,
             env=env,
         )
 
-        if p.poll() is not None and p.returncode != 0:
-            raise RuntimeError(
-                f"Could not execute kinit {user}@{realm}\n{stdout_data[-1].decode()}"
-            )
-
         if password is None:
             print(f"Password for {user}@{realm}:")
             try:
-                from getpass import getpass
-
                 password = getpass()
 
             except KeyboardInterrupt:
                 print()
                 return False
 
-        stdout_data = p.communicate(password.encode())
-        print(stdout_data[-1].decode())
+        stdout_data, stderr_data = p.communicate((password + "\n").encode())
+
+        # Display stderr if present (where kinit typically sends output)
+        if stderr_data:
+            print(stderr_data.decode())
+        elif stdout_data:
+            print(stdout_data.decode())
 
         if not password_provided:
             password = None
@@ -75,25 +58,29 @@ def new_kerberos_ticket(
         success = p.returncode == 0
 
         if not success and password_provided:
+            error_msg = stderr_data.decode() if stderr_data else stdout_data.decode()
             raise RuntimeError(
-                f"Authentication error for {user}@{realm}. The password provided (likely in configuration file) is incorrect"
+                f"Authentication error for {user}@{realm}. The password provided (likely in configuration file) is incorrect\n{error_msg}"
             )
 
     return True
 
 
 def get_kerberos_user(silent=False, ticket_dir: str = "~/"):
-    import logging
-
     log = logging.getLogger("get_kerberos_user")
+
+    klist_path = shutil.which("klist")
+    if klist_path is None:
+        raise RuntimeError(
+            "klist binary not found in PATH. Please ensure Kerberos client tools are installed."
+        )
 
     env = env_for_kerberos(ticket_dir)
     args = [
-        "klist"
+        klist_path
     ]  # on my mac, I can specify --json and that gives everything nicely in json format... but...
-    import subprocess
 
-    proc = subprocess.run(args, capture_output=True, text=True, env=env)
+    proc = subprocess.run(args, check=False, capture_output=True, text=True, env=env)
     raw_kerb_info = proc.stdout.split("\n")
 
     if not silent:
@@ -114,9 +101,13 @@ def get_kerberos_user(silent=False, ticket_dir: str = "~/"):
 
 
 def check_kerberos_credentials(against_user: str, silent=False, ticket_dir: str = "~/"):
-    import logging
-
     log = logging.getLogger("check_kerberos_credentials")
+
+    klist_path = shutil.which("klist")
+    if klist_path is None:
+        raise RuntimeError(
+            "klist binary not found in PATH. Please ensure Kerberos client tools are installed."
+        )
 
     env = env_for_kerberos(ticket_dir)
 
@@ -126,23 +117,20 @@ def check_kerberos_credentials(against_user: str, silent=False, ticket_dir: str 
         if kerb_user:
             log.info(f"Detected kerberos ticket for user: '{kerb_user}'")
         else:
-            log.info(f"No kerberos ticket found")
+            log.info("No kerberos ticket found")
 
     if not kerb_user:
         if not silent:
             log.info("No kerberos ticket")
         return False
-    elif kerb_user != against_user:  # we enforce the user is the same
+    if kerb_user != against_user:  # we enforce the user is the same
         if not silent:
             log.info("Another user is logged in")
         return False
-    else:
-        import subprocess
-
-        ticket_is_valid = subprocess.call(["klist", "-s"], env=env) == 0
-        if not silent and not ticket_is_valid:
-            log.info("Kerberos ticket is expired")
-        return ticket_is_valid
+    ticket_is_valid = subprocess.call([klist_path, "-s"], env=env) == 0
+    if not silent and not ticket_is_valid:
+        log.info("Kerberos ticket is expired")
+    return ticket_is_valid
 
 
 class ServiceAccountWithKerberos:
@@ -151,23 +139,32 @@ class ServiceAccountWithKerberos:
         self.username = username
         self.password = password
         self.realm = realm
+        self.log = logging.getLogger(self.__class__.__name__)
 
     def generate_cern_sso_cookie(self, website, kerberos_directory, output_directory):
+        auth_get_sso_cookie_path = shutil.which("auth-get-sso-cookie")
+        if auth_get_sso_cookie_path is None:
+            raise RuntimeError(
+                "auth-get-sso-cookie binary not found in PATH. Please ensure CERN SSO tools are installed."
+            )
+
         env = {"KRB5CCNAME": f"DIR:{kerberos_directory}"}
 
-        import sh
+        import sh  # noqa:PLC0415
 
-        executable = sh.Command("auth-get-sso-cookie")
+        executable = sh.Command(auth_get_sso_cookie_path)
 
         try:
-            proc = executable(
+            executable(
                 "-u", website, "-o", output_directory, _env=env, _new_session=False
             )
         except sh.ErrorReturnCode as error:
-            self.log.error(error)
+            self.log.exception(
+                f"Couldn't get SSO cookie! {error.stdout=} {error.stderr=}"
+            )
             raise RuntimeError(
                 f"Couldn't get SSO cookie! {error.stdout=} {error.stderr=}"
-            ) from e
+            ) from error
 
         return output_directory
 
@@ -176,57 +173,68 @@ class CredentialManager:
     def __init__(self):
         self.log = logging.getLogger(self.__class__.__name__)
         self.authentications = []
+        self.user = None
 
-    def add_login(self, service: str, user: str, password: str, realm: str):
+    def add_login(self, service: str, user: str, password: str, realm: str = "CERN.CH"):
         self.authentications.append(
             ServiceAccountWithKerberos(service, user, password, realm)
         )
 
     def add_login_from_file(self, service: str, file: str):
-        if not os.path.isfile(os.getcwd() + "/" + file + ".py"):
+        cwd = Path.cwd()
+        file_path = cwd / f"{file}.py"
+        if not file_path.is_file():
             self.log.error(f"Couldn't find file {file} in PWD")
-            raise
+            raise FileNotFoundError(f"Couldn't find file {file} in PWD")
 
-        sys.path.append(os.getcwd())
+        sys.path.append(str(cwd))
         i = __import__(file, fromlist=[""])
         self.add_login(service, i.user, i.password)
         self.log.info(f"Added login data from file: {file}")
 
-    def get_login(self, service: str, user: str):
-        for auth in self.authentications:
-            if service == auth.service and user == auth.user:
-                return auth
-        self.log.error(f"Couldn't find login for service: {service}, user: {user}")
-
-    def get_login(self, service: str):
+    def get_login(self, service: str, user: Optional[str] = None):
         for auth in self.authentications:
             if service == auth.service:
-                return auth
+                if user is None or user == auth.username:
+                    return auth
+
+        if user:
+            self.log.error(f"Couldn't find login for service: {service}, user: {user}")
+            raise ValueError(
+                f"Couldn't find login for service: {service}, user: {user}"
+            )
         self.log.error(f"Couldn't find login for service: {service}")
+        raise ValueError(f"Couldn't find login for service: {service}")
 
     def rm_login(self, service: str, user: str):
         for auth in self.authentications:
-            if service == auth.service and user == auth.user:
+            if service == auth.service and user == auth.username:
                 self.authentications.remove(auth)
                 return
 
     def new_kerberos_ticket(self):
-        success = False
-        for a in self.authentications:
-            if a.user == self.user:
-                password = a.password
-                break
+        if self.user is None:
+            self.log.error("No user set in CredentialManager")
+            return False
 
-        p = subprocess.Popen(
-            ["kinit", self.user + "@CERN.CH"],
-            stdout=subprocess.PIPE,
-            stdin=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+        auth = next(
+            (a for a in self.authentications if a.username == self.user),
+            None
         )
-        stdout_data = p.communicate(password.encode())
-        print(stdout_data[-1].decode())
-        success = p.returncode == 0
-        return True
+
+        if auth is None:
+            self.log.error(f"No authentication found for user: {self.user}")
+            return False
+
+        try:
+            return new_kerberos_ticket(
+                user=auth.username,
+                realm=auth.realm,
+                password=auth.password
+            )
+        except Exception:
+            self.log.exception("Failed to create Kerberos ticket")
+            return False
 
 
 credentials = CredentialManager()
@@ -234,8 +242,6 @@ credentials = CredentialManager()
 
 class CERNSessionHandler:
     def __init__(self, username: str):
-        import logging
-
         self.log = logging.getLogger(self.__class__.__name__)
         self.elisa_username = username
 
@@ -244,10 +250,7 @@ class CERNSessionHandler:
 
     @staticmethod
     def __get_elisa_kerberos_cache_path():
-        import os
-        from pathlib import Path
-
-        return Path(os.path.expanduser("/tmp/.nanorc_elisakerbcache"))
+        return Path("/tmp/.nanorc_elisakerbcache")
 
     def elisa_user_is_authenticated(self):
         elisa_user = credentials.get_login("elisa")
@@ -260,10 +263,9 @@ class CERNSessionHandler:
     def authenticate_elisa_user(self):
         elisa_user = credentials.get_login("elisa")
         elisa_kerb_cache = CERNSessionHandler.__get_elisa_kerberos_cache_path()
-        import os
 
-        if not os.path.isdir(elisa_kerb_cache):
-            os.mkdir(elisa_kerb_cache)
+        if not elisa_kerb_cache.is_dir():
+            elisa_kerb_cache.mkdir(mode=0o700)
 
         if self.elisa_user_is_authenticated():
             # we're authenticated, stop here

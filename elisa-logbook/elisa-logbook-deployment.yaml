@@ -4,11 +4,11 @@ metadata:
   annotations:
     kluctl.io/skip-delete-if-tags: "true"
   labels:
-    pod-security.kubernetes.io/audit: baseline
+    pod-security.kubernetes.io/audit: restricted
     pod-security.kubernetes.io/audit-version: latest
-    pod-security.kubernetes.io/enforce: baseline # unified image runs as root :(
+    pod-security.kubernetes.io/enforce: restricted
     pod-security.kubernetes.io/enforce-version: latest
-    pod-security.kubernetes.io/warn: baseline
+    pod-security.kubernetes.io/warn: restricted
     pod-security.kubernetes.io/warn-version: latest
   name: elisa-logbook
 ---
@@ -18,6 +18,7 @@ kind: Deployment
 metadata:
   labels:
     app.kubernetes.io/app: elisa-logbook
+    app.kubernetes.io/name: elisa-logbook
     app.kubernetes.io/component: elisa-logbook
   name: elisa-logbook
   namespace: elisa-logbook
@@ -26,11 +27,13 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/app: elisa-logbook
+      app.kubernetes.io/name: elisa-logbook
       app.kubernetes.io/component: elisa-logbook
   template:
     metadata:
       labels:
         app.kubernetes.io/app: elisa-logbook
+        app.kubernetes.io/name: elisa-logbook
         app.kubernetes.io/component: elisa-logbook
     spec:
       affinity:
@@ -41,6 +44,7 @@ spec:
                   - key: node-role.kubernetes.io/worker
                     operator: Exists
       automountServiceAccountToken: false
+      hostUsers: false
       containers:
         - image: ghcr.io/dune-daq/microservices:latest
           name: elisa-logbook
@@ -62,18 +66,55 @@ spec:
                 secretKeyRef:
                   key: password
                   name: elisa-logbook-secret
+            - name: APP_DATA
+              value: /opt/data
+          ports:
+            - containerPort: 5005
+              name: http
+              protocol: TCP
+          startupProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
           resources:
             limits:
               memory: 1Gi
             requests:
-              memory: 8Mi
+              cpu: 100m
+              memory: 64Mi
           securityContext:
+            runAsUser: 11000
+            runAsGroup: 11000
+            runAsNonRoot: true
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            seccompProfile:
+              type: RuntimeDefault
             capabilities:
               drop:
                 - ALL
-            runAsGroup: 11000
-            seccompProfile:
-              type: RuntimeDefault
+          volumeMounts:
+            - mountPath: /opt/data
+              name: data-volume
+            - name: tmp-volume
+              mountPath: /tmp
+      volumes: # persistence is not required at this time
+        - name: data-volume
+          emptyDir:
+            sizeLimit: 10Gi
+        - name: tmp-volume
+          emptyDir:
+            sizeLimit: 256Mi
       securityContext:
         fsGroup: 11000
