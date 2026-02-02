@@ -99,7 +99,7 @@ jobs:
         run: |
           if [[ "${{ needs.build-dependencies.result }}" == "success" ]]; then
             # Dependencies image was rebuilt for this commit, so use current short SHA
-            echo "dep_tag=$(git rev-parse --short HEAD)" >> "${GITHUB_OUTPUT}"
+            echo "dep_tag=sha-$(git rev-parse --short HEAD)" >> "${GITHUB_OUTPUT}"
           else
             # Fallback: use 'latest' if no SHA-like tag was found or API call failed
             echo "Warning: Could not determine SHA-based dependency tag, falling back to 'latest'" >&2
