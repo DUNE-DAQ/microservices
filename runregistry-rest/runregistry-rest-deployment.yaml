@@ -52,8 +52,6 @@ spec:
           env:
             - name: MICROSERVICE
               value: runregistry-rest
-            - name: APP_DATA
-              value: /opt/data
             - name: DATABASE_URI
               valueFrom:
                 secretKeyRef:
