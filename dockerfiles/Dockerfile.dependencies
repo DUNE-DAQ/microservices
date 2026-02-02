@@ -42,22 +42,26 @@ RUN echo "Installing https://raw.githubusercontent.com/DUNE-DAQ/ers/${ERSVERSION
     && touch ${VENV_PATH}/ers/__init__.py \
     && protoc --python_out=${VENV_PATH}/ers issue.proto \
     && rm -f issue.proto \
+    && mv ${VENV_PATH}/ers ${VENV_PATH}/lib/python*/site-packages \
     && echo "Installing https://raw.githubusercontent.com/DUNE-DAQ/opmonlib/${OPMONLIBVERSION}/schema/opmonlib/opmon_entry.proto" \
     && curl -fSL -O https://raw.githubusercontent.com/DUNE-DAQ/opmonlib/$OPMONLIBVERSION/schema/opmonlib/opmon_entry.proto \
     && mkdir -p ${VENV_PATH}/opmonlib \
     && touch ${VENV_PATH}/opmonlib/__init__.py \
     && protoc --python_out=${VENV_PATH}/opmonlib -I${APP_ROOT} opmon_entry.proto \
-    && rm -f opmon_entry.proto
+    && rm -f opmon_entry.proto \
+    && mv ${VENV_PATH}/opmonlib ${VENV_PATH}/lib/python*/site-packages
 
 # fetch ERS python bindings
 RUN mkdir -p ${VENV_PATH}/erskafka \
     && touch ${VENV_PATH}/erskafka/__init__.py \
     && echo "Installing https://raw.githubusercontent.com/DUNE-DAQ/erskafka/$ERSKAFKAVERSION/python/erskafka/ERSSubscriber.py" \
     && curl -fSL https://raw.githubusercontent.com/DUNE-DAQ/erskafka/$ERSKAFKAVERSION/python/erskafka/ERSSubscriber.py -o ${VENV_PATH}/erskafka/ERSSubscriber.py \
+    && mv ${VENV_PATH}/erskafka ${VENV_PATH}/lib/python*/site-packages \
     && mkdir -p ${VENV_PATH}/kafkaopmon \
     && touch ${VENV_PATH}/kafkaopmon/__init__.py \
     && echo "Installing https://raw.githubusercontent.com/DUNE-DAQ/kafkaopmon/${KAFKAOPMONVERSION}/python/kafkaopmon/OpMonSubscriber.py" \
-    && curl -fSL https://raw.githubusercontent.com/DUNE-DAQ/kafkaopmon/$KAFKAOPMONVERSION/python/kafkaopmon/OpMonSubscriber.py -o ${VENV_PATH}/kafkaopmon/OpMonSubscriber.py
+    && curl -fSL https://raw.githubusercontent.com/DUNE-DAQ/kafkaopmon/$KAFKAOPMONVERSION/python/kafkaopmon/OpMonSubscriber.py -o ${VENV_PATH}/kafkaopmon/OpMonSubscriber.py \
+    && mv ${VENV_PATH}/kafkaopmon ${VENV_PATH}/lib/python*/site-packages
 
 # elisa_client_api and CERN kerberos needed by the logbook microservice at NP04
 COPY cern.repo /etc/yum.repos.d/

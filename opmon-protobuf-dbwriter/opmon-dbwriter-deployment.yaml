@@ -57,6 +57,8 @@ spec:
               value: opmon-protobuf-dbwriter
             - name: OPMON_DBWRITER_SUBSCRIBER_TIMEOUT_MS
               value: "5000"
+            - name: OPMON_DBWRITER_BATCH_SIZE_MS
+              value: "800"
             - name: OPMON_DBWRITER_TOPIC
               value: opmon_stream
             - name: DATABASE_URI
@@ -64,8 +66,6 @@ spec:
                 secretKeyRef:
                   key: uri
                   name: influxdbv1-readwrite-password
-            - name: OPMON_DBWRITER_BATCH_SIZE_MS
-              value: "800"
           resources:
             limits:
               memory: 1Gi

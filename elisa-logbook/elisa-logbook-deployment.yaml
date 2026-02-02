@@ -66,8 +66,6 @@ spec:
                 secretKeyRef:
                   key: password
                   name: elisa-logbook-secret
-            - name: APP_DATA
-              value: /opt/data
           ports:
             - containerPort: 5005
               name: http
