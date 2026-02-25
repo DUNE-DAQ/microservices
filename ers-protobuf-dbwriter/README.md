@@ -43,10 +43,10 @@ ON "ERSstream" (session, "time" DESC);
 ## 💡 Troubleshooting Tips & Tricks
 
 ### How to access the Database Pod
-Use `kubectl` to jump into the running dbwriter or postgres pod:
+Access the database using the environment variables already defined in the pod's container.
 ```bash
-# Exec into the dbwriter pod to use the bundled psql client
-kubectl exec -it <pod_name> -n ers -- psql $DATABASE_URI
+# Uses the pod's internal environment variable (injected via K8s secrets) to authenticate automatically
+kubectl exec -it <pod_name> -n ers -- sh -c 'psql $DATABASE_URI'
 ```
 
 ### Useful PostgreSQL Commands
@@ -55,6 +55,11 @@ Once inside the `psql` prompt:
 * **Connect to the ERS database:** `\c ApplicationDbErrorReporting`
 * **List all tables:** `\dt`
 * **Show table schema/indexes:** `\d "ERSstream"`
+
+### Safe Exits
+* **Exit query results (pager):** Press `q`
+* **Exit psql prompt:** Type `\q` or `Ctrl+D`
+* **Exit pod session:** Type `exit` or `Ctrl+D`
 
 ### Testing Performance
 Use these to verify if the index is working:
