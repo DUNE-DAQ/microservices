@@ -4,6 +4,7 @@
 #  received with this code.
 #
 
+import json
 import logging
 import queue
 import threading
@@ -16,8 +17,73 @@ import kafkaopmon.OpMonSubscriber as opmon_sub
 import opmonlib.opmon_entry_pb2 as opmon_schema
 from influxdb import InfluxDBClient
 
+try:
+    from http.server import HTTPServer, BaseHTTPRequestHandler
+    from threading import Thread
+except ImportError:
+    HTTPServer = None
+
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 logger = logging.getLogger(__name__)
+influx = None
+
+if HTTPServer is not None:
+
+    class HealthHandler(BaseHTTPRequestHandler):
+        def log_message(self, format, *args):
+            logger.debug("HTTP: %s", format % args)
+
+        def do_GET(self):
+            if self.path == "/ready":
+                self.handle_ready()
+            elif self.path == "/live":
+                self.handle_live()
+            else:
+                self.send_response(404)
+                self.end_headers()
+
+        def handle_ready(self):
+            status = {"influxdb": "healthy"}
+            all_healthy = True
+
+            try:
+                if influx is not None:
+                    influx.get_list_database()
+            except Exception:
+                status["influxdb"] = "unreachable"
+                all_healthy = False
+
+            if all_healthy:
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "ready", **status}).encode())
+            else:
+                self.send_response(503)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "not ready", **status}).encode())
+
+        def handle_live(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "live"}).encode())
+
+    health_server = None
+    health_thread = None
+
+    def start_health_server(port: int):
+        global health_server, health_thread
+        health_server = HTTPServer(("0.0.0.0", port), HealthHandler)
+        health_thread = Thread(target=health_server.serve_forever, daemon=True)
+        health_thread.start()
+        logger.info("Health server started on port %d", port)
+
+    def stop_health_server():
+        global health_server
+        if health_server:
+            health_server.shutdown()
 
 
 @click.command(context_settings=CONTEXT_SETTINGS)
@@ -67,6 +133,12 @@ logger = logging.getLogger(__name__)
     help="Size in ms of the batches sent to influx",
 )
 @click.option("--debug", type=click.BOOL, default=True, help="Set debug print levels")
+@click.option(
+    "--health-port",
+    type=click.INT,
+    default=None,
+    help="Port for HTTP health endpoint (if not set, no health endpoint)",
+)
 def cli(
     subscriber_bootstrap,
     subscriber_group,
@@ -76,6 +148,7 @@ def cli(
     influxdb_create,
     influxdb_timeout,
     debug,
+    health_port,
 ):
     logging.basicConfig(
         format="%(asctime)s %(levelname)-8s %(message)s",
@@ -115,6 +188,9 @@ def cli(
 
     callback_function = partial(process_entry, q=q)
 
+    if health_port is not None:
+        start_health_server(health_port)
+
     sub.add_callback(name="to_influx", function=callback_function)
 
     thread = threading.Thread(
@@ -122,7 +198,11 @@ def cli(
     )
     thread.start()
 
-    sub.start()
+    try:
+        sub.start()
+    finally:
+        if health_port is not None:
+            stop_health_server()
 
 
 def consume(q: queue.Queue, timeout_ms, influx: InfluxDBClient = None):

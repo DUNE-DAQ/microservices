@@ -48,6 +48,10 @@ spec:
         - image: ghcr.io/dune-daq/microservices:mroda-opmon_protobuf ## TBC
           imagePullPolicy: Always
           name: opmon-protobuf-dbwriter
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+              name: health
           env:
             - name: MICROSERVICE
               value: opmon-protobuf-dbwriter
@@ -66,6 +70,8 @@ spec:
                 secretKeyRef:
                   key: uri
                   name: influxdbv1-readwrite-password
+            - name: HEALTH_PORT
+              value: "8080"
           resources:
             limits:
               memory: 1Gi
@@ -86,6 +92,30 @@ spec:
           volumeMounts:
             - name: tmp-volume
               mountPath: /tmp
+          startupProbe:
+            httpGet:
+              path: /ready
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /live
+              port: health
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 3
       volumes:
         - name: tmp-volume
           emptyDir:
