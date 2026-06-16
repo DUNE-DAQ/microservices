@@ -27,7 +27,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.exc import OperationalError, ProgrammingError, SQLAlchemyError
 
-from http.server import HTTPServer, BaseHTTPRequestHandler
+import socket as _socket
 from threading import Thread
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
@@ -35,62 +35,68 @@ MAX_RETRIES = 3
 logger = logging.getLogger(__name__)
 engine = None
 
-class HealthHandler(BaseHTTPRequestHandler):
-    def log_message(self, format, *args):
-        logger.debug("HTTP: %s", format % args)
+_health_server_socket = None
 
-    def do_GET(self):
-        if self.path == "/ready":
-            self.handle_ready()
-        elif self.path == "/live":
-            self.handle_live()
+
+def _handle_health_client(conn):
+    try:
+        data = b""
+        conn.settimeout(5)
+        while b"\r\n\r\n" not in data:
+            chunk = conn.recv(4096)
+            if not chunk:
+                break
+            data += chunk
+
+        if b"GET /ready" in data:
+            status = {"database": "healthy"}
+            all_healthy = True
+            try:
+                if engine is not None:
+                    with engine.connect() as c:
+                        c.execute(sqlalchemy.text("SELECT 1"))
+            except Exception:
+                status["database"] = "unreachable"
+                all_healthy = False
+            code, phrase = (200, "OK") if all_healthy else (503, "Service Unavailable")
+            body = json.dumps({"status": "ready" if all_healthy else "not ready", **status}).encode()
+        elif b"GET /live" in data:
+            code, phrase = 200, "OK"
+            body = json.dumps({"status": "live"}).encode()
         else:
-            self.send_response(404)
-            self.end_headers()
+            code, phrase = 404, "Not Found"
+            body = b"Not Found"
 
-    def handle_ready(self):
-        status = {"database": "healthy"}
-        all_healthy = True
-
+        response = (
+            f"HTTP/1.0 {code} {phrase}\r\nContent-Type: application/json\r\nContent-Length: {len(body)}\r\n\r\n"
+        ).encode() + body
+        conn.sendall(response)
+    except Exception:
+        pass
+    finally:
         try:
-            if engine is not None:
-                with engine.connect() as conn:
-                    conn.execute(sqlalchemy.text("SELECT 1"))
+            conn.close()
         except Exception:
-            status["database"] = "unreachable"
-            all_healthy = False
+            pass
 
-        if all_healthy:
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"status": "ready", **status}).encode())
-        else:
-            self.send_response(503)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps({"status": "not ready", **status}).encode())
 
-    def handle_live(self):
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.end_headers()
-        self.wfile.write(json.dumps({"status": "live"}).encode())
+def _health_accept_loop(sock):
+    while True:
+        try:
+            conn, _ = sock.accept()
+            Thread(target=_handle_health_client, args=(conn,), daemon=True).start()
+        except OSError:
+            break
 
-health_server = None
-health_thread = None
 
 def start_health_server(port: int):
-    global health_server, health_thread
-    health_server = HTTPServer(("0.0.0.0", port), HealthHandler)
-    health_thread = Thread(target=health_server.serve_forever, daemon=True)
-    health_thread.start()
+    global _health_server_socket
+    _health_server_socket = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+    _health_server_socket.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
+    _health_server_socket.bind(("0.0.0.0", port))
+    _health_server_socket.listen(10)
+    Thread(target=_health_accept_loop, args=(_health_server_socket,), daemon=True).start()
     logger.info("Health server started on port %d", port)
-
-def stop_health_server():
-    global health_server
-    if health_server:
-        health_server.shutdown()
 
 
 @click.command(context_settings=CONTEXT_SETTINGS)
@@ -183,11 +189,7 @@ def cli(
 
     sub.add_callback(name="database", function=callback_function)
 
-    try:
-        sub.start()
-    finally:
-        if health_port is not None:
-            stop_health_server()
+    sub.start()
 
 
 def process_chain(chain, engine, issues_table):
