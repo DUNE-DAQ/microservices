@@ -17,5 +17,5 @@ exec python3 ./dbwriter.py --subscriber-bootstrap "${OPMON_DBWRITER_KAFKA_BOOTST
     --influxdb-uri "${DATABASE_URI}" \
     --influxdb-timeout "${OPMON_DBWRITER_BATCH_SIZE_MS}" \
     --influxdb-create True \
-    --health-port "${HEALTH_PORT:-}" \
+    ${HEALTH_PORT:+--health-port "${HEALTH_PORT}"} \
     --debug False

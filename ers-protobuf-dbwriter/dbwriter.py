@@ -27,75 +27,70 @@ from sqlalchemy import (
 )
 from sqlalchemy.exc import OperationalError, ProgrammingError, SQLAlchemyError
 
-try:
-    from http.server import HTTPServer, BaseHTTPRequestHandler
-    from threading import Thread
-except ImportError:
-    HTTPServer = None
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from threading import Thread
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 MAX_RETRIES = 3
 logger = logging.getLogger(__name__)
 engine = None
 
-if HTTPServer is not None:
+class HealthHandler(BaseHTTPRequestHandler):
+    def log_message(self, format, *args):
+        logger.debug("HTTP: %s", format % args)
 
-    class HealthHandler(BaseHTTPRequestHandler):
-        def log_message(self, format, *args):
-            logger.debug("HTTP: %s", format % args)
+    def do_GET(self):
+        if self.path == "/ready":
+            self.handle_ready()
+        elif self.path == "/live":
+            self.handle_live()
+        else:
+            self.send_response(404)
+            self.end_headers()
 
-        def do_GET(self):
-            if self.path == "/ready":
-                self.handle_ready()
-            elif self.path == "/live":
-                self.handle_live()
-            else:
-                self.send_response(404)
-                self.end_headers()
+    def handle_ready(self):
+        status = {"database": "healthy"}
+        all_healthy = True
 
-        def handle_ready(self):
-            status = {"database": "healthy"}
-            all_healthy = True
+        try:
+            if engine is not None:
+                with engine.connect() as conn:
+                    conn.execute(sqlalchemy.text("SELECT 1"))
+        except Exception:
+            status["database"] = "unreachable"
+            all_healthy = False
 
-            try:
-                if engine is not None:
-                    with engine.connect() as conn:
-                        conn.execute(sqlalchemy.text("SELECT 1"))
-            except Exception:
-                status["database"] = "unreachable"
-                all_healthy = False
-
-            if all_healthy:
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"status": "ready", **status}).encode())
-            else:
-                self.send_response(503)
-                self.send_header("Content-Type", "application/json")
-                self.end_headers()
-                self.wfile.write(json.dumps({"status": "not ready", **status}).encode())
-
-        def handle_live(self):
+        if all_healthy:
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            self.wfile.write(json.dumps({"status": "live"}).encode())
+            self.wfile.write(json.dumps({"status": "ready", **status}).encode())
+        else:
+            self.send_response(503)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "not ready", **status}).encode())
 
-    health_server = None
-    health_thread = None
+    def handle_live(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps({"status": "live"}).encode())
 
-    def start_health_server(port: int):
-        global health_server, health_thread
-        health_server = HTTPServer(("0.0.0.0", port), HealthHandler)
-        health_thread = Thread(target=health_server.serve_forever, daemon=True)
-        health_thread.start()
-        logger.info("Health server started on port %d", port)
+health_server = None
+health_thread = None
 
-    def stop_health_server():
-        global health_server
-        if health_server:
-            health_server.shutdown()
+def start_health_server(port: int):
+    global health_server, health_thread
+    health_server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    health_thread = Thread(target=health_server.serve_forever, daemon=True)
+    health_thread.start()
+    logger.info("Health server started on port %d", port)
+
+def stop_health_server():
+    global health_server
+    if health_server:
+        health_server.shutdown()
 
 
 @click.command(context_settings=CONTEXT_SETTINGS)

@@ -15,5 +15,5 @@ exec python3 ./dbwriter.py --subscriber-bootstrap "${ERS_DBWRITER_KAFKA_BOOTSTRA
                       --subscriber-timeout "${ERS_DBWRITER_KAFKA_TIMEOUT_MS}" \
                       --db-uri "${DATABASE_URI}" \
                       --db-table "${ERS_DBWRITER_DB_TABLENAME}" \
-                      --health-port "${HEALTH_PORT:-}" \
+                      ${HEALTH_PORT:+--health-port "${HEALTH_PORT}"} \
                       --debug False
