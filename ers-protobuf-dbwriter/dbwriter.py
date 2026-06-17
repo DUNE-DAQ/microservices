@@ -4,6 +4,7 @@
 #  received with this code.
 #
 
+import json
 import logging
 import re
 import sys
@@ -13,6 +14,7 @@ from functools import partial
 import click
 import erskafka.ERSSubscriber as erssub
 import google.protobuf.json_format as pb_json
+import sqlalchemy
 from sqlalchemy import (
     BigInteger,
     Column,
@@ -25,9 +27,76 @@ from sqlalchemy import (
 )
 from sqlalchemy.exc import OperationalError, ProgrammingError, SQLAlchemyError
 
+import socket as _socket
+from threading import Thread
+
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 MAX_RETRIES = 3
 logger = logging.getLogger(__name__)
+engine = None
+
+_health_server_socket = None
+
+
+def _handle_health_client(conn):
+    try:
+        data = b""
+        conn.settimeout(5)
+        while b"\r\n\r\n" not in data:
+            chunk = conn.recv(4096)
+            if not chunk:
+                break
+            data += chunk
+
+        if b"GET /ready" in data:
+            status = {"database": "healthy"}
+            all_healthy = True
+            try:
+                if engine is not None:
+                    with engine.connect() as c:
+                        c.execute(sqlalchemy.text("SELECT 1"))
+            except Exception:
+                status["database"] = "unreachable"
+                all_healthy = False
+            code, phrase = (200, "OK") if all_healthy else (503, "Service Unavailable")
+            body = json.dumps({"status": "ready" if all_healthy else "not ready", **status}).encode()
+        elif b"GET /live" in data:
+            code, phrase = 200, "OK"
+            body = json.dumps({"status": "live"}).encode()
+        else:
+            code, phrase = 404, "Not Found"
+            body = b"Not Found"
+
+        response = (
+            f"HTTP/1.0 {code} {phrase}\r\nContent-Type: application/json\r\nContent-Length: {len(body)}\r\n\r\n"
+        ).encode() + body
+        conn.sendall(response)
+    except Exception:
+        pass
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+def _health_accept_loop(sock):
+    while True:
+        try:
+            conn, _ = sock.accept()
+            Thread(target=_handle_health_client, args=(conn,), daemon=True).start()
+        except OSError:
+            break
+
+
+def start_health_server(port: int):
+    global _health_server_socket
+    _health_server_socket = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+    _health_server_socket.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
+    _health_server_socket.bind(("0.0.0.0", port))
+    _health_server_socket.listen(10)
+    Thread(target=_health_accept_loop, args=(_health_server_socket,), daemon=True).start()
+    logger.info("Health server started on port %d", port)
 
 
 @click.command(context_settings=CONTEXT_SETTINGS)
@@ -62,6 +131,12 @@ logger = logging.getLogger(__name__)
     help="name of table used in the database",
 )
 @click.option("--debug", type=click.BOOL, default=True, help="Set debug print levels")
+@click.option(
+    "--health-port",
+    type=click.INT,
+    default=None,
+    help="Port for HTTP health endpoint (if not set, no health endpoint)",
+)
 def cli(
     subscriber_bootstrap,
     subscriber_group,
@@ -69,6 +144,7 @@ def cli(
     db_uri,
     db_table,
     debug,
+    health_port,
 ):
     logging.basicConfig(
         format="%(asctime)s %(levelname)-8s %(message)s",
@@ -82,6 +158,7 @@ def cli(
 
     metadata = MetaData()
     try:
+        global engine
         engine = create_engine(
             db_uri,
             pool_size=5,
@@ -96,6 +173,9 @@ def cli(
         sys.exit(1)
 
     check_tables(engine=engine)
+
+    if health_port is not None:
+        start_health_server(health_port)
 
     subscriber_conf = {}
     subscriber_conf["bootstrap"] = subscriber_bootstrap

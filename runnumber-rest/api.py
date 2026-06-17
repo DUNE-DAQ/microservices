@@ -119,6 +119,28 @@ class updateStopTimestamp(Resource):
             return flask.make_response(flask.jsonify({"Exception": f"{err_obj}"}))
 
 
+@app.route("/ready")
+def ready():
+    status = {"database": "healthy"}
+    all_healthy = True
+
+    try:
+        db.session.execute(db.select(1))
+    except Exception:
+        status["database"] = "unreachable"
+        all_healthy = False
+
+    if all_healthy:
+        return flask.jsonify({"status": "ready", **status}), 200
+    else:
+        return flask.jsonify({"status": "not ready", **status}), 503
+
+
+@app.route("/live")
+def live():
+    return flask.jsonify({"status": "live"}), 200
+
+
 @app.route("/")
 def index():
     return f"""

@@ -8,11 +8,12 @@ if [[ ! -f ../entrypoint_functions.sh ]]; then
 fi
 source ../entrypoint_functions.sh
 
-ensure_required_variables "ERS_DBWRITER_KAFKA_BOOTSTRAP_SERVER ERS_DBWRITER_KAFKA_TIMEOUT_MS ERS_DBWRITER_KAFKA_GROUP DATABASE_URI ERS_DBWRITER_DB_TABLENAME"
+ensure_required_variables "ERS_DBWRITER_KAFKA_BOOTSTRAP_SERVER ERS_DBWRITER_KAFKA_TIMEOUT_MS ERS_DBWRITER_KAFKA_GROUP DATABASE_URI ERS_DBWRITER_DB_TABLENAME HEALTH_PORT"
 
 exec python3 ./dbwriter.py --subscriber-bootstrap "${ERS_DBWRITER_KAFKA_BOOTSTRAP_SERVER}" \
                       --subscriber-group "${ERS_DBWRITER_KAFKA_GROUP}" \
                       --subscriber-timeout "${ERS_DBWRITER_KAFKA_TIMEOUT_MS}" \
                       --db-uri "${DATABASE_URI}" \
                       --db-table "${ERS_DBWRITER_DB_TABLENAME}" \
+                      --health-port "${HEALTH_PORT}" \
                       --debug False

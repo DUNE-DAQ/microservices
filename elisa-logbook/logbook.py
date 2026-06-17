@@ -83,6 +83,31 @@ def sanitize_run_type(run_type: str) -> str:
 # The first type of logging is fileLogbook, which writes logs to a given file in the current working directory.
 
 
+@app.route("/ready")
+def ready():
+    status = {"file_system": "healthy"}
+    all_healthy = True
+
+    try:
+        if not Path(app.config["PATH"]).exists():
+            status["file_system"] = "unreachable"
+            all_healthy = False
+
+    except Exception:
+        status["file_system"] = "error"
+        all_healthy = False
+
+    if all_healthy:
+        return jsonify({"status": "ready", **status}), 200
+    else:
+        return jsonify({"status": "not ready", **status}), 503
+
+
+@app.route("/live")
+def live():
+    return jsonify({"status": "live"}), 200
+
+
 @app.route("/")
 def index():
     return "<h1>Welcome to the logbook API!</h1>"
