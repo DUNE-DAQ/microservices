@@ -4,6 +4,7 @@
 #  received with this code.
 
 import json
+from typing import Callable
 import logging
 import queue
 import socket as _socket
@@ -36,11 +37,6 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 OPMON_TABLE_PREFIX = "opmon_entries_"
 
 logger = logging.getLogger(__name__)
-metadata = MetaData()
-timescale_engine = None
-_health_server_socket = None
-
-_tables_lock = threading.Lock()
 
 # ------- SCHEMA --------- #
 def _table_name_from_measurement(measurement: str):
@@ -53,10 +49,14 @@ def _table_schema(table_name: str):
         Column("time", DateTime(timezone=True)),
         Column("measurement", Text),
         Column("tags", JSON),
-        Column("fields", JSON),    
+        Column("fields", JSON),
         Index(f"ix_{table_name}_tags_gin", "tags", postgresql_using="gin"),
         Index(f"ix_{table_name}_fields_gin", "fields", postgresql_using="gin"),
     )
+
+def uri_to_db_name(uri: str):
+    parsed_uri = urlparse(uri)
+    return parsed_uri.path.lstrip("/")
 
 
 # ------- Opmon Processing -------- #
@@ -105,151 +105,167 @@ def create_tags(entry: opmon_schema.OpMonEntry) -> dict:
 
 
 # --- Health Client Tools --- #
-def _handle_health_client(conn):
-    try:
-        data = b""
-        conn.settimeout(5)
-        while b"\r\n\r\n" not in data:
-            chunk = conn.recv(4096)
-            if not chunk:
-                break
-            data += chunk
+class HealthServer:
+    def __init__(self, port: int, health_check: Callable[[], bool]):
+        self.port = port
+        self._health_check = health_check
+        self._sock: _socket.socket | None = None
 
-        if b"GET /ready" in data:
-            status = {"timescaledb": "healthy"}
-            all_healthy = True
+    def start(self) -> None:
+        self._sock = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        self._sock.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
+        self._sock.bind(("0.0.0.0", self.port))
+        self._sock.listen(10)
+        Thread(target=self._accept_loop, daemon=True).start()
+        logger.info("Health server started on port %d", self.port)
+
+    def stop(self) -> None:
+        if self._sock is not None:
             try:
-                if timescale_engine is not None:
-                    with timescale_engine.connect() as conn2:
-                        conn2.execute(text("SELECT 1"))
-            except OperationalError:
-                status["timescaledb"] = "unreachable"
-                all_healthy = False
-            code, phrase = (200, "OK") if all_healthy else (503, "Service Unavailable")
-            body = json.dumps({"status": "ready" if all_healthy else "not ready", **status}).encode()
-        elif b"GET /live" in data:
-            code, phrase = 200, "OK"
-            body = json.dumps({"status": "live"}).encode()
-        else:
-            code, phrase = 404, "Not Found"
-            body = b"Not Found"
+                self._sock.close()
+            finally:
+                self._sock = None
 
-        response = (
-            f"HTTP/1.0 {code} {phrase}\r\nContent-Type: application/json\r\nContent-Length: {len(body)}\r\n\r\n"
-        ).encode() + body
-        conn.sendall(response)
-    except Exception:
-        pass
-    finally:
+    def _accept_loop(self) -> None:
+        assert self._sock is not None        
+
+        while True:
+            try:
+                conn, _ = self._sock.accept()
+                Thread(target=self._handle_client, args=(conn,), daemon=True).start()
+            except OSError:
+                break
+
+    def _handle_client(self, conn: _socket.socket) -> None:
         try:
-            conn.close()
+            data = b""
+            conn.settimeout(5)
+            while b"\r\n\r\n" not in data:
+                chunk = conn.recv(4096)
+                if not chunk:
+                    break
+                data += chunk
+
+            if b"GET /ready" in data:
+                healthy = self._health_check()
+                code, phrase = (200, "OK") if healthy else (503, "Service Unavailable")
+                body = json.dumps({
+                    "status": "ready" if healthy else "not ready",
+                    "timescaledb": "healthy" if healthy else "unreachable",
+                }).encode()
+            elif b"GET /live" in data:
+                code, phrase = 200, "OK"
+                body = json.dumps({"status": "live"}).encode()
+            else:
+                code, phrase = 404, "Not Found"
+                body = b"Not Found"
+
+            response = (
+                f"HTTP/1.0 {code} {phrase}\r\nContent-Type: application/json\r\n"
+                f"Content-Length: {len(body)}\r\n\r\n"
+            ).encode() + body
+            conn.sendall(response)
         except Exception:
             pass
-
-
-def _health_accept_loop(sock):
-    while True:
-        try:
-            conn, _ = sock.accept()
-            Thread(target=_handle_health_client, args=(conn,), daemon=True).start()
-        except OSError:
-            break
-
-
-def start_health_server(port: int):
-    global _health_server_socket
-    _health_server_socket = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
-    _health_server_socket.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
-    _health_server_socket.bind(("0.0.0.0", port))
-    _health_server_socket.listen(10)
-    Thread(target=_health_accept_loop, args=(_health_server_socket,), daemon=True).start()
-    logger.info("Health server started on port %d", port)
-
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 # ------- DB Connection Tools ------ #
-def uri_to_db_name(uri: str):
-    parsed_uri = urlparse(uri)
-    return parsed_uri.path.lstrip("/")
+class TimescaleWriter():
+    def __init__(self, uri: str, create_if_missing: bool):
+        self.engine = self._connect(uri, create_if_missing)
+        self.metadata = MetaData()
+        self._tables_lock = threading.Lock()
 
+    def is_healthy(self) -> bool:
+        try:
+            with self.engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            return True
+        except OperationalError:
+            return False
 
-def _connect_timescale(timescaledb_uri: str, timescaledb_create: bool) -> Engine:
-    db_name = uri_to_db_name(timescaledb_uri)
-    if not db_name:
-        raise ValueError("No database name in URI")
+    def _connect(self, uri: str, create_if_missing: bool) -> Engine:
+        db_name = uri_to_db_name(uri)
+        if not db_name:
+            raise ValueError("No database name in URI")
 
-    engine = create_engine(timescaledb_uri)
+        engine = create_engine(uri)
 
-    if database_exists(engine.url):
+        if database_exists(engine.url):
+            return engine
+
+        if not create_if_missing:
+            raise ValueError("Cannot find DB %s", uri)
+            
+        create_database(engine.url)
         return engine
 
-    if not timescaledb_create:
-        raise ValueError(f"Cannot find {db_name} DB")
+    def send_batch(self, batch: dict[str, list[dict]]):
+        if self.engine is None:
+            print(batch)
 
-    create_database(engine.url)
-    return engine
+        if not len(batch):
+            return
 
-
-def consume(q: queue.Queue, timeout_ms: int, timescale_db: Engine | None = None):
-    logger.info("Starting consumer thread")
-    batch = {}
-    batch_start_ms = None
-
-    while True:
-        try:
-            entry = q.get(timeout=1.0)
-            now_ms = entry.ms
-
-            if batch_start_ms is None:
-                batch_start_ms = now_ms
-
-            measure = entry.json["measurement"]
-            batch.setdefault(measure, []).append(entry.json)
-
-            if now_ms - batch_start_ms >= timeout_ms:
-                send_batch(batch, timescale_db)
-                batch = {}
-                batch_start_ms = None
-
-        except queue.Empty:
-            if batch:
-                send_batch(batch, timescale_db)
-                batch = {}
-                batch_start_ms = None
-
-
-def _find_or_create_table(measurement: str, engine: Engine):
-    # Finds table in the metadata OR create a new one
-    table_name = _table_name_from_measurement(measurement)
-    # Prevent re-defining an existing table in metadata
-    if table_name in metadata.tables:
-        return metadata.tables[table_name]
-
-    t = _table_schema(table_name)
-    t.create(engine, checkfirst=True)
-    return t
-
-def _generate_batch_tables(measurements: list[str], engine: Engine):
-    with _tables_lock:
-        return [_find_or_create_table(m, engine) for m in measurements]
-
-
-def send_batch(batch: dict[str, list[dict]], engine: Engine | None = None):
-    if len(batch) > 0:
         total_points = sum(len(v) for v in batch.values())
         logger.info("Sending %s points across %s measurements", total_points, len(batch))
 
-        if engine is not None:
-            tables = _generate_batch_tables(list(batch.keys()), engine)
+        tables = self._generate_batch_tables(list(batch.keys()))
+        try:
+            with self.engine.begin() as conn:
+                for t, b in zip(tables, batch.values()):
+                    conn.execute(t.insert(), b)
+        except OperationalError:
+            logger.exception("TimescaleDB connection error occurred")
+        except SQLAlchemyError:
+            logger.exception("Something went wrong: batch not sent")
+
+    def _find_or_create_table(self, measurement: str)->Table:
+        # Finds table in the metadata OR create a new one
+        table_name = _table_name_from_measurement(measurement)
+        # Prevent re-defining an existing table in metadata
+        if table_name in self.metadata.tables:
+            return self.metadata.tables[table_name]
+
+        t = _table_schema(table_name)
+        t.create(self.engine, checkfirst=True)
+        return t
+
+
+    def _generate_batch_tables(self, measurements: list[str]):
+        with self._tables_lock:
+            return [self._find_or_create_table(m) for m in measurements]
+
+    def consume(self, q: queue.Queue, timeout_ms: int):
+        logger.info("Starting consumer thread")
+        batch = {}
+        batch_start_ms = None
+
+        while True:
             try:
-                with engine.begin() as conn:
-                    for t, b in zip(tables, batch.values()):
-                        conn.execute(t.insert(), b)
-            except OperationalError:
-                logger.exception("TimescaleDB connection error occurred")
-            except SQLAlchemyError:
-                logger.exception("Something went wrong: batch not sent")
-        else:
-            print(batch)
+                entry = q.get(timeout=1.0)
+                now_ms = entry.ms
+
+                if batch_start_ms is None:
+                    batch_start_ms = now_ms
+
+                measure = entry.json["measurement"]
+                batch.setdefault(measure, []).append(entry.json)
+
+                if now_ms - batch_start_ms >= timeout_ms:
+                    self.send_batch(batch)
+                    batch = {}
+                    batch_start_ms = None
+
+            except queue.Empty:
+                if batch:
+                    self.send_batch(batch)
+                    batch = {}
+                    batch_start_ms = None
 
 
 # --------- CLI --------- #
@@ -323,28 +339,23 @@ def cli(
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    global timescale_engine
-    timescale_engine = _connect_timescale(timescaledb_uri, timescaledb_create)
+    writer = TimescaleWriter(timescaledb_uri, timescaledb_create)
 
+    if health_port is not None:
+        HealthServer(health_port, health_check=writer.is_healthy).start()
+
+    q = queue.Queue()
     sub = opmon_sub.OpMonSubscriber(
         bootstrap=subscriber_bootstrap,
         topics=subscriber_topic,
         group_id=subscriber_group,
         timeout_ms=subscriber_timeout,
     )
+    sub.add_callback(name="to_timescale_db", function=partial(process_entry, q=q))
 
-    q = queue.Queue()
-
-    callback_function = partial(process_entry, q=q)
-    if health_port is not None:
-        start_health_server(health_port)
-
-    sub.add_callback(name="to_timescale_db", function=callback_function)
-
-    thread = threading.Thread(
-        target=consume, daemon=True, args=(q, timescaledb_timeout, timescale_engine)
-    )
-    thread.start()
+    threading.Thread(
+        target=writer.consume, daemon=True, args=(q, timescaledb_timeout)
+    ).start()
 
     sub.start()
 
