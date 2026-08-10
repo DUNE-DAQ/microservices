@@ -33,6 +33,9 @@ from sqlalchemy import (
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy_utils import create_database, database_exists
 
+# Types
+type BatchList = list[dict[str, Entry]]
+
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
 OPMON_TABLE_PREFIX = "opmon_entries_"
@@ -49,16 +52,21 @@ def uri_to_db_name(uri: str):
 # ------- Opmon Processing -------- #
 @dataclass
 class Entry:
+    """Encodify opmon entry
+    """
     json: dict
     ms: int
 
-
 def process_entry(entry: opmon_schema.OpMonEntry, q: queue.Queue):
+    """Process opmon entry into Entry class
+    """
     d = to_dict(entry)
     e = Entry(json=d, ms=entry.time.ToMilliseconds())
     q.put(e)
 
 def to_dict(entry: opmon_schema.OpMonEntry) -> dict:
+    """Convert OmponEntry into Entry class
+    """
     ret = dict(measurement=entry.measurement)
     ret["fields"] = unpack_payload(entry)
     ret["tags"] = create_tags(entry)
@@ -68,6 +76,8 @@ def to_dict(entry: opmon_schema.OpMonEntry) -> dict:
 
 
 def unpack_payload(entry: opmon_schema.OpMonEntry) -> dict:
+    """Unpack OmponEntry
+    """
     data = entry.data
     ret = dict()
     for key, value in data.items():
@@ -78,6 +88,8 @@ def unpack_payload(entry: opmon_schema.OpMonEntry) -> dict:
 
 
 def create_tags(entry: opmon_schema.OpMonEntry) -> dict:
+    """Generate DB tags
+    """
     opmon_id = entry.origin
     tags = dict(session=opmon_id.session, application=opmon_id.application)
 
@@ -92,12 +104,15 @@ def create_tags(entry: opmon_schema.OpMonEntry) -> dict:
 
 # --- Health Client Tools --- #
 class HealthServer:
+    """Monitor database health"""
     def __init__(self, port: int, health_check: Callable[[], bool]):
+        """Constructor"""
         self.port = port
         self._health_check = health_check
         self._sock: _socket.socket | None = None
 
     def start(self) -> None:
+        """Start health server"""
         self._sock = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
         self._sock.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
         self._sock.bind(("0.0.0.0", self.port))
@@ -106,6 +121,7 @@ class HealthServer:
         logger.info("Health server started on port %d", self.port)
 
     def stop(self) -> None:
+        """Kill health server"""
         if self._sock is not None:
             try:
                 self._sock.close()
@@ -113,7 +129,9 @@ class HealthServer:
                 self._sock = None
 
     def _accept_loop(self) -> None:
-        assert self._sock is not None        
+        """Health server acceptance loop
+        """
+        assert self._sock is not None
 
         while True:
             try:
@@ -123,6 +141,8 @@ class HealthServer:
                 break
 
     def _handle_client(self, conn: _socket.socket) -> None:
+        """Handle client
+        """
         try:
             data = b""
             conn.settimeout(5)
@@ -162,11 +182,14 @@ class HealthServer:
 # ------- DB Connection Tools ------ #
 class TimescaleWriter():
     def __init__(self, uri: str, create_if_missing: bool):
+        """Constructor"""
         self.engine = self._connect(uri, create_if_missing)
         self.metadata = MetaData()
         self._tables_lock = threading.Lock()
 
     def is_healthy(self) -> bool:
+        """Is the server alive + kicking?
+        """
         try:
             with self.engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
@@ -175,6 +198,7 @@ class TimescaleWriter():
             return False
 
     def _connect(self, uri: str, create_if_missing: bool) -> Engine:
+        """Create engine"""
         db_name = uri_to_db_name(uri)
         if not db_name:
             raise ValueError("No database name in URI")
@@ -186,11 +210,13 @@ class TimescaleWriter():
 
         if not create_if_missing:
             raise ValueError("Cannot find DB %s", uri)
-            
+
         create_database(engine.url)
         return engine
 
-    def send_batch(self, batch: dict[str, list[dict]]):
+    def send_batch(self, batch: dict[str, BatchList]):
+        """Send batch of entries
+        """
         if self.engine is None:
             print(batch)
 
@@ -211,6 +237,7 @@ class TimescaleWriter():
             logger.exception("Something went wrong: batch not sent")
 
     def _table_schema(self, table_name: str):
+        """Generate a table with fixed schema"""
         return Table(
             table_name,
             self.metadata,
@@ -223,6 +250,7 @@ class TimescaleWriter():
         )
 
     def _find_or_create_table(self, measurement: str)->Table:
+        """Create table"""
         # Finds table in the metadata OR create a new one
         table_name =  f"{OPMON_TABLE_PREFIX}{measurement}"
         # Prevent re-defining an existing table in metadata
@@ -241,20 +269,20 @@ class TimescaleWriter():
     def consume(self, q: queue.Queue, timeout_ms: int):
         logger.info("Starting consumer thread")
         batch = {}
-        batch_ms = None
+        batch_ms = 0
 
         while True:
             try:
                 entry = q.get(timeout=1.0)
-                
+
                 if entry.ms - batch_ms < timeout_ms:
                     measure = entry.json["measurement"]
                     batch.setdefault(measure, []).append(entry.json)
-                
+
 
                 if entry.ms - batch_ms >= timeout_ms:
                     self.send_batch(batch)
-                    batch = {entry.json["measurement"]: entry}
+                    batch = {entry.json["measurement"]: [entry]}
                     batch_ms = entry.ms
 
             except queue.Empty:
