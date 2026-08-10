@@ -1,14 +1,17 @@
-# @file dbwriter.py Writing Opmon entries into TimescaleDB
+# @file timescale_dbwriter.py Writing Opmon entries into TimescaleDB
 #  This is part of the DUNE DAQ software, copyright 2020.
 #  Licensing/copyright details are in the COPYING file that you should have
 #  received with this code.
 
+import contextlib
 import json
 import logging
 import queue
+import re
 import socket as _socket
 import threading
 from dataclasses import dataclass
+from datetime import timezone
 from functools import partial
 from threading import Thread
 from typing import Callable
@@ -32,8 +35,9 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy_utils import create_database, database_exists
 
-CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
+CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 OPMON_TABLE_PREFIX = "opmon_entries_"
+_MEASUREMENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +77,7 @@ class OpMonTransformer:
             "measurement": entry.measurement,
             "fields": fields,
             "tags": tags,
-            "time": entry.time.ToDatetime(),
+            "time": entry.time.ToDatetime(tzinfo=timezone.utc),
         }
         return Entry(json=payload, ms=entry.time.ToMilliseconds())
 
@@ -100,7 +104,14 @@ class SchemaManager:
             Index(f"ix_{table_name}_fields_gin", "fields", postgresql_using="gin"),
         )
 
-    def get_or_create_table(self, measurement: str) -> Table:
+    def get_or_create_table(self, measurement: str) -> Table | None:
+        if not _MEASUREMENT_RE.fullmatch(measurement):
+            logger.error(
+                "Dropping entry: measurement name %r is not a valid identifier",
+                measurement,
+            )
+            return None
+
         table_name = f"{OPMON_TABLE_PREFIX}{measurement}"
 
         with self._tables_lock:
@@ -122,19 +133,20 @@ class SchemaManager:
 
 
 class TimescaleWriter:
-    def __init__(self, uri: str, create_if_missing: bool):
-        self.engine = self._connect(uri, create_if_missing)
+    def __init__(self, uri: str, *, create_if_missing: bool):
+        self.engine = self._connect(uri, create_if_missing=create_if_missing)
         self.schema_manager = SchemaManager(self.engine)
 
     def is_healthy(self) -> bool:
         try:
             with self.engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
-            return True
         except OperationalError:
             return False
+        else:
+            return True
 
-    def _connect(self, uri: str, create_if_missing: bool) -> Engine:
+    def _connect(self, uri: str, *, create_if_missing: bool) -> Engine:
         db_name = uri_to_db_name(uri)
         if not db_name:
             raise ConnectionError("No database name in URI")
@@ -162,6 +174,8 @@ class TimescaleWriter:
             with self.engine.begin() as conn:
                 for measurement, records in batch.items():
                     table = self.schema_manager.get_or_create_table(measurement)
+                    if table is None:
+                        continue
                     conn.execute(table.insert(), records)
         except OperationalError:
             logger.exception("TimescaleDB connection error occurred")
@@ -214,7 +228,7 @@ class HealthServer:
     def start(self) -> None:
         self._sock = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
         self._sock.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
-        self._sock.bind(("0.0.0.0", self.port))
+        self._sock.bind(("0.0.0.0", self.port))  # noqa: S104
         self._sock.listen(10)
         Thread(target=self._accept_loop, daemon=True).start()
         logger.info("Health server started on port %d", self.port)
@@ -265,12 +279,10 @@ class HealthServer:
             ).encode() + body
             conn.sendall(response)
         except Exception:
-            pass
+            logger.debug("Health client handler error", exc_info=True)
         finally:
-            try:
+            with contextlib.suppress(OSError):
                 conn.close()
-            except Exception:
-                pass
 
 
 @click.command(context_settings=CONTEXT_SETTINGS)
@@ -300,19 +312,19 @@ class HealthServer:
     help='The system will add the "monitoring." prefix',
 )
 @click.option(
-    "--timescaledb_uri",
+    "--timescaledb-uri",
     type=click.STRING,
-    default="postgres://localhost:8086/test_timescaledb",
-    help="URI of the timescaleDB server (e.g., postgres]://user:pass@host:port/dbname)",
+    default="postgres://localhost:5432/test_timescaledb",
+    help="URI of the timescaleDB server (e.g., postgres://user:pass@host:port/dbname)",
 )
 @click.option(
-    "--timescaledb_create",
+    "--timescaledb-create",
     type=click.BOOL,
     default=True,
-    help="Creates the timescaledb if it does not exists",
+    help="Creates the timescaledb if it does not exist",
 )
 @click.option(
-    "--timescaledb_timeout",
+    "--timescaledb-timeout",
     type=click.INT,
     default=500,
     help="Size in ms of the batches sent to timescale",
@@ -324,7 +336,7 @@ class HealthServer:
     default=None,
     help="Port for HTTP health endpoint (if not set, no health endpoint)",
 )
-def cli(
+def cli(  # noqa: PLR0913
     subscriber_bootstrap,
     subscriber_group,
     subscriber_timeout,
@@ -341,7 +353,7 @@ def cli(
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    writer = TimescaleWriter(timescaledb_uri, timescaledb_create)
+    writer = TimescaleWriter(timescaledb_uri, create_if_missing=timescaledb_create)
 
     if health_port is not None:
         HealthServer(health_port, health_check=writer.is_healthy).start()
