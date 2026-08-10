@@ -10,6 +10,7 @@ kafka-python>=2.3,<2.4
 protobuf>=6.33,<7.0
 sh>=2.2,<2.3
 sqlalchemy[oracle-oracledb,postgresql-psycopgbinary]>=2.0,<2.1
+sqlalchemy-utils>=0.42,<0.43
 
 # elisa requires this but doesn't list the requirement
 # since it is called via subprocess/sh
