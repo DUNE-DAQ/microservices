@@ -92,10 +92,10 @@ class SchemaManager:
         return Table(
             table_name,
             self.metadata,
-            Column("time", DateTime(timezone=True)),
-            Column("measurement", Text),
-            Column("tags", JSONB),
-            Column("fields", JSONB),
+            Column("time", DateTime(timezone=True), nullable=False),
+            Column("measurement", Text, nullable=False),
+            Column("tags", JSONB, nullable=False),
+            Column("fields", JSONB, nullable=False),
             Index(f"ix_{table_name}_tags_gin", "tags", postgresql_using="gin"),
             Index(f"ix_{table_name}_fields_gin", "fields", postgresql_using="gin"),
         )
