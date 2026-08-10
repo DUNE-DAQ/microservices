@@ -42,17 +42,6 @@ logger = logging.getLogger(__name__)
 def _table_name_from_measurement(measurement: str):
     return f"{OPMON_TABLE_PREFIX}{measurement}"
 
-def _table_schema(table_name: str):
-    return Table(
-        table_name,
-        metadata,
-        Column("time", DateTime(timezone=True)),
-        Column("measurement", Text),
-        Column("tags", JSON),
-        Column("fields", JSON),
-        Index(f"ix_{table_name}_tags_gin", "tags", postgresql_using="gin"),
-        Index(f"ix_{table_name}_fields_gin", "fields", postgresql_using="gin"),
-    )
 
 def uri_to_db_name(uri: str):
     parsed_uri = urlparse(uri)
@@ -224,6 +213,18 @@ class TimescaleWriter():
         except SQLAlchemyError:
             logger.exception("Something went wrong: batch not sent")
 
+    def _table_schema(self, table_name: str):
+        return Table(
+            table_name,
+            self.metadata,
+            Column("time", DateTime(timezone=True)),
+            Column("measurement", Text),
+            Column("tags", JSON),
+            Column("fields", JSON),
+            Index(f"ix_{table_name}_tags_gin", "tags", postgresql_using="gin"),
+            Index(f"ix_{table_name}_fields_gin", "fields", postgresql_using="gin"),
+        )
+
     def _find_or_create_table(self, measurement: str)->Table:
         # Finds table in the metadata OR create a new one
         table_name = _table_name_from_measurement(measurement)
@@ -231,7 +232,7 @@ class TimescaleWriter():
         if table_name in self.metadata.tables:
             return self.metadata.tables[table_name]
 
-        t = _table_schema(table_name)
+        t = self._table_schema(table_name)
         t.create(self.engine, checkfirst=True)
         return t
 
