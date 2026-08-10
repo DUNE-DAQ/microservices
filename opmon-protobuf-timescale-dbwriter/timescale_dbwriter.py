@@ -249,18 +249,23 @@ class TimescaleWriter():
             Index(f"ix_{table_name}_fields_gin", "fields", postgresql_using="gin"),
         )
 
-    def _find_or_create_table(self, measurement: str)->Table:
-        """Create table"""
-        # Finds table in the metadata OR create a new one
-        table_name =  f"{OPMON_TABLE_PREFIX}{measurement}"
-        # Prevent re-defining an existing table in metadata
-        if table_name in self.metadata.tables:
-            return self.metadata.tables[table_name]
+    def _find_or_create_table(self, measurement: str) -> Table:
+            table_name = f"{OPMON_TABLE_PREFIX}{measurement}"
+            
+            if table_name in self.metadata.tables:
+                return self.metadata.tables[table_name]
 
-        t = self._table_schema(table_name)
-        t.create(self.engine, checkfirst=True)
-        return t
+            t = self._table_schema(table_name)
+            
+            # Check if it actually exists in the DB (beyond just metadata)
+            with self.engine.connect() as conn:
+                if not self.engine.dialect.has_table(conn, table_name):
+                    t.create(self.engine)
+                    # Convert to TimescaleDB hypertable partitioned by the 'time' column
+                    conn.execute(text(f"SELECT create_hypertable('{table_name}', 'time');"))
+                    conn.commit()
 
+            return t
 
     def _generate_batch_tables(self, measurements: list[str]):
         with self._tables_lock:
