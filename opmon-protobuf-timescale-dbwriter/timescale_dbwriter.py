@@ -172,6 +172,21 @@ def uri_to_db_name(uri: str):
     return parsed_uri.path.lstrip("/")
 
 
+def _connect_timescale(timescaledb_uri: str, timescaledb_create: bool) -> Engine:
+    db_name = uri_to_db_name(timescaledb_uri)
+    if not db_name:
+        raise ValueError("No database name in URI")
+
+    engine = create_engine(timescaledb_uri)
+
+    if database_exists(engine.url):
+        return engine
+
+    if not timescaledb_create:
+        raise ValueError(f"Cannot find {db_name} DB")
+
+    create_database(engine.url)
+    return engine
 
 
 def consume(q: queue.Queue, timeout_ms: int, timescale_db: Engine | None = None):
@@ -217,6 +232,7 @@ def _generate_batch_tables(measurements: list[str], engine: Engine):
     with _tables_lock:
         return [_find_or_create_table(m, engine) for m in measurements]
 
+
 def send_batch(batch: dict[str, list[dict]], engine: Engine | None = None):
     if len(batch) > 0:
         total_points = sum(len(v) for v in batch.values())
@@ -234,7 +250,7 @@ def send_batch(batch: dict[str, list[dict]], engine: Engine | None = None):
                 logger.exception("Something went wrong: batch not sent")
         else:
             print(batch)
-        
+
 
 # --------- CLI --------- #
 @click.command(context_settings=CONTEXT_SETTINGS)
