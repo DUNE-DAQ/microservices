@@ -23,13 +23,13 @@ from sqlalchemy import (
     DateTime,
     Engine,
     Index,
-    JSONB,
     MetaData,
     Table,
     Text,
     create_engine,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy_utils import create_database, database_exists
 
