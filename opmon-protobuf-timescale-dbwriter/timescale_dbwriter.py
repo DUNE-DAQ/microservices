@@ -12,6 +12,7 @@ import threading
 from functools import partial
 from threading import Thread
 from urllib.parse import urlparse
+from dataclasses import dataclass
 
 import click
 import kafkaopmon.OpMonSubscriber as opmon_sub
@@ -39,9 +40,6 @@ OPMON_TABLE_PREFIX = "opmon_entries_"
 logger = logging.getLogger(__name__)
 
 # ------- SCHEMA --------- #
-def _table_name_from_measurement(measurement: str):
-    return f"{OPMON_TABLE_PREFIX}{measurement}"
-
 
 def uri_to_db_name(uri: str):
     parsed_uri = urlparse(uri)
@@ -49,17 +47,16 @@ def uri_to_db_name(uri: str):
 
 
 # ------- Opmon Processing -------- #
+@dataclass
 class Entry:
-    def __init__(self, json_data: dict, ms: int):
-        self.json = json_data
-        self.ms = ms
+    json: dict
+    ms: int
 
 
 def process_entry(entry: opmon_schema.OpMonEntry, q: queue.Queue):
     d = to_dict(entry)
-    e = Entry(json_data=d, ms=entry.time.ToMilliseconds())
+    e = Entry(json=d, ms=entry.time.ToMilliseconds())
     q.put(e)
-
 
 def to_dict(entry: opmon_schema.OpMonEntry) -> dict:
     ret = dict(measurement=entry.measurement)
@@ -203,8 +200,8 @@ class TimescaleWriter():
         total_points = sum(len(v) for v in batch.values())
         logger.info("Sending %s points across %s measurements", total_points, len(batch))
 
-        tables = self._generate_batch_tables(list(batch.keys()))
         try:
+            tables = self._generate_batch_tables(list(batch.keys()))
             with self.engine.begin() as conn:
                 for t, b in zip(tables, batch.values()):
                     conn.execute(t.insert(), b)
@@ -227,7 +224,7 @@ class TimescaleWriter():
 
     def _find_or_create_table(self, measurement: str)->Table:
         # Finds table in the metadata OR create a new one
-        table_name = _table_name_from_measurement(measurement)
+        table_name =  f"{OPMON_TABLE_PREFIX}{measurement}"
         # Prevent re-defining an existing table in metadata
         if table_name in self.metadata.tables:
             return self.metadata.tables[table_name]
@@ -244,29 +241,27 @@ class TimescaleWriter():
     def consume(self, q: queue.Queue, timeout_ms: int):
         logger.info("Starting consumer thread")
         batch = {}
-        batch_start_ms = None
+        batch_ms = None
 
         while True:
             try:
                 entry = q.get(timeout=1.0)
-                now_ms = entry.ms
+                
+                if entry.ms - batch_ms < timeout_ms:
+                    measure = entry.json["measurement"]
+                    batch.setdefault(measure, []).append(entry.json)
+                
 
-                if batch_start_ms is None:
-                    batch_start_ms = now_ms
-
-                measure = entry.json["measurement"]
-                batch.setdefault(measure, []).append(entry.json)
-
-                if now_ms - batch_start_ms >= timeout_ms:
+                if entry.ms - batch_ms >= timeout_ms:
                     self.send_batch(batch)
-                    batch = {}
-                    batch_start_ms = None
+                    batch = {entry.json["measurement"]: entry}
+                    batch_ms = entry.ms
 
             except queue.Empty:
-                if batch:
-                    self.send_batch(batch)
-                    batch = {}
-                    batch_start_ms = None
+                logger.debug("Queue is empty")
+                self.send_batch(batch)
+                batch = {}
+                batch_ms = 0
 
 
 # --------- CLI --------- #
