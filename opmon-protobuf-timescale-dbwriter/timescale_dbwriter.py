@@ -260,9 +260,9 @@ class TimescaleWriter():
             # Check if it actually exists in the DB (beyond just metadata)
             with self.engine.connect() as conn:
                 if not self.engine.dialect.has_table(conn, table_name):
-                    t.create(self.engine)
+                    t.create(conn)
                     # Convert to TimescaleDB hypertable partitioned by the 'time' column
-                    conn.execute(text(f"SELECT create_hypertable('{table_name}', 'time');"))
+                    conn.execute(text(f"SELECT create_hypertable('{table_name}', 'time', if_not_exists => TRUE);"))
                     conn.commit()
 
             return t
