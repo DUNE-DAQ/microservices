@@ -46,14 +46,14 @@ logger = logging.getLogger(__name__)
 @click.option(
     "--timescaledb_uri",
     type=click.STRING,
-    default="postgres://localhost:8086/test_timescaledb",
+    default="postgres://localhost:5432/test_timescaledb",
     help="URI of the timescaleDB server (e.g., postgres]://user:pass@host:port/dbname)",
 )
 @click.option(
     "--timescaledb_create",
     type=click.BOOL,
     default=True,
-    help="Creates the timescaledb if it does not exists",
+    help="Creates the timescaledb if it does not exist",
 )
 @click.option(
     "--timescaledb_timeout",
@@ -68,7 +68,7 @@ logger = logging.getLogger(__name__)
     help="Port for HTTP health endpoint (if not set, no health endpoint)",
 )
 @click.option("--debug", type=click.BOOL, default=True, help="Set debug print levels")
-def cli(
+def cli( # noqa: PLR0913
     subscriber_bootstrap,
     subscriber_group,
     subscriber_timeout,

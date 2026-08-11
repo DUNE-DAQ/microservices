@@ -3,8 +3,13 @@ import queue
 import threading
 from dataclasses import dataclass
 from urllib.parse import urlparse
+import re 
+from time import timezone
 
 import opmonlib.opmon_entry_pb2 as opmon_schema
+
+_MEASUREMENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
 from sqlalchemy import (
     Column,
     DateTime,
@@ -47,8 +52,15 @@ class SchemaManager:
             Index(f"ix_{table_name}_fields_gin", "fields", postgresql_using="gin"),
         )
 
-    def get_or_create_table(self, measurement: str) -> Table:
+    def get_or_create_table(self, measurement: str) -> Table|None:
         table_name = f"{OPMON_TABLE_PREFIX}{measurement}"
+
+        if not _MEASUREMENT_RE.fullmatch(measurement):
+            logger.error(
+                "Dropping entry: measurement name %r is not a valid identifier",
+                measurement,
+            )
+            return None
 
         with self._tables_lock:
             if table_name in self.metadata.tables:
@@ -108,7 +120,8 @@ class TimescaleWriter:
             with self.engine.begin() as conn:
                 for measurement, records in batch.items():
                     table = self.schema_manager.get_or_create_table(measurement)
-                    conn.execute(table.insert(), records)
+                    if table is not None:                
+                        conn.execute(table.insert(), records)
         except OperationalError:
             logger.exception("TimescaleDB connection error occurred")
         except SQLAlchemyError:
@@ -142,7 +155,7 @@ class OpMonTransformer:
             "measurement": entry.measurement,
             "fields": fields,
             "tags": tags,
-            "time": entry.time.ToDatetime(),
+            "time": entry.time.ToDatetime(tzinfo=timezone.utc),
         }
         return Entry(json=payload, ms=entry.time.ToMilliseconds())
 
