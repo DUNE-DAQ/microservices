@@ -4,7 +4,7 @@ import threading
 from dataclasses import dataclass
 from urllib.parse import urlparse
 import re 
-from time import timezone
+from datetime import timezone
 
 import opmonlib.opmon_entry_pb2 as opmon_schema
 
