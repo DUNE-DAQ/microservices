@@ -9,7 +9,6 @@ import threading
 
 import click
 import kafkaopmon.OpMonSubscriber as opmon_sub
-from flask import Flask
 from health_server import HealthServer
 from timescale import BatchConsumer, OpMonTransformer, TimescaleWriter
 
@@ -69,6 +68,7 @@ logger = logging.getLogger(__name__)
 )
 @click.option("--debug", type=click.BOOL, default=True, help="Set debug print levels")
 def cli( # noqa: PLR0913
+    *,
     subscriber_bootstrap,
     subscriber_group,
     subscriber_timeout,

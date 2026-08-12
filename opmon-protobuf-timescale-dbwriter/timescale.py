@@ -1,14 +1,16 @@
+from __future__ import annotations
+
 import logging
 import queue
+import re
 import threading
 from dataclasses import dataclass
-from urllib.parse import urlparse
-import re 
 from datetime import timezone
+from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
-import opmonlib.opmon_entry_pb2 as opmon_schema
-
-_MEASUREMENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+if TYPE_CHECKING:
+    import opmonlib.opmon_entry_pb2 as opmon_schema
 
 from sqlalchemy import (
     Column,
@@ -27,6 +29,7 @@ from sqlalchemy_utils import create_database, database_exists
 
 logger = logging.getLogger(__name__)
 
+_MEASUREMENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 OPMON_TABLE_PREFIX = "opmon_entries_"
 
 @dataclass
@@ -120,7 +123,7 @@ class TimescaleWriter:
             with self.engine.begin() as conn:
                 for measurement, records in batch.items():
                     table = self.schema_manager.get_or_create_table(measurement)
-                    if table is not None:                
+                    if table is not None:
                         conn.execute(table.insert(), records)
         except OperationalError:
             logger.exception("TimescaleDB connection error occurred")

@@ -13,7 +13,7 @@ class HealthServer:
         self._health_check = health_check
         self.port = port
         self.app = Flask(__name__)
-        
+
         self._register_routes(self.app)
         self._server = make_server("0.0.0.0", port, self.app)  # noqa: S104
         self._thread = Thread(target=self._server.serve_forever, daemon=True)
