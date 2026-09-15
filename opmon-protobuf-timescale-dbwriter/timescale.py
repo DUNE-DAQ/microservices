@@ -6,6 +6,7 @@ TimescaleDB, with automatic schema creation, batching, and error handling.
 
 import logging
 import queue
+import time
 from dataclasses import dataclass
 from datetime import timezone
 from urllib.parse import urlparse
@@ -38,11 +39,9 @@ class Entry:
 
     Attributes:
         json: Dictionary containing 'measurement', 'fields', 'tags', and 'time'.
-        ms: Millisecond timestamp for batch timeout logic.
     """
 
     json: dict
-    ms: int
 
 
 class SchemaManager:
@@ -82,9 +81,14 @@ class SchemaManager:
         with self.engine.begin() as conn:
             if not self.engine.dialect.has_table(conn, self.table_name):
                 self.table.create(conn)
+                # create_hypertable() resolves its argument as an identifier,
+                # folding unquoted text to lowercase. CREATE TABLE preserves
+                # case, so a mixed-case name must be passed pre-quoted to
+                # refer to the table that was just created.
+                quoted = conn.dialect.identifier_preparer.quote(self.table_name)
                 conn.execute(
                     text(
-                        f"SELECT create_hypertable('{self.table_name}', 'time', "
+                        f"SELECT create_hypertable('{quoted}', 'time', "
                         "if_not_exists => TRUE);"
                     )
                 )
@@ -161,7 +165,7 @@ class TimescaleWriter:
         if not batch:
             return
 
-        records = [record for records in batch.values() for record in records]
+        records = [record for group in batch.values() for record in group]
         logger.info(
             "Sending %d points across %d measurements", len(records), len(batch)
         )
@@ -218,7 +222,7 @@ class OpMonTransformer:
             "tags": tags,
             "time": entry.time.ToDatetime(tzinfo=timezone.utc),
         }
-        return Entry(json=payload, ms=entry.time.ToMilliseconds())
+        return Entry(json=payload)
 
     def process_entry(self, entry: opmon_schema.OpMonEntry) -> None:
         """Process and queue a single OpMon entry.
@@ -264,47 +268,50 @@ class BatchConsumer:
         self.writer = writer
         self.timeout_ms = timeout_ms
 
-    def _reset_batch(self) -> tuple[BatchData, int]:
-        """Reset batch and batch_ms to empty state.
+    def _reset_batch(self) -> tuple[BatchData, float]:
+        """Reset batch and batch_start to empty state.
 
         Returns:
-            Tuple of (empty_batch, reset_ms).
+            Tuple of (empty_batch, reset_start_time).
         """
-        return {}, 0
+        return {}, 0.0
 
     def start(self) -> None:
         """Start consuming entries and batching them indefinitely.
 
         Runs forever, batching entries by measurement and flushing when:
-        - Batch age exceeds timeout_ms, or
+        - Wall-clock time since the batch started exceeds timeout_ms, or
         - Input queue is empty for 1 second
 
-        Entry that triggers timeout is included in the flushed batch.
+        Batch age is measured against wall-clock arrival time rather than
+        the entries' own embedded timestamps, so batching stays bounded
+        even when consuming a backlog of old messages in quick succession.
         """
         logger.info("Starting batch consumer")
-        batch, batch_ms = self._reset_batch()
+        batch, batch_start = self._reset_batch()
 
         while True:
             try:
                 entry: Entry = self.queue.get(timeout=1.0)
 
-                # Initialize batch timestamp on first entry
-                if batch_ms == 0:
-                    batch_ms = entry.ms
+                # Initialize batch start time on first entry
+                if not batch:
+                    batch_start = time.monotonic()
 
                 # Add entry to current batch
                 measurement = entry.json["measurement"]
                 batch.setdefault(measurement, []).append(entry.json)
 
                 # Flush if batch is old enough to flush
-                if entry.ms - batch_ms >= self.timeout_ms:
+                elapsed_ms = (time.monotonic() - batch_start) * 1000
+                if elapsed_ms >= self.timeout_ms:
                     logger.debug(
-                        "Batch timeout reached (%d ms), flushing %d measurements",
-                        entry.ms - batch_ms,
+                        "Batch timeout reached (%.0f ms), flushing %d measurements",
+                        elapsed_ms,
                         len(batch),
                     )
                     self.writer.send_batch(batch)
-                    batch, batch_ms = self._reset_batch()
+                    batch, batch_start = self._reset_batch()
 
             except queue.Empty:
                 if batch:
@@ -313,4 +320,4 @@ class BatchConsumer:
                         len(batch),
                     )
                     self.writer.send_batch(batch)
-                    batch, batch_ms = self._reset_batch()
+                    batch, batch_start = self._reset_batch()
