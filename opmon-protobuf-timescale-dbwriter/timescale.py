@@ -194,10 +194,13 @@ class TimescaleWriter:
         )
 
         try:
+            tables = {
+                measurement: self.schema_manager.get_or_create_table(measurement)
+                for measurement in batch
+            }
             with self.engine.begin() as conn:
                 for measurement, records in batch.items():
-                    table = self.schema_manager.get_or_create_table(measurement)
-                    conn.execute(table.insert(), records)
+                    conn.execute(tables[measurement].insert(), records)
                     logger.debug(
                         "Inserted %d records into measurement %r",
                         len(records),
