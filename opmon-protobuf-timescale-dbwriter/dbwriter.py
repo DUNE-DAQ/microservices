@@ -75,6 +75,13 @@ logger = logging.getLogger(__name__)
     help="Size in ms of the batches sent to timescale",
 )
 @click.option(
+    "--timescaledb-table",
+    type=click.STRING,
+    default="OPMON_TABLE",
+    help="Name of the table to use in TimescaleDB",
+)
+
+@click.option(
     "--health-port",
     type=click.INT,
     default=None,
@@ -90,6 +97,7 @@ def cli(  # noqa: PLR0913
     timescaledb_uri: str,
     timescaledb_create: bool,
     timescaledb_timeout: int,
+    timescaledb_table: str,
     health_port: int | None,
     debug: bool,
 ) -> None:
@@ -104,15 +112,16 @@ def cli(  # noqa: PLR0913
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    logger.info("Starting OpMon TimescaleDB writer")
+    logger.info("Starting OpMon TimescaleDB writer. Writing to table: %s", timescaledb_table)
     logger.debug(
-        "Config: bootstrap=%s, topics=%s, batch_timeout_ms=%d",
+        "Config: bootstrap=%s, topics=%s, batch_timeout_ms=%d, table_name=%s",
         subscriber_bootstrap,
         subscriber_topic,
         timescaledb_timeout,
+        timescaledb_table
     )
 
-    writer = TimescaleWriter(timescaledb_uri, create_if_missing=timescaledb_create)
+    writer = TimescaleWriter(timescaledb_uri, timescaledb_table, create_if_missing=timescaledb_create)
     logger.info("Connected to TimescaleDB")
 
     if health_port is not None:

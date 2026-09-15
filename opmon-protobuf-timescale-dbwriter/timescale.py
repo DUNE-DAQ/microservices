@@ -6,8 +6,6 @@ TimescaleDB, with automatic schema creation, batching, and error handling.
 
 import logging
 import queue
-import re
-import threading
 from dataclasses import dataclass
 from datetime import timezone
 from urllib.parse import urlparse
@@ -30,10 +28,6 @@ from sqlalchemy_utils import create_database, database_exists
 
 logger = logging.getLogger(__name__)
 
-_MEASUREMENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_.]*")
-_TABLE_SAFE_RE = re.compile(r"[^A-Za-z0-9_]")
-OPMON_TABLE_PREFIX = "opmon_entries_"
-
 # Type alias for batch data structure: {measurement_name: [entry_dicts]}
 BatchData = dict[str, list[dict]]
 
@@ -52,82 +46,60 @@ class Entry:
 
 
 class SchemaManager:
-    """Manages TimescaleDB table schemas for measurements.
+    """Manages the single TimescaleDB table all measurements are written to.
 
-    Creates measurement tables on-demand with hypertable configuration
-    and thread-safe table metadata caching.
+    Creates the table on-demand with hypertable configuration.
     """
 
-    def __init__(self, engine: Engine) -> None:
+    def __init__(self, engine: Engine, table_name: str) -> None:
         """Initialize schema manager.
 
         Args:
             engine: SQLAlchemy Engine connected to TimescaleDB.
+            table_name: Name of the table to write all measurements into.
         """
         self.engine = engine
+        self.table_name = table_name
         self.metadata = MetaData()
-        self._tables_lock = threading.Lock()
-
-    def _table_schema(self, table_name: str) -> Table:
-        """Create table schema definition.
-
-        Args:
-            table_name: Name of the table to create.
-
-        Returns:
-            SQLAlchemy Table object with proper columns and indexes.
-        """
-        return Table(
+        self.table = Table(
             table_name,
             self.metadata,
             Column("time", DateTime(timezone=True), nullable=False),
-            # Column("measurement", Text, nullable=False),
+            Column("measurement", Text, nullable=False),
             Column("tags", JSONB, nullable=False),
             Column("fields", JSONB, nullable=False),
+            Index(f"ix_{table_name}_measurement", "measurement"),
             Index(f"ix_{table_name}_tags_gin", "tags", postgresql_using="gin"),
             Index(f"ix_{table_name}_fields_gin", "fields", postgresql_using="gin"),
         )
 
-    def get_or_create_table(self, measurement: str) -> Table:
-        """Get or create a table for the given measurement.
-
-        Args:
-            measurement: Measurement name (pre-validated as SQL identifier).
+    def ensure_table(self) -> Table:
+        """Create the table (and hypertable) if it doesn't already exist.
 
         Returns:
             SQLAlchemy Table object.
-
-        Note:
-            Measurement names must be validated by caller (OpMonTransformer).
         """
-        safe_measurement = _TABLE_SAFE_RE.sub("_", measurement).lower()
-        table_name = safe_measurement #f"{OPMON_TABLE_PREFIX}{safe_measurement}"
-
-        with self._tables_lock:
-            if table_name in self.metadata.tables:
-                return self.metadata.tables[table_name]
-
-            table = self._table_schema(table_name)
-            with self.engine.begin() as conn:
-                if not self.engine.dialect.has_table(conn, table_name):
-                    table.create(conn)
-                    conn.execute(
-                        text(
-                            f"SELECT create_hypertable('{table_name}', 'time', "
-                            "if_not_exists => TRUE);"
-                        )
+        with self.engine.begin() as conn:
+            if not self.engine.dialect.has_table(conn, self.table_name):
+                self.table.create(conn)
+                conn.execute(
+                    text(
+                        f"SELECT create_hypertable('{self.table_name}', 'time', "
+                        "if_not_exists => TRUE);"
                     )
-            return table
+                )
+        return self.table
 
 
 class TimescaleWriter:
     """Manages database connections and batch writes to TimescaleDB."""
 
-    def __init__(self, uri: str, *, create_if_missing: bool = True) -> None:
+    def __init__(self, uri: str, table_name: str, *, create_if_missing: bool = True) -> None:
         """Initialize TimescaleDB writer.
 
         Args:
             uri: PostgreSQL connection URI.
+            table_name: Name of the table to use in TimescaleDB.
             create_if_missing: If True, create database if it doesn't exist.
 
         Raises:
@@ -135,7 +107,8 @@ class TimescaleWriter:
                 or if URI has no database name.
         """
         self.engine = self._connect(uri, create_if_missing=create_if_missing)
-        self.schema_manager = SchemaManager(self.engine)
+        self.schema_manager = SchemaManager(self.engine, table_name)
+        self.table = self.schema_manager.ensure_table()
 
     def is_healthy(self) -> bool:
         """Check if database connection is healthy.
@@ -188,24 +161,14 @@ class TimescaleWriter:
         if not batch:
             return
 
-        total_points = sum(len(v) for v in batch.values())
+        records = [record for records in batch.values() for record in records]
         logger.info(
-            "Sending %d points across %d measurements", total_points, len(batch)
+            "Sending %d points across %d measurements", len(records), len(batch)
         )
 
         try:
-            tables = {
-                measurement: self.schema_manager.get_or_create_table(measurement)
-                for measurement in batch
-            }
             with self.engine.begin() as conn:
-                for measurement, records in batch.items():
-                    conn.execute(tables[measurement].insert(), records)
-                    logger.debug(
-                        "Inserted %d records into measurement %r",
-                        len(records),
-                        measurement,
-                    )
+                conn.execute(self.table.insert(), records)
         except OperationalError:
             logger.exception("TimescaleDB connection error occurred")
         except SQLAlchemyError:
@@ -265,15 +228,6 @@ class OpMonTransformer:
 
         Logs errors if transformation fails but does not propagate exceptions.
         """
-        # Validate measurement name early to avoid queue pollution
-        if not _MEASUREMENT_RE.fullmatch(entry.measurement):
-            logger.warning(
-                "Dropping entry: invalid measurement name %r from %r",
-                entry.measurement,
-                entry.origin.application,
-            )
-            return
-
         try:
             self._q.put(self._to_entry(entry))
             logger.debug(
