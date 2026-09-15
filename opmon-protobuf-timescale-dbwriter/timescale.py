@@ -100,7 +100,7 @@ class SchemaManager:
         Note:
             Measurement names must be validated by caller (OpMonTransformer).
         """
-        safe_measurement = _TABLE_SAFE_RE.sub("_", measurement)
+        safe_measurement = _TABLE_SAFE_RE.sub("_", measurement).lower()
         table_name = f"{OPMON_TABLE_PREFIX}{safe_measurement}"
 
         with self._tables_lock:
