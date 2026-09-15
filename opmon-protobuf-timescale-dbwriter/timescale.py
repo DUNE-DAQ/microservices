@@ -81,7 +81,7 @@ class SchemaManager:
             table_name,
             self.metadata,
             Column("time", DateTime(timezone=True), nullable=False),
-            Column("measurement", Text, nullable=False),
+            # Column("measurement", Text, nullable=False),
             Column("tags", JSONB, nullable=False),
             Column("fields", JSONB, nullable=False),
             Index(f"ix_{table_name}_tags_gin", "tags", postgresql_using="gin"),
