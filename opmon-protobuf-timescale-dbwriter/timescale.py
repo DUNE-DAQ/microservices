@@ -30,7 +30,8 @@ from sqlalchemy_utils import create_database, database_exists
 
 logger = logging.getLogger(__name__)
 
-_MEASUREMENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+_MEASUREMENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_.]*")
+_TABLE_SAFE_RE = re.compile(r"[^A-Za-z0-9_]")
 OPMON_TABLE_PREFIX = "opmon_entries_"
 
 # Type alias for batch data structure: {measurement_name: [entry_dicts]}
@@ -99,7 +100,8 @@ class SchemaManager:
         Note:
             Measurement names must be validated by caller (OpMonTransformer).
         """
-        table_name = f"{OPMON_TABLE_PREFIX}{measurement}"
+        safe_measurement = _TABLE_SAFE_RE.sub("_", measurement)
+        table_name = f"{OPMON_TABLE_PREFIX}{safe_measurement}"
 
         with self._tables_lock:
             if table_name in self.metadata.tables:
