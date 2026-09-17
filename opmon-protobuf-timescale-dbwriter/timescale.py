@@ -190,6 +190,17 @@ class OpMonTransformer:
         """
         self._q = q
 
+    @staticmethod
+    def _strip_nul(value):
+        """Remove NUL characters, which Postgres text/JSONB columns reject.
+
+        Protobuf string fields may legally contain '\\x00' (e.g. from a
+        producer writing an uninitialized buffer), but Postgres raises
+        UntranslatableCharacter on it, which would otherwise fail the
+        whole batch insert this entry ends up in.
+        """
+        return value.replace("\x00", "") if isinstance(value, str) else value
+
     def _to_entry(self, entry: opmon_schema.OpMonEntry) -> Entry:
         """Transform protobuf entry to internal Entry format.
 
@@ -204,20 +215,20 @@ class OpMonTransformer:
         for key, value in data.items():
             kind = value.WhichOneof("kind")
             if kind is not None:
-                fields[key] = getattr(value, kind)
+                fields[key] = self._strip_nul(getattr(value, kind))
 
         opmon_id = entry.origin
         tags = {
-            "session": opmon_id.session,
-            "application": opmon_id.application,
+            "session": self._strip_nul(opmon_id.session),
+            "application": self._strip_nul(opmon_id.application),
         }
         for i, s in enumerate(opmon_id.substructure):
             name = "sub" * i + "element"
-            tags[name] = s
-        tags.update(entry.custom_origin)
+            tags[name] = self._strip_nul(s)
+        tags.update({k: self._strip_nul(v) for k, v in entry.custom_origin.items()})
 
         payload = {
-            "measurement": entry.measurement,
+            "measurement": self._strip_nul(entry.measurement),
             "fields": fields,
             "tags": tags,
             "time": entry.time.ToDatetime(tzinfo=timezone.utc),
