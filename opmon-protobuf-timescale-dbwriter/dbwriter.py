@@ -17,7 +17,14 @@ import click
 import kafkaopmon.OpMonSubscriber as opmon_sub
 
 from health_server import HealthServer
-from timescale import BatchConsumer, Entry, OpMonTransformer, TimescaleWriter
+from timescale import (
+    BatchConsumer,
+    Entry,
+    OpMonTransformer,
+    QueueMonitor,
+    TimescaleWriter,
+    WriterProcess,
+)
 
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 
@@ -26,6 +33,8 @@ DEFAULT_BOOTSTRAP_SERVER = "monkafka.cern.ch:30092"
 DEFAULT_SUBSCRIBER_TIMEOUT_MS = 500
 DEFAULT_DB_URI = "postgres://localhost:5432/test_timescaledb"
 DEFAULT_BATCH_TIMEOUT_MS = 500
+DEFAULT_MAX_PENDING_BATCHES = 4
+DEFAULT_QUEUE_MONITOR_INTERVAL_S = 10.0
 
 logger = logging.getLogger(__name__)
 
@@ -82,6 +91,18 @@ logger = logging.getLogger(__name__)
 )
 
 @click.option(
+    "--max-pending-batches",
+    type=click.INT,
+    default=DEFAULT_MAX_PENDING_BATCHES,
+    help="Batches that may await writing before the batch consumer is throttled",
+)
+@click.option(
+    "--queue-monitor-interval",
+    type=click.FLOAT,
+    default=DEFAULT_QUEUE_MONITOR_INTERVAL_S,
+    help="Seconds between queue depth log lines (0 disables monitoring)",
+)
+@click.option(
     "--health-port",
     type=click.INT,
     default=None,
@@ -98,6 +119,8 @@ def cli(  # noqa: PLR0913
     timescaledb_create: bool,
     timescaledb_timeout: int,
     timescaledb_table: str,
+    max_pending_batches: int,
+    queue_monitor_interval: float,
     health_port: int | None,
     debug: bool,
 ) -> None:
@@ -106,9 +129,10 @@ def cli(  # noqa: PLR0913
     Subscribes to Kafka topics, transforms OpMon protobuf entries,
     batches them, and writes to TimescaleDB.
     """
+    log_level = logging.DEBUG if debug else logging.INFO
     logging.basicConfig(
         format="%(asctime)s %(levelname)-8s %(message)s",
-        level=logging.DEBUG if debug else logging.INFO,
+        level=log_level,
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
@@ -124,8 +148,16 @@ def cli(  # noqa: PLR0913
     writer = TimescaleWriter(timescaledb_uri, timescaledb_table, create_if_missing=timescaledb_create)
     logger.info("Connected to TimescaleDB")
 
+    # Inserts run in their own process so the batch consumer keeps draining
+    # its queue during the database round trip, without contending for this
+    # interpreter's GIL.
+    async_writer = WriterProcess(
+        writer, max_pending=max_pending_batches, log_level=log_level
+    )
+    async_writer.start()
+
     if health_port is not None:
-        HealthServer(health_port, writer.is_healthy).start()
+        HealthServer(health_port, async_writer.is_healthy).start()
 
     q: queue.Queue[Entry] = queue.Queue()
     sub = opmon_sub.OpMonSubscriber(
@@ -142,9 +174,18 @@ def cli(  # noqa: PLR0913
         function=transformer.process_entry,
     )
 
-    consumer = BatchConsumer(q, writer, timescaledb_timeout)
+    consumer = BatchConsumer(q, async_writer, timescaledb_timeout)
     threading.Thread(target=consumer.start, daemon=True).start()
+
     logger.info("Batch consumer thread started")
+
+    monitor = None
+    if queue_monitor_interval > 0:
+        monitor = QueueMonitor(
+            {"entries": q, "batches": async_writer.pending_queue},
+            interval_s=queue_monitor_interval,
+        )
+        monitor.start()
 
     logger.info("Starting Kafka subscriber")
     try:
@@ -154,6 +195,10 @@ def cli(  # noqa: PLR0913
     except Exception:
         logger.exception("Kafka subscriber encountered fatal error")
         raise
+    finally:
+        if monitor is not None:
+            monitor.stop()
+        async_writer.stop()
 
 
 if __name__ == "__main__":
