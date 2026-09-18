@@ -54,6 +54,22 @@ class SizedQueue(Protocol):
         ...
 
 
+@dataclass(frozen=True)
+class BoundedQueueView:
+    """Reports a multiprocessing queue's depth and bound like a queue.Queue.
+
+    multiprocessing.Queue keeps its bound in _maxsize and substitutes
+    SEM_VALUE_MAX when unbounded, so the real bound is passed in.
+    """
+
+    queue: multiprocessing.Queue
+    maxsize: int
+
+    def qsize(self) -> int:
+        """Return the approximate number of items in the queue."""
+        return self.queue.qsize()
+
+
 @dataclass
 class Entry:
     """A transformed OpMon entry ready for batch insertion.
@@ -222,9 +238,8 @@ def _writer_process_main(
         batch_queue: Handoff queue; a None item means shut down.
         log_level: Logging level to mirror the parent's verbosity.
     """
-    # The parent owns shutdown, via the sentinel. Ignoring SIGINT here keeps
-    # a Ctrl-C delivered to the whole process group from killing this process
-    # with batches still queued.
+    # The parent owns shutdown, via the sentinel. Ignoring SIGINT keeps a
+    # Ctrl-C to the process group from killing this one mid-queue.
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
     logging.basicConfig(
@@ -239,35 +254,27 @@ def _writer_process_main(
         writer = TimescaleWriter(uri, table_name, create_if_missing=False)
     except Exception:
         logger.exception("Writer process failed to connect, exiting")
-        return
+        raise SystemExit(1) from None
 
     while (batch := batch_queue.get()) is not None:
         try:
             writer.send_batch(batch)
         except Exception:
-            # send_batch handles database errors itself; anything reaching
-            # here is unexpected, and must not take the process down with it.
+            # send_batch handles database errors; nothing else gets to kill
+            # the process and strand the queue.
             logger.exception("Unexpected error writing batch, batch dropped")
 
-    logger.info("Writer process stopped")
+    logger.info("Writer process stopped, shutdown sentinel received")
 
 
 class WriterProcess:
     """Runs a TimescaleWriter's inserts in a separate process.
 
-    Decouples batching from the database round trip: the batch consumer
-    hands a batch over and goes straight back to draining its input queue
-    instead of blocking for the length of the insert. Unlike a thread, a
-    separate process also keeps serialization and driver work off this
-    interpreter's GIL, so a slow insert cannot stall the Kafka callback.
+    The handoff queue is bounded, so send_batch blocks rather than piling up
+    batches when the database falls behind.
 
-    The handoff queue is deliberately bounded. When TimescaleDB cannot keep
-    up, `send_batch` blocks, which pushes back on the consumer rather than
-    growing an unbounded backlog of pending batches in memory.
-
-    The process is spawned rather than forked so it inherits no sockets or
-    pooled connections from the parent's engine, which cannot safely be
-    shared across a fork.
+    Spawned rather than forked: a forked child would inherit the parent's
+    pooled connections and sockets, which cannot be shared across a fork.
     """
 
     def __init__(
@@ -286,6 +293,7 @@ class WriterProcess:
             log_level: Logging level to apply inside the writer process.
         """
         self._writer = writer
+        self._max_pending = max_pending
         ctx = multiprocessing.get_context("spawn")
         self._queue: multiprocessing.Queue = ctx.Queue(maxsize=max_pending)
         self._process = ctx.Process(
@@ -298,7 +306,7 @@ class WriterProcess:
     @property
     def pending_queue(self) -> SizedQueue:
         """Queue of batches waiting to be written, for monitoring."""
-        return self._queue
+        return BoundedQueueView(self._queue, self._max_pending)
 
     def start(self) -> None:
         """Start the writer process."""
@@ -306,34 +314,46 @@ class WriterProcess:
         logger.info("Writer process spawned (pid %s)", self._process.pid)
 
     def send_batch(self, batch: BatchData) -> None:
-        """Hand a batch to the writer process, blocking if it is behind.
-
-        Args:
-            batch: Dictionary mapping measurement names to lists of entry dicts.
-        """
+        """Queue a batch for the writer process, blocking if it is behind."""
         if not batch:
             return
 
-        # A plain blocking put would hang forever if the writer process died
-        # with its queue full, so liveness is rechecked while waiting.
+        # Checked up front: a put into a queue nobody reads still succeeds
+        # while there is room, so a dead writer silently swallows the first
+        # max_pending batches before anything looks wrong.
+        if not self._process.is_alive():
+            self._log_death()
+            return
+
+        # A plain blocking put would hang forever if the writer died with its
+        # queue full, so liveness is rechecked while waiting.
         while True:
             try:
                 self._queue.put(batch, timeout=1.0)
             except queue.Full:
                 if not self._process.is_alive():
-                    logger.error("Writer process is dead, dropping batch")
+                    self._log_death()
                     return
             else:
                 return
 
+    def _log_death(self) -> None:
+        """Report the dead writer process, with the exit code that says why.
+
+        The exit code is the only evidence left of how it went: 0 for a
+        clean return, 1 for an unhandled exception, and -N for the signal
+        that killed it (-9 out of memory, -11 segfault). A signal leaves
+        nothing in either process's log, so it has to be printed here.
+        """
+        logger.error(
+            "Writer process is dead (exitcode %s), dropping batch",
+            self._process.exitcode,
+        )
+
     def is_healthy(self) -> bool:
-        """Check that the writer process is alive and the database reachable.
+        """Check the writer process is alive and the database reachable.
 
-        A dead writer process silently drops every batch, so it has to count
-        as unhealthy even while the connection itself is fine.
-
-        Returns:
-            True if the process is running and the database responds.
+        A dead writer drops every batch while SELECT 1 still succeeds.
         """
         return self._process.is_alive() and self._writer.is_healthy()
 

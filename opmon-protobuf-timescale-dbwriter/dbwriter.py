@@ -148,9 +148,8 @@ def cli(  # noqa: PLR0913
     writer = TimescaleWriter(timescaledb_uri, timescaledb_table, create_if_missing=timescaledb_create)
     logger.info("Connected to TimescaleDB")
 
-    # Inserts run in their own process so the batch consumer keeps draining
-    # its queue during the database round trip, without contending for this
-    # interpreter's GIL.
+    # Inserts run in their own process so batching isn't blocked on the
+    # write, and driver work stays off this interpreter's GIL.
     async_writer = WriterProcess(
         writer, max_pending=max_pending_batches, log_level=log_level
     )
