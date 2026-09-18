@@ -11,6 +11,7 @@ received with this code.
 
 import logging
 import queue
+import signal
 import threading
 
 import click
@@ -186,9 +187,18 @@ def cli(  # noqa: PLR0913
         )
         monitor.start()
 
+    # SIGTERM is how Kubernetes asks for shutdown, so it has to reach the
+    # flush below rather than killing the process where it stands.
+    shutdown = threading.Event()
+    signal.signal(signal.SIGTERM, lambda *_: shutdown.set())
+
     logger.info("Starting Kafka subscriber")
     try:
+        # start() launches the subscriber's own threads and returns, so the
+        # main thread parks here. Falling straight through would run the
+        # shutdown below a second into the run.
         sub.start()
+        shutdown.wait()
     except KeyboardInterrupt:
         logger.info("Received keyboard interrupt, shutting down")
     except Exception:
