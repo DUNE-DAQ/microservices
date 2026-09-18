@@ -90,13 +90,6 @@ logger = logging.getLogger(__name__)
     default="OPMON_TABLE",
     help="Name of the table to use in TimescaleDB",
 )
-
-@click.option(
-    "--max-pending-batches",
-    type=click.INT,
-    default=DEFAULT_MAX_PENDING_BATCHES,
-    help="Batches that may await writing before the batch consumer is throttled",
-)
 @click.option(
     "--queue-monitor-interval",
     type=click.FLOAT,
@@ -120,7 +113,6 @@ def cli(  # noqa: PLR0913
     timescaledb_create: bool,
     timescaledb_timeout: int,
     timescaledb_table: str,
-    max_pending_batches: int,
     queue_monitor_interval: float,
     health_port: int | None,
     debug: bool,
@@ -152,7 +144,7 @@ def cli(  # noqa: PLR0913
     # Inserts run in their own process so batching isn't blocked on the
     # write, and driver work stays off this interpreter's GIL.
     async_writer = WriterProcess(
-        writer, max_pending=max_pending_batches, log_level=log_level
+        writer, log_level=log_level
     )
     async_writer.start()
 

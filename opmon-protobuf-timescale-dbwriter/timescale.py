@@ -63,7 +63,6 @@ class BoundedQueueView:
     """
 
     queue: multiprocessing.Queue
-    maxsize: int
 
     def qsize(self) -> int:
         """Return the approximate number of items in the queue."""
@@ -281,7 +280,6 @@ class WriterProcess:
         self,
         writer: TimescaleWriter,
         *,
-        max_pending: int = 4,
         log_level: int = logging.INFO,
     ) -> None:
         """Initialize the writer process.
@@ -289,13 +287,11 @@ class WriterProcess:
         Args:
             writer: Writer whose connection settings the process reuses, and
                 whose connection the parent keeps for health checks.
-            max_pending: Batches that may await writing before send_batch blocks.
             log_level: Logging level to apply inside the writer process.
         """
         self._writer = writer
-        self._max_pending = max_pending
         ctx = multiprocessing.get_context("spawn")
-        self._queue: multiprocessing.Queue = ctx.Queue(maxsize=max_pending)
+        self._queue: multiprocessing.Queue = ctx.Queue()
         self._process = ctx.Process(
             target=_writer_process_main,
             args=(writer.uri, writer.table_name, self._queue, log_level),
@@ -306,7 +302,7 @@ class WriterProcess:
     @property
     def pending_queue(self) -> SizedQueue:
         """Queue of batches waiting to be written, for monitoring."""
-        return BoundedQueueView(self._queue, self._max_pending)
+        return BoundedQueueView(self._queue)
 
     def start(self) -> None:
         """Start the writer process."""
