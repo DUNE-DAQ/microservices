@@ -65,6 +65,8 @@ spec:
               value: "800"
             - name: OPMON_DBWRITER_TOPIC
               value: opmon_stream
+            - name: OPMON_DBWRITER_METRICS_RATE_HZ
+              value: "0.1"
             - name: DATABASE_URI
               valueFrom:
                 secretKeyRef:

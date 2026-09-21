@@ -2,6 +2,27 @@
 
 This module handles the persistence of monitoring entries from Kafka into
 TimescaleDB, with automatic schema creation, batching, and error handling.
+
+The writer also monitors itself: MetricsPublisher samples the pipeline on a
+thread of its own and pushes the result through the same queues as any
+other entry, so the service's own state is queryable beside the
+applications it records.
+
+- Measurement: dunedaq.microservices.opmon.TimescaleDBInfo
+- session: the Kafka consumer group
+- application: timescaledb_writer
+- tags: {}
+- fields = {"entry_queue_size": <size of entry queue>,
+            "writer_queue_size": <size of writer queue>,
+            "entries_created": <entries queued this interval>,
+            "batches_processed": <batches flushed this interval>,
+            "entries_rejected": <entries dropped on a full queue this interval>
+        }
+
+The queue sizes are instantaneous depths, while the three counters are
+counts over the interval just ended, reset at every sample, so each row
+reads as a rate over the sampling period rather than as a running total
+to be differenced.
 """
 
 import logging
@@ -11,8 +32,8 @@ import queue
 import signal
 import threading
 import time
-from dataclasses import dataclass
-from datetime import timezone
+from dataclasses import dataclass, asdict
+from datetime import datetime, timezone
 from typing import Protocol
 from urllib.parse import urlparse
 
@@ -32,10 +53,18 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy_utils import create_database, database_exists
 
+from monitoring_dataclasses import QueueMetrics
+
 logger = logging.getLogger(__name__)
 
 # Type alias for batch data structure: {measurement_name: [entry_dicts]}
 BatchData = dict[str, list[dict]]
+
+# Identity this service reports its own metrics under, so they sit in the
+# same table as the entries it writes and can be plotted beside them.
+METRICS_MEASUREMENT = "dunedaq.microservices.opmon.TimescaleDBInfo"
+METRICS_APPLICATION = "timescaledb_writer"
+DEFAULT_METRICS_RATE_HZ = 0.1
 
 
 class BatchSink(Protocol):
@@ -80,7 +109,6 @@ class Entry:
     json: dict
     ms: int
 
-
 class SchemaManager:
     """Manages the single TimescaleDB table all measurements are written to.
 
@@ -107,8 +135,9 @@ class SchemaManager:
             Column("tags", JSONB, nullable=False),
             Column("fields", JSONB, nullable=False),
             Index(f"ix_{table_name}_measurement", "measurement"),
+            Index(f"ix_{table_name}_session", "session"),
+            Index(f"ix_{table_name}_application", "application"),
             Index(f"ix_{table_name}_tags_gin", "tags", postgresql_using="gin"),
-            Index(f"ix_{table_name}_fields_gin", "fields", postgresql_using="gin"),
         )
 
     def ensure_table(self) -> Table:
@@ -452,16 +481,190 @@ class QueueMonitor:
             )
 
 
+class PipelineCounters:
+    """Tallies of what the pipeline has done since the last metrics sample.
+
+    Incremented from the subscriber's callback threads and the batch
+    consumer thread while being read by the publisher thread, so every
+    access is taken under the lock: a bare ``+=`` is a read-modify-write
+    that can lose increments across threads.
+    """
+
+    def __init__(self) -> None:
+        """Initialize all counters at zero."""
+        self._lock = threading.Lock()
+        self._entries_created = 0
+        self._batches_processed = 0
+        self._entries_rejected = 0
+
+    def entry_created(self) -> None:
+        """Record one entry queued for batching."""
+        with self._lock:
+            self._entries_created += 1
+
+    def entry_rejected(self) -> None:
+        """Record one entry dropped because the entry queue was full."""
+        with self._lock:
+            self._entries_rejected += 1
+
+    def batch_processed(self) -> None:
+        """Record one batch handed to the writer."""
+        with self._lock:
+            self._batches_processed += 1
+
+    def sample(self) -> tuple[int, int, int]:
+        """Read the counters and reset them for the next interval.
+
+        Returns:
+            Tuple of (entries_created, batches_processed, entries_rejected),
+            each counting only the interval since the previous sample, so
+            they read as rates over the sampling period.
+        """
+        with self._lock:
+            counts = (
+                self._entries_created,
+                self._batches_processed,
+                self._entries_rejected,
+            )
+            self._entries_created = 0
+            self._batches_processed = 0
+            self._entries_rejected = 0
+            return counts
+
+
+class MetricsPublisher:
+    """Publishes the writer's own queue metrics into the entry pipeline.
+
+    Each sample is pushed onto the entry queue as an ordinary Entry, so it
+    is batched and written by the same path as the entries it measures,
+    and lands in the same table as the applications it records.
+
+    Sampling its own input queue means the sample is reported one flush
+    later than it was taken, which is well inside the sampling period at
+    the rates this runs at.
+    """
+
+    def __init__(
+        self,
+        counters: PipelineCounters,
+        entry_queue: queue.Queue[Entry],
+        batch_queue: SizedQueue,
+        *,
+        session: str,
+        rate_hz: float = DEFAULT_METRICS_RATE_HZ,
+    ) -> None:
+        """Initialize the metrics publisher.
+
+        Args:
+            counters: Counters the pipeline increments as it runs.
+            entry_queue: Queue of entries waiting to be batched, both
+                sampled for its depth and used to publish the sample.
+            batch_queue: Queue of batches waiting on the writer process.
+            session: Session to report under, i.e. the Kafka consumer group.
+            rate_hz: Samples per second.
+
+        Raises:
+            ValueError: If rate_hz is not positive.
+        """
+        if rate_hz <= 0:
+            raise ValueError(f"Metrics rate must be positive, got {rate_hz}")
+
+        self._counters = counters
+        self._entry_queue = entry_queue
+        self._batch_queue = batch_queue
+        self._session = session
+        self._rate_hz = rate_hz
+        self._interval_s = 1.0 / rate_hz
+        self._stop = threading.Event()
+        self._thread = threading.Thread(
+            target=self._run, name="metrics-publisher", daemon=True
+        )
+
+    def start(self) -> None:
+        """Start publishing metrics."""
+        self._thread.start()
+        logger.info(
+            "Metrics publisher started, reporting %s every %.1fs (%.3g Hz)",
+            METRICS_MEASUREMENT,
+            self._interval_s,
+            self._rate_hz,
+        )
+
+    def stop(self) -> None:
+        """Stop publishing metrics."""
+        self._stop.set()
+
+    def _run(self) -> None:
+        """Publish one sample per interval until stopped."""
+        while not self._stop.wait(self._interval_s):
+            self._publish()
+
+    def sample(self) -> QueueMetrics:
+        """Take one sample of the queue depths and counters."""
+        created, processed, rejected = self._counters.sample()
+        return QueueMetrics(
+            entry_queue_size=self._entry_queue.qsize(),
+            writer_queue_size=self._batch_queue.qsize(),
+            entries_created=created,
+            batches_processed=processed,
+            entries_rejected=rejected,
+        )
+
+    def _to_entry(self, metrics: QueueMetrics) -> Entry:
+        """Wrap a sample as an Entry the batch consumer can write.
+
+        Args:
+            metrics: Sample to publish.
+
+        Returns:
+            Entry carrying the metrics as its fields.
+        """
+        now = datetime.now(timezone.utc)
+        payload = {
+            "session": self._session,
+            "application": METRICS_APPLICATION,
+            "measurement": METRICS_MEASUREMENT,
+            "fields": asdict(metrics),
+            "tags": {},
+            "time": now,
+        }
+        # Entry timestamps drive the batch consumer's age accounting, and
+        # the entries this one travels with are stamped by their producers
+        # in real time, so the sample has to be stamped on the same clock.
+        return Entry(json=payload, ms=int(now.timestamp() * 1000))
+
+    def _publish(self) -> None:
+        """Sample once and queue the result.
+
+        Never raises: a failed sample must not take the publisher thread
+        down, or the writer would stop reporting itself for the rest of
+        the process's life.
+        """
+        try:
+            metrics = self.sample()
+            self._entry_queue.put(self._to_entry(metrics))
+        except Exception:
+            logger.exception("Failed to publish queue metrics")
+        else:
+            logger.debug("Published queue metrics: %s", metrics)
+
+
 class OpMonTransformer:
     """Transforms raw OpMon protobuf entries into queue-ready Entry objects."""
 
-    def __init__(self, q: queue.Queue[Entry]) -> None:
+    def __init__(
+        self, q: queue.Queue[Entry], counters: PipelineCounters | None = None
+    ) -> None:
         """Initialize transformer with output queue.
 
         Args:
             q: Queue to place transformed entries into.
+            counters: Counters to record entries into; a private set is
+                used when none is given, so the transformer works the same
+                whether or not anything is publishing metrics.
         """
         self._q = q
+        self._counters = counters or PipelineCounters()
 
     @staticmethod
     def _strip_nul(value):
@@ -513,6 +716,7 @@ class OpMonTransformer:
         """
         try:
             self._q.put(self._to_entry(entry))
+            self._counters.entry_created()
             logger.debug(
                 "Queued entry from %r (measurement: %r)",
                 entry.origin.application,
@@ -524,6 +728,7 @@ class OpMonTransformer:
                 entry.origin.application,
             )
         except queue.Full:
+            self._counters.entry_rejected()
             logger.exception(
                 "Entry queue full, dropping entry from %r",
                 entry.origin.application,
@@ -534,7 +739,11 @@ class BatchConsumer:
     """Batches entries and writes them to TimescaleDB with timeout-based flushing."""
 
     def __init__(
-        self, input_queue: queue.Queue[Entry], writer: BatchSink, timeout_ms: int
+        self,
+        input_queue: queue.Queue[Entry],
+        writer: BatchSink,
+        timeout_ms: int,
+        counters: PipelineCounters | None = None,
     ) -> None:
         """Initialize batch consumer.
 
@@ -542,10 +751,13 @@ class BatchConsumer:
             input_queue: Queue of Entry objects to consume.
             writer: Sink for batch writes, e.g. a WriterProcess.
             timeout_ms: Maximum millisecond age of a batch before forced flush.
+            counters: Counters to record flushes into; a private set is
+                used when none is given.
         """
         self.queue = input_queue
         self.writer = writer
         self.timeout_ms = timeout_ms
+        self._counters = counters or PipelineCounters()
 
     def _reset_batch(self) -> tuple[BatchData, int]:
         """Reset batch and batch_start to empty state.
@@ -554,6 +766,19 @@ class BatchConsumer:
             Tuple of (empty_batch, reset_start_time).
         """
         return {}, 0
+
+    def _flush(self, batch: BatchData) -> tuple[BatchData, int]:
+        """Send a batch to the writer and start a fresh one.
+
+        Args:
+            batch: Batch to send.
+
+        Returns:
+            Tuple of (empty_batch, reset_start_time).
+        """
+        self.writer.send_batch(batch)
+        self._counters.batch_processed()
+        return self._reset_batch()
 
     def start(self) -> None:
         """Start consuming entries and batching them indefinitely.
@@ -591,8 +816,7 @@ class BatchConsumer:
                         elapsed_ms,
                         len(batch),
                     )
-                    self.writer.send_batch(batch)
-                    batch, batch_start = self._reset_batch()
+                    batch, batch_start = self._flush(batch)
 
             except queue.Empty:
                 if batch:
@@ -600,5 +824,4 @@ class BatchConsumer:
                         "Queue idle for 1s, flushing batch with %d measurements",
                         len(batch),
                     )
-                    self.writer.send_batch(batch)
-                    batch, batch_start = self._reset_batch()
+                    batch, batch_start = self._flush(batch)

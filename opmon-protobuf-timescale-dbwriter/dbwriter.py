@@ -21,7 +21,9 @@ from health_server import HealthServer
 from timescale import (
     BatchConsumer,
     Entry,
+    MetricsPublisher,
     OpMonTransformer,
+    PipelineCounters,
     QueueMonitor,
     TimescaleWriter,
     WriterProcess,
@@ -36,6 +38,11 @@ DEFAULT_DB_URI = "postgres://localhost:5432/test_timescaledb"
 DEFAULT_BATCH_TIMEOUT_MS = 500
 DEFAULT_MAX_PENDING_BATCHES = 4
 DEFAULT_QUEUE_MONITOR_INTERVAL_S = 10.0
+DEFAULT_METRICS_RATE_HZ = 0.1
+
+# Session reported for the writer's own metrics when no consumer group was
+# given; the subscriber then generates one that this process cannot see.
+UNKNOWN_SESSION = "unknown"
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +104,12 @@ logger = logging.getLogger(__name__)
     help="Seconds between queue depth log lines (0 disables monitoring)",
 )
 @click.option(
+    "--metrics-rate",
+    type=click.FLOAT,
+    default=DEFAULT_METRICS_RATE_HZ,
+    help="Rate in Hz at which the writer's own queue metrics are written to TimescaleDB (0 disables)",
+)
+@click.option(
     "--health-port",
     type=click.INT,
     default=None,
@@ -114,6 +127,7 @@ def cli(  # noqa: PLR0913
     timescaledb_timeout: int,
     timescaledb_table: str,
     queue_monitor_interval: float,
+    metrics_rate: float,
     health_port: int | None,
     debug: bool,
 ) -> None:
@@ -159,17 +173,31 @@ def cli(  # noqa: PLR0913
         timeout_ms=subscriber_timeout,
     )
 
-    transformer = OpMonTransformer(q)
+    counters = PipelineCounters()
+    transformer = OpMonTransformer(q, counters)
 
     sub.add_callback(
         name="to_timescale_db",
         function=transformer.process_entry,
     )
 
-    consumer = BatchConsumer(q, async_writer, timescaledb_timeout)
+    consumer = BatchConsumer(q, async_writer, timescaledb_timeout, counters)
     threading.Thread(target=consumer.start, daemon=True).start()
 
     logger.info("Batch consumer thread started")
+
+    # The writer reports on itself through its own pipeline, so this has to
+    # come up after the consumer that drains it.
+    publisher = None
+    if metrics_rate > 0:
+        publisher = MetricsPublisher(
+            counters,
+            q,
+            async_writer.pending_queue,
+            session=subscriber_group or UNKNOWN_SESSION,
+            rate_hz=metrics_rate,
+        )
+        publisher.start()
 
     monitor = None
     if queue_monitor_interval > 0:
@@ -197,6 +225,8 @@ def cli(  # noqa: PLR0913
         logger.exception("Kafka subscriber encountered fatal error")
         raise
     finally:
+        if publisher is not None:
+            publisher.stop()
         if monitor is not None:
             monitor.stop()
         async_writer.stop()
