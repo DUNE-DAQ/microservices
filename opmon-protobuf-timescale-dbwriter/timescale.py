@@ -149,10 +149,6 @@ class SchemaManager:
         with self.engine.begin() as conn:
             if not self.engine.dialect.has_table(conn, self.table_name):
                 self.table.create(conn)
-                # create_hypertable() resolves its argument as an identifier,
-                # folding unquoted text to lowercase. CREATE TABLE preserves
-                # case, so a mixed-case name must be passed pre-quoted to
-                # refer to the table that was just created.
                 quoted = conn.dialect.identifier_preparer.quote(self.table_name)
                 conn.execute(
                     text(
@@ -266,8 +262,6 @@ def _writer_process_main(
         batch_queue: Handoff queue; a None item means shut down.
         log_level: Logging level to mirror the parent's verbosity.
     """
-    # The parent owns shutdown, via the sentinel. Ignoring SIGINT keeps a
-    # Ctrl-C to the process group from killing this one mid-queue.
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
     logging.basicConfig(
@@ -628,9 +622,6 @@ class MetricsPublisher:
             "tags": {},
             "time": now,
         }
-        # Entry timestamps drive the batch consumer's age accounting, and
-        # the entries this one travels with are stamped by their producers
-        # in real time, so the sample has to be stamped on the same clock.
         return Entry(json=payload, ms=int(now.timestamp() * 1000))
 
     def _publish(self) -> None:
