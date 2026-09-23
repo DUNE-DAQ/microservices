@@ -166,6 +166,7 @@ def cli(  # noqa: PLR0913
         HealthServer(health_port, async_writer.is_healthy).start()
 
     q: queue.Queue[Entry] = queue.Queue()
+    metrics_q: queue.Queue[Entry] = queue.Queue()
     sub = opmon_sub.OpMonSubscriber(
         bootstrap=subscriber_bootstrap,
         topics=subscriber_topic,
@@ -192,8 +193,9 @@ def cli(  # noqa: PLR0913
     if metrics_rate > 0:
         publisher = MetricsPublisher(
             counters,
-            q,
-            async_writer.pending_queue,
+            batch_queue=async_writer.pending_queue,
+            entry_queue=q,
+            metrics_queue=metrics_q,
             session=subscriber_group or UNKNOWN_SESSION,
             rate_hz=metrics_rate,
         )
