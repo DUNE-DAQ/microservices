@@ -4,9 +4,10 @@ This module handles the persistence of monitoring entries from Kafka into
 TimescaleDB, with automatic schema creation, batching, and error handling.
 
 The writer also monitors itself: MetricsPublisher samples the pipeline on a
-thread of its own and pushes the result through the same queues as any
-other entry, so the service's own state is queryable beside the
-applications it records.
+thread of its own and pushes the result onto the front of the entry queue
+as an ordinary entry, so it is batched and written through the same path
+as any other entry -- ahead of whatever backlog is already waiting -- and
+the service's own state is queryable beside the applications it records.
 
 - Measurement: dunedaq.microservices.opmon.TimescaleDBInfo
 - session: the Kafka consumer group
@@ -111,6 +112,24 @@ class Entry:
 
     json: dict
     ms: int
+
+
+class EntryQueue(queue.Queue):
+    """FIFO queue of entries that also allows jumping one to the front.
+
+    put_front lets the writer's own metrics sample ride the same queue,
+    batching and write path as the entries it describes -- see
+    MetricsPublisher -- while skipping ahead of whatever backlog is
+    already waiting. That backlog is exactly when the queue-depth metric
+    most needs to get through promptly instead of aging behind it.
+    """
+
+    def put_front(self, item: Entry) -> None:
+        """Insert an item at the front of the queue, ahead of anything waiting."""
+        with self.mutex:
+            self.queue.appendleft(item)
+            self.unfinished_tasks += 1
+            self.not_empty.notify()
 
 class SchemaManager:
     """Manages the single TimescaleDB table all measurements are written to.
@@ -540,9 +559,10 @@ class PipelineCounters:
 class MetricsPublisher:
     """Publishes the writer's own queue metrics into the entry pipeline.
 
-    Each sample is pushed onto the entry queue as an ordinary Entry, so it
-    is batched and written by the same path as the entries it measures,
-    and lands in the same table as the applications it records.
+    Each sample is pushed onto the front of the entry queue as an ordinary
+    Entry, so it rides the same batching and write path as the entries it
+    measures, lands in the same table as the applications it records, and
+    is not stuck waiting behind whatever backlog it is reporting on.
 
     Sampling its own input queue means the sample is reported one flush
     later than it was taken, which is well inside the sampling period at
@@ -552,9 +572,8 @@ class MetricsPublisher:
     def __init__(
         self,
         counters: PipelineCounters,
-        entry_queue: SizedQueue,
+        entry_queue: EntryQueue,
         batch_queue: SizedQueue,
-        metrics_queue: queue.Queue[Entry],
         *,
         session: str,
         rate_hz: float = DEFAULT_METRICS_RATE_HZ,
@@ -563,10 +582,9 @@ class MetricsPublisher:
 
         Args:
             counters: Counters the pipeline increments as it runs.
-            entry_queue: Queue of entries waiting to be batched, both
-                sampled for its depth and used to publish the sample.
+            entry_queue: Queue of entries waiting to be batched -- sampled
+                for its depth and given the published sample, at the front.
             batch_queue: Queue of batches waiting on the writer process.
-            metrics_queue: Queue to which the published metrics will be added.
             session: Session to report under, i.e. the Kafka consumer group.
             rate_hz: Samples per second.
 
@@ -579,7 +597,6 @@ class MetricsPublisher:
         self._counters = counters
         self._entry_queue = entry_queue
         self._batch_queue = batch_queue
-        self._metrics_queue = metrics_queue
         self._session = session
         self._rate_hz = rate_hz
         self._interval_s = 1.0 / rate_hz
@@ -649,7 +666,7 @@ class MetricsPublisher:
         try:
             metrics = self.sample()
             logger.info("Publishing queue metrics | Batches: %d, Created: %d, Dequeued: %d, Rejected: %d, Entry Queue: %d, Writer Queue: %d", metrics.batches_processed, metrics.entries_created, metrics.entries_dequeued, metrics.entries_rejected, metrics.entry_queue_size, metrics.writer_queue_size)
-            self._metrics_queue.put(self._to_entry(metrics))
+            self._entry_queue.put_front(self._to_entry(metrics))
         except Exception:
             logger.exception("Failed to publish queue metrics")
         else:

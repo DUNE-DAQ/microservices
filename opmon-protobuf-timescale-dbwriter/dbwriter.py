@@ -10,7 +10,6 @@ received with this code.
 """
 
 import logging
-import queue
 import signal
 import threading
 
@@ -20,7 +19,7 @@ import kafkaopmon.OpMonSubscriber as opmon_sub
 from health_server import HealthServer
 from timescale import (
     BatchConsumer,
-    Entry,
+    EntryQueue,
     MetricsPublisher,
     OpMonTransformer,
     PipelineCounters,
@@ -165,8 +164,7 @@ def cli(  # noqa: PLR0913
     if health_port is not None:
         HealthServer(health_port, async_writer.is_healthy).start()
 
-    q: queue.Queue[Entry] = queue.Queue()
-    metrics_q: queue.Queue[Entry] = queue.Queue()
+    q = EntryQueue()
     sub = opmon_sub.OpMonSubscriber(
         bootstrap=subscriber_bootstrap,
         topics=subscriber_topic,
@@ -195,7 +193,6 @@ def cli(  # noqa: PLR0913
             counters,
             batch_queue=async_writer.pending_queue,
             entry_queue=q,
-            metrics_queue=metrics_q,
             session=subscriber_group or UNKNOWN_SESSION,
             rate_hz=metrics_rate,
         )
