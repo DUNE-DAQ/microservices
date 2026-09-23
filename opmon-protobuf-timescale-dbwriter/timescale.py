@@ -541,8 +541,9 @@ class MetricsPublisher:
     def __init__(
         self,
         counters: PipelineCounters,
-        entry_queue: queue.Queue[Entry],
+        entry_queue: SizedQueue,
         batch_queue: SizedQueue,
+        metrics_queue: queue.Queue[Entry],
         *,
         session: str,
         rate_hz: float = DEFAULT_METRICS_RATE_HZ,
@@ -554,6 +555,7 @@ class MetricsPublisher:
             entry_queue: Queue of entries waiting to be batched, both
                 sampled for its depth and used to publish the sample.
             batch_queue: Queue of batches waiting on the writer process.
+            metrics_queue: Queue to which the published metrics will be added.
             session: Session to report under, i.e. the Kafka consumer group.
             rate_hz: Samples per second.
 
@@ -566,6 +568,7 @@ class MetricsPublisher:
         self._counters = counters
         self._entry_queue = entry_queue
         self._batch_queue = batch_queue
+        self._metrics_queue = metrics_queue
         self._session = session
         self._rate_hz = rate_hz
         self._interval_s = 1.0 / rate_hz
@@ -633,7 +636,8 @@ class MetricsPublisher:
         """
         try:
             metrics = self.sample()
-            self._entry_queue.put(self._to_entry(metrics))
+            logger.info("Publishing queue metrics | Batches: %d, Created: %d, Rejected: %d, Entry Queue: %d, Writer Queue: %d", metrics.batches_processed, metrics.entries_created, metrics.entries_rejected, metrics.entry_queue_size, metrics.writer_queue_size)
+            self._metrics_queue.put(self._to_entry(metrics))
         except Exception:
             logger.exception("Failed to publish queue metrics")
         else:
