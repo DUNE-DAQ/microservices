@@ -15,14 +15,17 @@ applications it records.
 - fields = {"entry_queue_size": <size of entry queue>,
             "writer_queue_size": <size of writer queue>,
             "entries_created": <entries queued this interval>,
+            "entries_dequeued": <entries taken off the entry queue this interval>,
             "batches_processed": <batches flushed this interval>,
             "entries_rejected": <entries dropped on a full queue this interval>
         }
 
-The queue sizes are instantaneous depths, while the three counters are
+The queue sizes are instantaneous depths, while the four counters are
 counts over the interval just ended, reset at every sample, so each row
 reads as a rate over the sampling period rather than as a running total
-to be differenced.
+to be differenced. entries_dequeued divided by the sampling period is the
+entry queue's drain rate, i.e. how fast data is actually leaving the queue,
+as distinct from entries_created's arrival rate.
 """
 
 import logging
@@ -488,6 +491,7 @@ class PipelineCounters:
         """Initialize all counters at zero."""
         self._lock = threading.Lock()
         self._entries_created = 0
+        self._entries_dequeued = 0
         self._batches_processed = 0
         self._entries_rejected = 0
 
@@ -495,6 +499,11 @@ class PipelineCounters:
         """Record one entry queued for batching."""
         with self._lock:
             self._entries_created += 1
+
+    def entry_dequeued(self) -> None:
+        """Record one entry taken off the entry queue for batching."""
+        with self._lock:
+            self._entries_dequeued += 1
 
     def entry_rejected(self) -> None:
         """Record one entry dropped because the entry queue was full."""
@@ -506,21 +515,23 @@ class PipelineCounters:
         with self._lock:
             self._batches_processed += 1
 
-    def sample(self) -> tuple[int, int, int]:
+    def sample(self) -> tuple[int, int, int, int]:
         """Read the counters and reset them for the next interval.
 
         Returns:
-            Tuple of (entries_created, batches_processed, entries_rejected),
-            each counting only the interval since the previous sample, so
-            they read as rates over the sampling period.
+            Tuple of (entries_created, entries_dequeued, batches_processed,
+            entries_rejected), each counting only the interval since the
+            previous sample, so they read as rates over the sampling period.
         """
         with self._lock:
             counts = (
                 self._entries_created,
+                self._entries_dequeued,
                 self._batches_processed,
                 self._entries_rejected,
             )
             self._entries_created = 0
+            self._entries_dequeued = 0
             self._batches_processed = 0
             self._entries_rejected = 0
             return counts
@@ -598,11 +609,12 @@ class MetricsPublisher:
 
     def sample(self) -> QueueMetrics:
         """Take one sample of the queue depths and counters."""
-        created, processed, rejected = self._counters.sample()
+        created, dequeued, processed, rejected = self._counters.sample()
         return QueueMetrics(
             entry_queue_size=self._entry_queue.qsize(),
             writer_queue_size=self._batch_queue.qsize(),
             entries_created=created,
+            entries_dequeued=dequeued,
             batches_processed=processed,
             entries_rejected=rejected,
         )
@@ -636,7 +648,7 @@ class MetricsPublisher:
         """
         try:
             metrics = self.sample()
-            logger.info("Publishing queue metrics | Batches: %d, Created: %d, Rejected: %d, Entry Queue: %d, Writer Queue: %d", metrics.batches_processed, metrics.entries_created, metrics.entries_rejected, metrics.entry_queue_size, metrics.writer_queue_size)
+            logger.info("Publishing queue metrics | Batches: %d, Created: %d, Dequeued: %d, Rejected: %d, Entry Queue: %d, Writer Queue: %d", metrics.batches_processed, metrics.entries_created, metrics.entries_dequeued, metrics.entries_rejected, metrics.entry_queue_size, metrics.writer_queue_size)
             self._metrics_queue.put(self._to_entry(metrics))
         except Exception:
             logger.exception("Failed to publish queue metrics")
@@ -794,6 +806,7 @@ class BatchConsumer:
         while True:
             try:
                 entry: Entry = self.queue.get(timeout=1.0)
+                self._counters.entry_dequeued()
 
                 # Initialize batch start time on first entry
                 if not batch:
