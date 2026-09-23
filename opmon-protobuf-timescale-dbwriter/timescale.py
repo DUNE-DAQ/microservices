@@ -36,12 +36,15 @@ import queue
 import signal
 import threading
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from typing import Protocol
 from urllib.parse import urlparse
 
 import opmonlib.opmon_entry_pb2 as opmon_schema
+import psycopg
+from monitoring_dataclasses import QueueMetrics
+from psycopg.types.json import Jsonb
 from sqlalchemy import (
     Column,
     DateTime,
@@ -54,10 +57,8 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.exc import OperationalError, SQLAlchemyError
+from sqlalchemy.exc import OperationalError
 from sqlalchemy_utils import create_database, database_exists
-
-from monitoring_dataclasses import QueueMetrics
 
 logger = logging.getLogger(__name__)
 
@@ -247,6 +248,12 @@ class TimescaleWriter:
     def send_batch(self, batch: BatchData) -> None:
         """Send a batch of entries to TimescaleDB.
 
+        Uses COPY rather than a parameterized multi-row INSERT: COPY skips
+        per-row query planning and parameter binding, which matters at the
+        rates this is meant to sustain. It bypasses SQLAlchemy Core's
+        execute path, so it goes straight through the underlying psycopg
+        connection pulled from the engine's own pool.
+
         Args:
             batch: Dictionary mapping measurement names to lists of entry dicts.
         """
@@ -258,13 +265,38 @@ class TimescaleWriter:
             "Sending %d points across %d measurements", len(records), len(batch)
         )
 
+        columns = self.table.columns
+        column_names = ", ".join(col.name for col in columns)
+        quoted_table = self.engine.dialect.identifier_preparer.quote(self.table_name)
+        copy_sql = f"COPY {quoted_table} ({column_names}) FROM STDIN"
+
         try:
-            with self.engine.begin() as conn:
-                conn.execute(self.table.insert(), records)
+            raw_conn = self.engine.raw_connection()
         except OperationalError:
             logger.exception("TimescaleDB connection error occurred")
-        except SQLAlchemyError:
+            return
+
+        conn = raw_conn.driver_connection
+        try:
+            with conn.cursor() as cur, cur.copy(copy_sql) as copy:
+                for record in records:
+                    copy.write_row(
+                        tuple(
+                            Jsonb(record[col.name])
+                            if isinstance(col.type, JSONB)
+                            else record[col.name]
+                            for col in columns
+                        )
+                    )
+            conn.commit()
+        except psycopg.OperationalError:
+            conn.rollback()
+            logger.exception("TimescaleDB connection error occurred")
+        except psycopg.Error:
+            conn.rollback()
             logger.exception("Failed to write batch to TimescaleDB")
+        finally:
+            raw_conn.close()
 
 
 def _writer_process_main(
