@@ -18,7 +18,9 @@ the service's own state is queryable beside the applications it records.
             "entries_created": <entries queued this interval>,
             "entries_dequeued": <entries taken off the entry queue this interval>,
             "batches_processed": <batches flushed this interval>,
-            "entries_rejected": <entries dropped on a full queue this interval>
+            "entries_rejected": <entries dropped on a full queue this interval>,
+            "entry_queue_rate_gbps": <rate entries arrived into the entry queue, in GB/s>,
+            "writer_queue_rate_gbps": <rate entries left the entry queue for batching, in GB/s>
         }
 
 The queue sizes are instantaneous depths, while the four counters are
@@ -110,10 +112,12 @@ class Entry:
 
     Attributes:
         json: Dictionary containing 'measurement', 'fields', 'tags', and 'time'.
+        size_bytes: Size of the original protobuf entry, for data-rate metrics.
     """
 
     json: dict
     ms: int
+    size_bytes: int = 0
 
 
 class EntryQueue(queue.Queue):
@@ -552,16 +556,30 @@ class PipelineCounters:
         self._entries_dequeued = 0
         self._batches_processed = 0
         self._entries_rejected = 0
+        self._bytes_created = 0
+        self._bytes_dequeued = 0
 
-    def entry_created(self) -> None:
-        """Record one entry queued for batching."""
+    def entry_created(self, size_bytes: int = 0) -> None:
+        """Record one entry queued for batching.
+
+        Args:
+            size_bytes: Size of the entry's original protobuf, for the
+                entry queue's arrival data rate.
+        """
         with self._lock:
             self._entries_created += 1
+            self._bytes_created += size_bytes
 
-    def entry_dequeued(self) -> None:
-        """Record one entry taken off the entry queue for batching."""
+    def entry_dequeued(self, size_bytes: int = 0) -> None:
+        """Record one entry taken off the entry queue for batching.
+
+        Args:
+            size_bytes: Size of the entry's original protobuf, for the
+                entry queue's drain data rate.
+        """
         with self._lock:
             self._entries_dequeued += 1
+            self._bytes_dequeued += size_bytes
 
     def entry_rejected(self) -> None:
         """Record one entry dropped because the entry queue was full."""
@@ -573,13 +591,14 @@ class PipelineCounters:
         with self._lock:
             self._batches_processed += 1
 
-    def sample(self) -> tuple[int, int, int, int]:
+    def sample(self) -> tuple[int, int, int, int, int, int]:
         """Read the counters and reset them for the next interval.
 
         Returns:
             Tuple of (entries_created, entries_dequeued, batches_processed,
-            entries_rejected), each counting only the interval since the
-            previous sample, so they read as rates over the sampling period.
+            entries_rejected, bytes_created, bytes_dequeued), each counting
+            only the interval since the previous sample, so they read as
+            rates over the sampling period.
         """
         with self._lock:
             counts = (
@@ -587,11 +606,15 @@ class PipelineCounters:
                 self._entries_dequeued,
                 self._batches_processed,
                 self._entries_rejected,
+                self._bytes_created,
+                self._bytes_dequeued,
             )
             self._entries_created = 0
             self._entries_dequeued = 0
             self._batches_processed = 0
             self._entries_rejected = 0
+            self._bytes_created = 0
+            self._bytes_dequeued = 0
             return counts
 
 
@@ -665,7 +688,9 @@ class MetricsPublisher:
 
     def sample(self) -> QueueMetrics:
         """Take one sample of the queue depths and counters."""
-        created, dequeued, processed, rejected = self._counters.sample()
+        created, dequeued, processed, rejected, bytes_created, bytes_dequeued = (
+            self._counters.sample()
+        )
         return QueueMetrics(
             entry_queue_size=self._entry_queue.qsize(),
             writer_queue_size=self._batch_queue.qsize(),
@@ -673,6 +698,8 @@ class MetricsPublisher:
             entries_dequeued=dequeued,
             batches_processed=processed,
             entries_rejected=rejected,
+            entry_queue_rate_gbps=bytes_created / self._interval_s / 1e9,
+            writer_queue_rate_gbps=bytes_dequeued / self._interval_s / 1e9,
         )
 
     def _to_entry(self, metrics: QueueMetrics) -> Entry:
@@ -704,7 +731,7 @@ class MetricsPublisher:
         """
         try:
             metrics = self.sample()
-            logger.info("Publishing queue metrics | Batches: %d, Created: %d, Dequeued: %d, Rejected: %d, Entry Queue: %d, Writer Queue: %d", metrics.batches_processed, metrics.entries_created, metrics.entries_dequeued, metrics.entries_rejected, metrics.entry_queue_size, metrics.writer_queue_size)
+            logger.info("Publishing queue metrics | Batches: %d, Created: %d, Dequeued: %d, Rejected: %d, Entry Queue: %d, Writer Queue: %d, Entry Rate: %.4f GB/s, Writer Rate: %.4f GB/s", metrics.batches_processed, metrics.entries_created, metrics.entries_dequeued, metrics.entries_rejected, metrics.entry_queue_size, metrics.writer_queue_size, metrics.entry_queue_rate_gbps, metrics.writer_queue_rate_gbps)
             self._entry_queue.put_front(self._to_entry(metrics))
         except Exception:
             logger.exception("Failed to publish queue metrics")
@@ -767,7 +794,11 @@ class OpMonTransformer:
             "tags": tags,
             "time": entry.time.ToDatetime(tzinfo=timezone.utc),
         }
-        return Entry(json=payload, ms=entry.time.ToMilliseconds())
+        return Entry(
+            json=payload,
+            ms=entry.time.ToMilliseconds(),
+            size_bytes=entry.ByteSize(),
+        )
 
     def process_entry(self, entry: opmon_schema.OpMonEntry) -> None:
         """Process and queue a single OpMon entry.
@@ -778,8 +809,9 @@ class OpMonTransformer:
         Logs errors if transformation fails but does not propagate exceptions.
         """
         try:
-            self._q.put(self._to_entry(entry))
-            self._counters.entry_created()
+            transformed = self._to_entry(entry)
+            self._q.put(transformed)
+            self._counters.entry_created(transformed.size_bytes)
             logger.debug(
                 "Queued entry from %r (measurement: %r)",
                 entry.origin.application,
@@ -862,7 +894,7 @@ class BatchConsumer:
         while True:
             try:
                 entry: Entry = self.queue.get(timeout=1.0)
-                self._counters.entry_dequeued()
+                self._counters.entry_dequeued(entry.size_bytes)
 
                 # Initialize batch start time on first entry
                 if not batch:

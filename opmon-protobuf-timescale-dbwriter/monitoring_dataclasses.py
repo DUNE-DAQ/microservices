@@ -13,3 +13,5 @@ class QueueMetrics:
     entries_dequeued: int = 0
     batches_processed: int = 0
     entries_rejected: int = 0
+    entry_queue_rate_gbps: float = 0.0
+    writer_queue_rate_gbps: float = 0.0
