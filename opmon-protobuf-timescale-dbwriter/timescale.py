@@ -31,6 +31,7 @@ entry queue's drain rate, i.e. how fast data is actually leaving the queue,
 as distinct from entries_created's arrival rate.
 """
 
+import hashlib
 import logging
 import multiprocessing
 import os
@@ -137,13 +138,29 @@ class EntryQueue(queue.Queue):
             self.unfinished_tasks += 1
             self.not_empty.notify()
 
+_MAX_IDENTIFIER_LEN = 63
+
+
+def _safe_identifier(name: str, *, max_len: int = _MAX_IDENTIFIER_LEN) -> str:
+    """Fit a name inside Postgres's 63-byte identifier limit.
+
+    Postgres silently truncates an over-long identifier, so two names that
+    only differ past byte 63 would otherwise collide; a short hash of the
+    full name is appended when truncating so they stay distinct.
+    """
+    if len(name) <= max_len:
+        return name
+    digest = hashlib.sha1(name.encode()).hexdigest()[:8]
+    return f"{name[: max_len - len(digest) - 1]}_{digest}"
+
+
 def _table_name_for_measurement(measurement: str) -> str:
     """Derive a SQL-safe table name from a dotted measurement name.
 
     Measurement names are of the form "foo.bar.foobar.barfoo"; dots aren't
     valid in an unquoted Postgres identifier, so they become underscores.
     """
-    return measurement.replace(".", "_")
+    return _safe_identifier(measurement.replace(".", "_"))
 
 
 class SchemaManager:
@@ -185,9 +202,13 @@ class SchemaManager:
             Column("application", Text, nullable=False),
             Column("tags", JSONB, nullable=False),
             Column("fields", JSONB, nullable=False),
-            Index(f"ix_{table_name}_session", "session"),
-            Index(f"ix_{table_name}_application", "application"),
-            Index(f"ix_{table_name}_tags_gin", "tags", postgresql_using="gin"),
+            Index(_safe_identifier(f"ix_{table_name}_session"), "session"),
+            Index(_safe_identifier(f"ix_{table_name}_application"), "application"),
+            Index(
+                _safe_identifier(f"ix_{table_name}_tags_gin"),
+                "tags",
+                postgresql_using="gin",
+            ),
         )
 
         try:
