@@ -190,16 +190,24 @@ class SchemaManager:
             Index(f"ix_{table_name}_tags_gin", "tags", postgresql_using="gin"),
         )
 
-        with self.engine.begin() as conn:
-            if not self.engine.dialect.has_table(conn, table_name):
-                table.create(conn)
-                quoted = conn.dialect.identifier_preparer.quote(table_name)
-                conn.execute(
-                    text(
-                        f"SELECT create_hypertable('{quoted}', 'time', "
-                        "if_not_exists => TRUE);"
+        try:
+            with self.engine.begin() as conn:
+                if not self.engine.dialect.has_table(conn, table_name):
+                    table.create(conn)
+                    quoted = conn.dialect.identifier_preparer.quote(table_name)
+                    conn.execute(
+                        text(
+                            f"SELECT create_hypertable('{quoted}', 'time', "
+                            "if_not_exists => TRUE);"
+                        )
                     )
-                )
+        except Exception:
+            # Table() already registered itself in self.metadata on
+            # construction above; undo that on failure, or every retry
+            # for this measurement fails with "already defined" instead
+            # of actually retrying the creation.
+            self.metadata.remove(table)
+            raise
 
         self._tables[table_name] = table
         return table
