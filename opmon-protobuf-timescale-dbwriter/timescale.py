@@ -54,6 +54,7 @@ from sqlalchemy import (
     Table,
     Text,
     create_engine,
+    make_url,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
@@ -235,7 +236,13 @@ class TimescaleWriter:
         if not db_name:
             raise ConnectionError("No database name in URI")
 
-        engine = create_engine(uri)
+        # send_batch() uses the psycopg3 cursor.copy() API directly on the
+        # underlying driver connection. A bare "postgres(ql)://" URI lets
+        # SQLAlchemy pick whatever PostgreSQL driver it defaults to (psycopg2,
+        # if installed), so pin the driver explicitly rather than relying on
+        # environment happenstance.
+        url = make_url(uri).set(drivername="postgresql+psycopg")
+        engine = create_engine(url)
         if database_exists(engine.url):
             return engine
 
