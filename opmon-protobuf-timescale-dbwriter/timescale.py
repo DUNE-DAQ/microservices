@@ -137,65 +137,82 @@ class EntryQueue(queue.Queue):
             self.unfinished_tasks += 1
             self.not_empty.notify()
 
-class SchemaManager:
-    """Manages the single TimescaleDB table all measurements are written to.
+def _table_name_for_measurement(measurement: str) -> str:
+    """Derive a SQL-safe table name from a dotted measurement name.
 
-    Creates the table on-demand with hypertable configuration.
+    Measurement names are of the form "foo.bar.foobar.barfoo"; dots aren't
+    valid in an unquoted Postgres identifier, so they become underscores.
+    """
+    return measurement.replace(".", "_")
+
+
+class SchemaManager:
+    """Creates and caches one TimescaleDB hypertable per measurement.
+
+    Each measurement gets its own table, named after it, created on-demand
+    the first time that measurement is seen.
     """
 
-    def __init__(self, engine: Engine, table_name: str) -> None:
+    def __init__(self, engine: Engine) -> None:
         """Initialize schema manager.
 
         Args:
             engine: SQLAlchemy Engine connected to TimescaleDB.
-            table_name: Name of the table to write all measurements into.
         """
         self.engine = engine
-        self.table_name = table_name
         self.metadata = MetaData()
-        self.table = Table(
+        self._tables: dict[str, Table] = {}
+
+    def ensure_table(self, measurement: str) -> Table:
+        """Return the table for a measurement, creating it if needed.
+
+        Args:
+            measurement: Dotted measurement name to derive the table from.
+
+        Returns:
+            SQLAlchemy Table object for that measurement.
+        """
+        table_name = _table_name_for_measurement(measurement)
+        table = self._tables.get(table_name)
+        if table is not None:
+            return table
+
+        table = Table(
             table_name,
             self.metadata,
             Column("time", DateTime(timezone=True), nullable=False),
-            Column("measurement", Text, nullable=False),
             Column("session", Text, nullable=False),
             Column("application", Text, nullable=False),
             Column("tags", JSONB, nullable=False),
             Column("fields", JSONB, nullable=False),
-            Index(f"ix_{table_name}_measurement", "measurement"),
             Index(f"ix_{table_name}_session", "session"),
             Index(f"ix_{table_name}_application", "application"),
             Index(f"ix_{table_name}_tags_gin", "tags", postgresql_using="gin"),
         )
 
-    def ensure_table(self) -> Table:
-        """Create the table (and hypertable) if it doesn't already exist.
-
-        Returns:
-            SQLAlchemy Table object.
-        """
         with self.engine.begin() as conn:
-            if not self.engine.dialect.has_table(conn, self.table_name):
-                self.table.create(conn)
-                quoted = conn.dialect.identifier_preparer.quote(self.table_name)
+            if not self.engine.dialect.has_table(conn, table_name):
+                table.create(conn)
+                quoted = conn.dialect.identifier_preparer.quote(table_name)
                 conn.execute(
                     text(
                         f"SELECT create_hypertable('{quoted}', 'time', "
                         "if_not_exists => TRUE);"
                     )
                 )
-        return self.table
+
+        self._tables[table_name] = table
+        return table
 
 
 class TimescaleWriter:
     """Manages database connections and batch writes to TimescaleDB."""
 
-    def __init__(self, uri: str, table_name: str, *, create_if_missing: bool = True) -> None:
+    def __init__(self, uri: str, *, create_if_missing: bool = True) -> None:
         """Initialize TimescaleDB writer.
 
         Args:
             uri: PostgreSQL connection URI.
-            table_name: Name of the table to use in TimescaleDB.
             create_if_missing: If True, create database if it doesn't exist.
 
         Raises:
@@ -203,10 +220,8 @@ class TimescaleWriter:
                 or if URI has no database name.
         """
         self.uri = uri
-        self.table_name = table_name
         self.engine = self._connect(uri, create_if_missing=create_if_missing)
-        self.schema_manager = SchemaManager(self.engine, table_name)
-        self.table = self.schema_manager.ensure_table()
+        self.schema_manager = SchemaManager(self.engine)
 
     def is_healthy(self) -> bool:
         """Check if database connection is healthy.
@@ -257,7 +272,7 @@ class TimescaleWriter:
         return engine
 
     def send_batch(self, batch: BatchData) -> None:
-        """Send a batch of entries to TimescaleDB.
+        """Send a batch of entries to TimescaleDB, one COPY per measurement.
 
         Uses COPY rather than a parameterized multi-row INSERT: COPY skips
         per-row query planning and parameter binding, which matters at the
@@ -271,15 +286,19 @@ class TimescaleWriter:
         if not batch:
             return
 
-        records = [record for group in batch.values() for record in group]
+        total = sum(len(group) for group in batch.values())
         logger.info(
-            "Sending %d points across %d measurements", len(records), len(batch)
+            "Sending %d points across %d measurements", total, len(batch)
         )
 
-        columns = self.table.columns
-        column_names = ", ".join(col.name for col in columns)
-        quoted_table = self.engine.dialect.identifier_preparer.quote(self.table_name)
-        copy_sql = f"COPY {quoted_table} ({column_names}) FROM STDIN"
+        try:
+            tables = {
+                measurement: self.schema_manager.ensure_table(measurement)
+                for measurement in batch
+            }
+        except OperationalError:
+            logger.exception("TimescaleDB connection error occurred")
+            return
 
         try:
             raw_conn = self.engine.raw_connection()
@@ -289,16 +308,24 @@ class TimescaleWriter:
 
         conn = raw_conn.driver_connection
         try:
-            with conn.cursor() as cur, cur.copy(copy_sql) as copy:
-                for record in records:
-                    copy.write_row(
-                        tuple(
-                            Jsonb(record[col.name])
-                            if isinstance(col.type, JSONB)
-                            else record[col.name]
-                            for col in columns
-                        )
+            with conn.cursor() as cur:
+                for measurement, records in batch.items():
+                    columns = tables[measurement].columns
+                    column_names = ", ".join(col.name for col in columns)
+                    quoted_table = self.engine.dialect.identifier_preparer.quote(
+                        tables[measurement].name
                     )
+                    copy_sql = f"COPY {quoted_table} ({column_names}) FROM STDIN"
+                    with cur.copy(copy_sql) as copy:
+                        for record in records:
+                            copy.write_row(
+                                tuple(
+                                    Jsonb(record[col.name])
+                                    if isinstance(col.type, JSONB)
+                                    else record[col.name]
+                                    for col in columns
+                                )
+                            )
             conn.commit()
         except psycopg.OperationalError:
             conn.rollback()
@@ -312,7 +339,6 @@ class TimescaleWriter:
 
 def _writer_process_main(
     uri: str,
-    table_name: str,
     batch_queue: multiprocessing.Queue,
     log_level: int,
 ) -> None:
@@ -323,7 +349,6 @@ def _writer_process_main(
 
     Args:
         uri: PostgreSQL connection URI.
-        table_name: Name of the table to write into.
         batch_queue: Handoff queue; a None item means shut down.
         log_level: Logging level to mirror the parent's verbosity.
     """
@@ -337,8 +362,9 @@ def _writer_process_main(
     logger.info("Writer process started (pid %d)", os.getpid())
 
     try:
-        # The parent has already created the database and table.
-        writer = TimescaleWriter(uri, table_name, create_if_missing=False)
+        # The parent has already created the database; each measurement's
+        # table is created lazily here, the first time it is written.
+        writer = TimescaleWriter(uri, create_if_missing=False)
     except Exception:
         logger.exception("Writer process failed to connect, exiting")
         raise SystemExit(1) from None
@@ -362,6 +388,10 @@ class WriterProcess:
 
     Spawned rather than forked: a forked child would inherit the parent's
     pooled connections and sockets, which cannot be shared across a fork.
+
+    A writer that dies -- e.g. a connection attempt that raced the database
+    coming up -- is respawned automatically rather than left dead for the
+    rest of the pod's life, backed off so a persistent failure doesn't spin.
     """
 
     def __init__(
@@ -369,6 +399,7 @@ class WriterProcess:
         writer: TimescaleWriter,
         *,
         log_level: int = logging.INFO,
+        respawn_backoff_s: float = 5.0,
     ) -> None:
         """Initialize the writer process.
 
@@ -376,13 +407,22 @@ class WriterProcess:
             writer: Writer whose connection settings the process reuses, and
                 whose connection the parent keeps for health checks.
             log_level: Logging level to apply inside the writer process.
+            respawn_backoff_s: Minimum seconds between respawn attempts, so a
+                writer that keeps failing to connect doesn't spin.
         """
         self._writer = writer
-        ctx = multiprocessing.get_context("spawn")
-        self._queue: multiprocessing.Queue = ctx.Queue()
-        self._process = ctx.Process(
+        self._log_level = log_level
+        self._respawn_backoff_s = respawn_backoff_s
+        self._last_respawn = float("-inf")
+        self._ctx = multiprocessing.get_context("spawn")
+        self._queue: multiprocessing.Queue = self._ctx.Queue()
+        self._process = self._make_process()
+
+    def _make_process(self) -> multiprocessing.process.BaseProcess:
+        """Build a fresh writer process bound to the same handoff queue."""
+        return self._ctx.Process(
             target=_writer_process_main,
-            args=(writer.uri, writer.table_name, self._queue, log_level),
+            args=(self._writer.uri, self._queue, self._log_level),
             name="timescale-writer",
             daemon=True,
         )
@@ -405,8 +445,7 @@ class WriterProcess:
         # Checked up front: a put into a queue nobody reads still succeeds
         # while there is room, so a dead writer silently swallows the first
         # max_pending batches before anything looks wrong.
-        if not self._process.is_alive():
-            self._log_death()
+        if not self._ensure_alive():
             return
 
         # A plain blocking put would hang forever if the writer died with its
@@ -415,11 +454,33 @@ class WriterProcess:
             try:
                 self._queue.put(batch, timeout=1.0)
             except queue.Full:
-                if not self._process.is_alive():
-                    self._log_death()
+                if not self._ensure_alive():
                     return
             else:
                 return
+
+    def _ensure_alive(self) -> bool:
+        """Respawn the writer process if it died, backed off from spinning.
+
+        Returns:
+            True if a live writer process is running afterward and it's
+            safe to queue batches to it; False if it is dead and still
+            within the backoff window since the last respawn attempt.
+        """
+        if self._process.is_alive():
+            return True
+
+        self._log_death()
+        now = time.monotonic()
+        if now - self._last_respawn < self._respawn_backoff_s:
+            logger.error("Writer process still recovering, dropping batch")
+            return False
+
+        self._last_respawn = now
+        self._process = self._make_process()
+        self._process.start()
+        logger.warning("Writer process respawned (pid %s)", self._process.pid)
+        return True
 
     def _log_death(self) -> None:
         """Report the dead writer process, with the exit code that says why.
@@ -430,8 +491,7 @@ class WriterProcess:
         nothing in either process's log, so it has to be printed here.
         """
         logger.error(
-            "Writer process is dead (exitcode %s), dropping batch",
-            self._process.exitcode,
+            "Writer process is dead (exitcode %s)", self._process.exitcode
         )
 
     def is_healthy(self) -> bool:

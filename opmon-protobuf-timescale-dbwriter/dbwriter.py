@@ -91,12 +91,6 @@ logger = logging.getLogger(__name__)
     help="Size in ms of the batches sent to timescale",
 )
 @click.option(
-    "--timescaledb-table",
-    type=click.STRING,
-    default="OPMON_TABLE",
-    help="Name of the table to use in TimescaleDB",
-)
-@click.option(
     "--queue-monitor-interval",
     type=click.FLOAT,
     default=DEFAULT_QUEUE_MONITOR_INTERVAL_S,
@@ -124,7 +118,6 @@ def cli(  # noqa: PLR0913
     timescaledb_uri: str,
     timescaledb_create: bool,
     timescaledb_timeout: int,
-    timescaledb_table: str,
     queue_monitor_interval: float,
     metrics_rate: float,
     health_port: int | None,
@@ -142,16 +135,15 @@ def cli(  # noqa: PLR0913
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    logger.info("Starting OpMon TimescaleDB writer. Writing to table: %s", timescaledb_table)
+    logger.info("Starting OpMon TimescaleDB writer, one table per measurement")
     logger.debug(
-        "Config: bootstrap=%s, topics=%s, batch_timeout_ms=%d, table_name=%s",
+        "Config: bootstrap=%s, topics=%s, batch_timeout_ms=%d",
         subscriber_bootstrap,
         subscriber_topic,
         timescaledb_timeout,
-        timescaledb_table
     )
 
-    writer = TimescaleWriter(timescaledb_uri, timescaledb_table, create_if_missing=timescaledb_create)
+    writer = TimescaleWriter(timescaledb_uri, create_if_missing=timescaledb_create)
     logger.info("Connected to TimescaleDB")
 
     # Inserts run in their own process so batching isn't blocked on the
